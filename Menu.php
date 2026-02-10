@@ -43,54 +43,102 @@ $ordenes = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $nombreTaller; ?> - Panel de Control</title>
-    <style>
-        :root {
-            --primary: #1e3a8a; --secondary: #64748b; --success: #10b981;
-            --warning: #f59e0b; --danger: #ef4444; --bg: #f8fafc; --white: #ffffff;
-        }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background-color: var(--bg); }
-        
-        /* Sidebar */
-        aside { width: 250px; background-color: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; }
-        aside h2 { font-size: 1.5rem; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
-        nav a { color: #cbd5e1; text-decoration: none; padding: 12px 0; display: block; transition: 0.3s; }
-        nav a:hover { color: white; padding-left: 10px; }
+    <link rel="stylesheet" href="Archivo_Menu.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 
-        /* Contenido Principal */
-        main { flex: 1; overflow-y: auto; padding: 30px; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        
-        /* Tarjetas */
-        .stats-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .card h3 { margin: 0; font-size: 0.9rem; color: var(--secondary); }
-        .card p { margin: 10px 0 0; font-size: 1.8rem; font-weight: bold; color: var(--primary); }
-
-        /* Tabla */
-        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid var(--bg); color: var(--secondary); }
-        td { padding: 12px; border-bottom: 1px solid var(--bg); }
-        
-        .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
-        .bg-warning { background: #fef3c7; color: #92400e; }
-        .bg-success { background: #d1fae5; color: #065f46; }
-        .bg-primary { background: #dbeafe; color: #1e40af; }
-
-        .btn-action { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
-    </style>
 </head>
 <body>
 
-    <aside>
-        <h2><?php echo $nombreTaller; ?></h2>
-        <nav>
-            <a href="#">📊 Dashboard</a>
-            <a href="#">📋 Órdenes</a>
-            <a href="#">📦 Inventario</a>
-            <a href="#">💰 Facturación</a>
-        </nav>
-    </aside>
+    <div class="sidebar">
+
+    <div class="sidebar-header">
+        <h2>🚗 AutoFlow Pro</h2>
+    </div>
+
+
+  <!-- MODULO TALLER -->
+  <div class="modulo">
+    <button class="modulo-btn">
+        <img src="img/taller.png" class="icono-modulo" alt="Taller">
+        <span>Taller</span>
+    </button>
+    <div class="modulo-content">
+
+      <button class="submenu-btn">Mantenimientos</button>
+      <div class="submenu-content">
+        <a href="#">Clientes</a>
+        <a href="#">Vehículos</a>
+        <a href="#">Servicios</a>
+      </div>
+
+      <button class="submenu-btn">Procesos</button>
+      <div class="submenu-content">
+        <a href="#">Orden Taller</a>
+        <a href="#">Facturación</a>
+      </div>
+
+      <button class="submenu-btn">Consultas</button>
+      <div class="submenu-content">
+        <a href="#">Historial</a>
+      </div>
+
+      <button class="submenu-btn">Reportes</button>
+      <div class="submenu-content">
+        <a href="#">Reporte General</a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODULO AUTOLAVADO -->
+  <div class="modulo">
+    <button class="modulo-btn">
+        <img src="img/lavado.png" class="icono-modulo" alt="Autolavado">
+        <span>Autolavado</span>
+    </button>
+    <div class="modulo-content">
+      <!-- mismos submenus -->
+      <button class="submenu-btn">Procesos</button>
+      <div class="submenu-content">
+        <a href="#">Orden Lavador</a>
+        <a href="#">Facturación</a>
+      </div>
+
+      <button class="submenu-btn">Consultas</button>
+      <div class="submenu-content">
+        <a href="#">Historial</a>
+      </div>
+
+      <button class="submenu-btn">Reportes</button>
+      <div class="submenu-content">
+        <a href="#">Reporte General</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULO AUTOADORNO -->
+  <div class="modulo">
+    <button class="modulo-btn">
+        <img src="img/carreras.png" class="icono-modulo" alt="Autoadorno">
+        <span>Autoadorno</span>
+    </button>
+    <div class="modulo-content">
+      <!-- mismos submenus -->
+    </div>
+  </div>
+
+  <div class="modulo">
+    <button class="modulo-btn">
+        <img src="img/salida.png" class="icono-modulo" alt="Taller">
+        <span>Cerrar seccion</span>
+    </button>
+    <div class="modulo-content">
+      <!-- mismos submenus -->
+    </div>
+  </div>
+
+</div>
+
 
     <main>
         <header>
@@ -149,6 +197,8 @@ $ordenes = [
             </table>
         </section>
     </main>
+
+<script src="Scripts_Menu.js"></script>
 
 </body>
 </html>

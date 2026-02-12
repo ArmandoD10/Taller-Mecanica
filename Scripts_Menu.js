@@ -60,3 +60,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
+document.getElementById("logoutBtn").addEventListener("click", function(e) {
+    e.preventDefault();
+
+    if (confirm("¿Estás seguro que deseas cerrar sesión?")) {
+        window.location.href = this.href;
+    }
+});
+

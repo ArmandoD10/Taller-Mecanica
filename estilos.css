@@ -1,0 +1,177 @@
+.contenido {
+    margin-left: 270px; /* ancho real del sidebar */
+    margin-top: 70px;   /* alto real del header */
+    padding: 20px;
+}
+
+
+ body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+}
+
+.sidebar {
+  width: 270px;
+  height: 100vh;
+  background: #0d47a1; /* azul */
+  color: white;
+  position: fixed;
+left: 0;
+top: 0;
+}
+
+.sidebar-header {
+  background: #08306b;
+  padding: 20px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ===== MODULOS ===== */
+.modulo-btn {
+  width: 100%;
+  background: #1565c0;
+  color: white;
+  padding: 14px;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.modulo-btn:hover {
+  background: #1976d2;
+}
+
+/* Contenedor animado */
+.modulo-content {
+  max-height: 0;
+  overflow: hidden;
+  background: #f2f2f2; /* gris claro */
+  transition: max-height 0.4s ease;
+}
+
+/* ===== SUBMENUS ===== */
+.submenu-btn {
+  width: 100%;
+  background: gray;
+  color: #0d47a1;
+  padding: 12px 16px;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+
+.submenu-btn:hover {
+  background: #d5d5d5;
+}
+
+.submenu-content {
+  max-height: 0;
+  overflow: hidden;
+  background: #f7f7f7;
+  transition: max-height 0.35s ease;
+}
+
+.submenu-content a {
+  display: block;
+  padding: 10px 30px;
+  color: #333;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.submenu-content a:hover {
+  background: #eaeaea;
+}
+
+.modulo-btn {
+  display: flex;
+  align-items: center;      /* centra icono y texto */
+  gap: 14px;                /* espacio entre icono y texto */
+  width: 100%;
+  min-height: 52px;         /* altura cómoda */
+  padding: 0 18px;          /* espacio lateral */
+  background: transparent;  /* evita bloques feos */
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+
+.icono-modulo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;   /* evita que se deforme */
+}
+
+.modulo {
+  margin-top: 6px;
+}
+
+.modulo-btn span {
+  line-height: 1;
+  font-weight: 500;
+}
+
+.logo-link {
+    text-decoration: none;
+    color: white;
+}
+
+.logo {
+    margin: 0;
+    font-weight: 600;
+    font-size: 20px;
+    transition: 0.3s;
+}
+
+.logo-link:hover .logo {
+    color: #00c6ff;
+    cursor: pointer;
+}
+
+
+  .header {
+    position: fixed;
+    top: 0;
+    left: 270px; /* mismo ancho del sidebar */
+    right: 0;
+    height: 70px;
+    background: #0d47a1; /* mismo color del menú */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 25px;
+    color: white;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.header-left {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.user-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid #444;
+}
+

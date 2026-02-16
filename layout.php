@@ -1,54 +1,11 @@
-<?php
-// Simulación de datos que vendrían de la Base de Datos
-$nombreTaller = "AutoFlow Pro";
-$usuario = "Administrador";
-
-// Datos de las tarjetas de resumen
-$stats = [
-    "vehiculos_bahia" => 12,
-    "presupuestos_pendientes" => 5,
-    "listos_entrega" => 3,
-    "ingresos_mes" => 145200
-];
-
-// Listado de Órdenes de Servicio
-$ordenes = [
-    [
-        "id" => "OS-1024",
-        "vehiculo" => "Toyota Corolla 2022 (Gris)",
-        "cliente" => "Juan Pérez",
-        "estado" => "En Diagnóstico",
-        "clase_estado" => "bg-warning"
-    ],
-    [
-        "id" => "OS-1025",
-        "vehiculo" => "Honda Civic 2019 (Blanco)",
-        "cliente" => "María García",
-        "estado" => "En Reparación",
-        "clase_estado" => "bg-primary"
-    ],
-    [
-        "id" => "OS-1026",
-        "vehiculo" => "Hyundai Tucson 2021 (Azul)",
-        "cliente" => "Carlos Rojas",
-        "estado" => "Control Calidad",
-        "clase_estado" => "bg-success"
-    ]
-];
-?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $nombreTaller; ?> - Panel de Control</title>
-    <link rel="stylesheet" href="Archivo_Menu.css">
+    <title>Panel de Control</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-
+    <link rel="stylesheet" href="/Taller/Taller-Mecanica/estilos.css">
 
 </head>
 <body>
@@ -57,16 +14,15 @@ $ordenes = [
 
     <div class="sidebar-header">
       <a href="/Taller/Taller-Mecanica/Menu.php">
-        <img src="img/logo.png" class="logo-img">
+        <img src="../../img/logo.png" class="logo-img">
     </a>
     </div>
-
 
 
   <!-- MODULO TALLER -->
   <div class="modulo">
     <button class="modulo-btn">
-        <img src="img/taller.png" class="icono-modulo" alt="Taller">
+        <img src="../../img/taller.png" class="icono-modulo" alt="Taller">
         <span>Taller</span>
     </button>
     <div class="modulo-content">
@@ -85,7 +41,7 @@ $ordenes = [
 
       <button class="submenu-btn">Procesos</button>
       <div class="submenu-content">
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Inspeccion.php">Inspeccion</a>
+         <a href="/Taller/Taller-Mecanica/view/Proceso/Inspeccion.php">Inspeccion</a>
         <a href="/Taller/Taller-Mecanica/view/Proceso/Cotizacion.php">Cotizacion</a>
         <a href="/Taller/Taller-Mecanica/view/Proceso/Factura.php">Facturacion</a>
         <a href="/Taller/Taller-Mecanica/view/Proceso/Compra.php">Orden de Compra</a>
@@ -106,7 +62,6 @@ $ordenes = [
         <a href="/Taller/Taller-Mecanica/view/Consulta/CEmpleado.php">Empleados</a>
         <a href="/Taller/Taller-Mecanica/view/Consulta/CProveedor.php">Proveedores</a>
         <a href="/Taller/Taller-Mecanica/view/Consulta/CCompra.php">Historial de Compra</a>
-        <a href="#">Historial de Compra</a>
       </div>
 
       <button class="submenu-btn">Reportes</button>
@@ -128,7 +83,7 @@ $ordenes = [
   <!-- MODULO AUTOLAVADO -->
   <div class="modulo">
     <button class="modulo-btn">
-        <img src="img/lavado.png" class="icono-modulo" alt="Autolavado">
+        <img src="../../img/lavado.png" class="icono-modulo" alt="Autolavado">
         <span>Autolavado</span>
     </button>
     <div class="modulo-content">
@@ -155,12 +110,11 @@ $ordenes = [
   <!-- MODULO AUTOADORNO -->
   <div class="modulo">
     <button class="modulo-btn">
-        <img src="img/carreras.png" class="icono-modulo" alt="Autoadorno">
+        <img src="../../img/carreras.png" class="icono-modulo" alt="Autoadorno">
         <span>Autoadorno</span>
     </button>
     <div class="modulo-content">
-      <!-- mismos submenus -->
-       <button class="submenu-btn">Procesos</button>
+      <button class="submenu-btn">Procesos</button>
       <div class="submenu-content">
         <a href="#">Devolucion</a>
         <a href="#">Cotizacion</a>
@@ -181,76 +135,75 @@ $ordenes = [
     </div>
   </div>
 
-  <div class="modulo">
-    <a href="logout.php" class="modulo-btn" id="logoutBtn">
-        <img src="img/salida.png" class="icono-modulo">
+   <div class="modulo">
+    <a href="/Taller/Taller-Mecanica/logout.php" class="modulo-btn" id="logoutBtn">
+        <img src="../../img/salida.png" class="icono-modulo">
         <span>Cerrar sesión</span>
     </a>
 </div>
 
-
 </div>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
 
-    <main>
-        <header>
-            <h1>Resumen del Taller - <?php echo date("d/m/Y"); ?></h1>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span>Hola, <strong><?php echo $usuario; ?></strong></span>
-            </div>
-        </header>
+  const moduloBtns = document.querySelectorAll(".modulo-btn");
+  const submenuBtns = document.querySelectorAll(".submenu-btn");
 
-        <section class="stats-container">
-            <div class="card">
-                <h3>Vehículos en Bahía</h3>
-                <p><?php echo $stats['vehiculos_bahia']; ?></p>
-            </div>
-            <div class="card">
-                <h3>Presupuestos</h3>
-                <p><?php echo $stats['presupuestos_pendientes']; ?></p>
-            </div>
-            <div class="card">
-                <h3>Listos</h3>
-                <p><?php echo $stats['listos_entrega']; ?></p>
-            </div>
-            <div class="card">
-                <h3>Ingresos del Mes</h3>
-                <p>RD$ <?php echo number_format($stats['ingresos_mes'], 2); ?></p>
-            </div>
-        </section>
+  // ===== MODULOS =====
+  moduloBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
 
-        <section class="table-container">
-            <h2>Estatus de Reparaciones Activas</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Orden #</th>
-                        <th>Vehículo</th>
-                        <th>Cliente</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($ordenes as $orden): ?>
-                    <tr>
-                        <td>#<?php echo $orden['id']; ?></td>
-                        <td><?php echo $orden['vehiculo']; ?></td>
-                        <td><?php echo $orden['cliente']; ?></td>
-                        <td>
-                            <span class="badge <?php echo $orden['clase_estado']; ?>">
-                                <?php echo $orden['estado']; ?>
-                            </span>
-                        </td>
-                        <td><button class="btn-action">Gestionar</button></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </section>
-    </main>
+      const moduloContent = btn.nextElementSibling;
 
-<script src="Scripts_Menu.js"></script>
+      // Cerrar otros módulos
+      document.querySelectorAll(".modulo-content").forEach(m => {
+        if (m !== moduloContent) {
+          m.style.maxHeight = null;
+          m.querySelectorAll(".submenu-content").forEach(s => {
+            s.style.maxHeight = null;
+          });
+        }
+      });
 
-</body>
-</html>
+      // Toggle módulo actual
+      if (moduloContent.style.maxHeight) {
+        moduloContent.style.maxHeight = null;
+      } else {
+        moduloContent.style.maxHeight = moduloContent.scrollHeight + "px";
+      }
+
+    });
+  });
+
+  // ===== SUBMENUS =====
+  submenuBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+
+      const submenuContent = btn.nextElementSibling;
+      const moduloActual = btn.closest(".modulo-content");
+
+      // Cerrar otros submenus
+      moduloActual.querySelectorAll(".submenu-content").forEach(s => {
+        if (s !== submenuContent) {
+          s.style.maxHeight = null;
+        }
+      });
+
+      // Toggle submenu actual
+      if (submenuContent.style.maxHeight) {
+        submenuContent.style.maxHeight = null;
+      } else {
+        submenuContent.style.maxHeight = submenuContent.scrollHeight + "px";
+      }
+
+      // 🔥 CLAVE: recalcular altura del módulo padre
+      setTimeout(() => {
+        moduloActual.style.maxHeight = moduloActual.scrollHeight + "px";
+      }, 300); // coincide con el transition
+
+    });
+  });
+
+});
+    </script>

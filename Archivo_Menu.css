@@ -33,16 +33,23 @@
 
         .btn-action { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
 
- body {
+body {
+  font-family: 'Segoe UI', sans-serif;
   margin: 0;
-  font-family: 'Poppins', sans-serif;
+  display: flex;
+  min-height: 100vh; /* 🔥 en vez de height */
+  background-color: var(--bg);
 }
 
 .sidebar {
   width: 270px;
   height: 100vh;
-  background: #0d47a1; /* azul */
+  background: #0d47a1;
   color: white;
+  overflow-y: auto;        /* 🔥 SCROLL VERTICAL */
+  overflow-x: hidden;
+  position: sticky;        /* 🔥 se queda pegado */
+  top: 0;
 }
 
 .sidebar-header {
@@ -73,10 +80,10 @@
 .modulo-content {
   max-height: 0;
   overflow: hidden;
-  background: #f2f2f2; /* gris claro */
-  transition: max-height 0.4s ease;
+  background: #f2f2f2;
+  transition: max-height 0.35s ease;
+  display: block;
 }
-
 /* ===== SUBMENUS ===== */
 .submenu-btn {
   width: 100%;
@@ -164,5 +171,23 @@
     cursor: pointer;
 }
 
+/* 🔥 SUBMENUS 100% VERTICALES */
+.modulo-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.modulo-content a {
+  display: block !important; 
+  width: 100%;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+/* opcional hover bonito */
+.modulo-content a:hover {
+  background: #1565c0;
+}
 
 

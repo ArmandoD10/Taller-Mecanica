@@ -63,126 +63,165 @@ $ordenes = [
 
 
 
-  <!-- MODULO TALLER -->
-  <div class="modulo">
-    <button class="modulo-btn">
-        <img src="img/taller.png" class="icono-modulo" alt="Taller">
-        <span>Taller</span>
-    </button>
-    <div class="modulo-content">
+  <!-- MODULO Seguridad -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/seguridad.png" class="icono-modulo" alt="Seguridad">
+      <span>Seguridad</span>
+  </button>
 
-      <button class="submenu-btn">Mantenimientos</button>
-      <div class="submenu-content">
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MUsuario.php">Usuarios</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MCliente.php">Clientes</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MEmpleado.php">Empleados</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MAlmacen.php">Almacen</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MRecurso.php">Recursos</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MVehiculo.php">Vehículos</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MProveedor.php">Proveedor</a>
-        <a href="/Taller/Taller-Mecanica/view/Mantenimiento/MCXC.php">Cuentas Credito</a>
-      </div>
-
-      <button class="submenu-btn">Procesos</button>
-      <div class="submenu-content">
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Inspeccion.php">Inspeccion</a>
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Cotizacion.php">Cotizacion</a>
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Factura.php">Facturacion</a>
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Compra.php">Orden de Compra</a>
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Servicio.php">Orden Servicio</a>
-        <a href="/Taller/Taller-Mecanica/view/Proceso/Entrega.php">Entrega y Revision</a>
-      </div>
-
-      <button class="submenu-btn">Consultas</button>
-      <div class="submenu-content">
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CAlmacen.php">Almacen</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CUsuario.php">Usuario</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CCotizacion.php">Cotizacion</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CFactura.php">Facturas</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CCxc.php">Cuentas por pagar</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CServicio.php">Orden de Servicio</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CVehiculo.php">Vehiculos</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CCliente.php">Clientes</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CEmpleado.php">Empleados</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CProveedor.php">Proveedores</a>
-        <a href="/Taller/Taller-Mecanica/view/Consulta/CCompra.php">Historial de Compra</a>
-        <a href="#">Historial de Compra</a>
-      </div>
-
-      <button class="submenu-btn">Reportes</button>
-      <div class="submenu-content">
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RCotizacion.php">Reporte Cotizacion</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RFactura.php">Reporte Factura</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RDeuda.php">Reporte Deuda</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RServicio.php">Reporte Servicio</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RCompra.php">Reporte Compra</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/REmpleado.php">Reporte Empleado</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RCliente.php">Reporte Cliente</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RVehiculo.php">Reporte Vehiculo</a>
-        <a href="/Taller/Taller-Mecanica/view/Reporte/RAlmacen.php">Reporte Almacen</a>
-      </div>
-
-    </div>
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Seguridad/MUsuario.php">Usuarios</a>
+    <a href="/Taller/Taller-Mecanica/view/Seguridad/MRoles.php">Roles</a>
   </div>
+</div>
 
-  <!-- MODULO AUTOLAVADO -->
-  <div class="modulo">
-    <button class="modulo-btn">
-        <img src="img/lavado.png" class="icono-modulo" alt="Autolavado">
-        <span>Autolavado</span>
-    </button>
-    <div class="modulo-content">
-      <!-- mismos submenus -->
-      <button class="submenu-btn">Procesos</button>
-      <div class="submenu-content">
-        <a href="#">Orden Lavador</a>
-        <a href="#">Entrega y Revision</a>
-      </div>
+  <!-- MODULO RRHH -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/rrhh.png" class="icono-modulo" alt="Cliente">
+      <span>Recursos Humanos</span>
+  </button>
 
-      <button class="submenu-btn">Consultas</button>
-      <div class="submenu-content">
-        <a href="#">Historial de Lavado</a>
-        <a href="#">Historial de Entrega</a>
-      </div>
-
-      <button class="submenu-btn">Reportes</button>
-      <div class="submenu-content">
-        <a href="#">Reporte de Lavados</a>
-      </div>
-    </div>
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/RRHH/MEmpleado.php">Empleado</a>
+    <a href="/Taller/Taller-Mecanica/view/RRHH/MSucursal.php">Sucursal</a>
+    <a href="/Taller/Taller-Mecanica/view/RRHH/MDepartamento.php">Departamento</a>
+    <a href="/Taller/Taller-Mecanica/view/RRHH/MBahia.php">Bahia</a>
+    <a href="/Taller/Taller-Mecanica/view/RRHH/CEmpleado.php">Consulta de Empleado</a>
+    <a href="/Taller/Taller-Mecanica/view/RRHH/REmpleado.php">Reporte de Empleado</a>
   </div>
+</div>
 
-  <!-- MODULO AUTOADORNO -->
-  <div class="modulo">
-    <button class="modulo-btn">
-        <img src="img/carreras.png" class="icono-modulo" alt="Autoadorno">
-        <span>Autoadorno</span>
-    </button>
-    <div class="modulo-content">
-      <!-- mismos submenus -->
-       <button class="submenu-btn">Procesos</button>
-      <div class="submenu-content">
-        <a href="#">Devolucion</a>
-        <a href="#">Cotizacion</a>
-        <a href="#">Apertura de caja</a>
-      </div>
+  <!-- MODULO Cliente-->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/cliente.png" class="icono-modulo" alt="Cliente">
+      <span>Cliente</span>
+  </button>
 
-      <button class="submenu-btn">Consultas</button>
-      <div class="submenu-content">
-        <a href="#">Cotizaciones</a>
-        <a href="#">Articulos</a>
-        <a href="#">Devoluciones</a>
-      </div>
-
-      <button class="submenu-btn">Reportes</button>
-      <div class="submenu-content">
-        <a href="#">Devoluciones</a>
-      </div>
-    </div>
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Cliente/MCliente.php">Cliente</a>
+    <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialVehiculo.php">Historial Vehiculo</a>
+    <a href="/Taller/Taller-Mecanica/view/Cliente/CCliente.php">Consulta Cliente</a>
+    <a href="/Taller/Taller-Mecanica/view/Cliente/RCliente.php">Reporte Cliente</a>
   </div>
+</div>
 
-  <div class="modulo">
-    <a href="logout.php" class="modulo-btn" id="logoutBtn">
+  <!-- MODULO Vehiculo-->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/coche.png" class="icono-modulo" alt="Vehiculo">
+      <span>Vehículo</span>
+  </button>
+
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Vehiculo/MVehiculo.php">Vehiculo</a>
+    <a href="/Taller/Taller-Mecanica/view/Vehiculo/CVehiculo.php">Consulta Vehiculo</a>
+    <a href="/Taller/Taller-Mecanica/view/Vehiculo/RVehiculo.php">Reporte Vehiculo</a>
+    <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Reporte Historial</a>
+  </div>
+</div>
+
+  <!-- MODULO Inventario -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/inventario.png" class="icono-modulo" alt="Inventario">
+      <span>Inventario</span>
+  </button>
+
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacen</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedor</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden Compra</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialCompra.php">Historial Compra</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialPago.php">Historial Pago</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/CAlmacen.php">Consulta Inventario</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/CProveedor.php">Consulta Proveedor</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/RAlmacen.php">Reporte Inventario</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/RCompra.php">Reporte Compra</a>
+  </div>
+</div>
+
+  <!-- MODULO Taller -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/taller.png" class="icono-modulo" alt="Taller">
+      <span>Taller</span>
+  </button>
+
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Taller/Inspeccion.php">Inspeccion de Vehiculo</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/Servicio.php">Orden de Servicio</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/MRecursos.php">Recursos y Herramientas</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/Entrega.php">Entrega y Revision</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/Cotizacion.php">Cotizacion</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/CCotizacion.php">Consulta Cotizacion</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/CInspeccion.php">Consulta Inspeccion</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/CServicio.php">Consulta Orden de Servicio</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/RServicio.php">Reporte Servicio</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/RInspeccion.php">Reporte Inspeccion</a>
+    <a href="/Taller/Taller-Mecanica/view/Taller/RCotizacion.php">Reporte Cotizacion</a>
+  </div>
+</div>
+
+  <!-- MODULO Facturacion Y Cobro -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/facturacion.png" class="icono-modulo" alt="Facturacion">
+      <span>Facturacion</span>
+  </button>
+
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/Factura.php">Facturacion</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Cobro de Facturas</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Devolucion</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/CPagos.php">Historial de Pagos</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/CFactura.php">Historial de Factura</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/CCxc.php">Historial de Credito</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/CDevolucion.php">Historial de devolucion</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/RFactura.php">Reporte Facturacion</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/RPagosFactura.php">Reporte Pagos</a>
+    <a href="/Taller/Taller-Mecanica/view/Facturacion/RDeuda.php">Reporte Deuda</a>
+  </div>
+</div>
+
+   <!-- MODULO Autolavado -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/lavado.png" class="icono-modulo" alt="Autolavado">
+      <span>Autolavado</span>
+  </button>
+
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Autolavado/OLavado.php">Orden de lavado</a>
+    <a href="/Taller/Taller-Mecanica/view/Autolavado/EntregaLavado.php">Entrega de lavado</a>
+    <a href="/Taller/Taller-Mecanica/view/Autolavado/CLavado.php">Historial de lavado</a>
+    <a href="/Taller/Taller-Mecanica/view/Autolavado/RLavado.php">Reporte de lavado</a>
+  </div>
+</div>
+
+  <!-- MODULO Autoadorno -->
+<div class="modulo">
+  <button class="modulo-btn">
+      <img src="img/carreras.png" class="icono-modulo" alt="Autoadorno">
+      <span>Autoadorno</span>
+  </button>
+
+  <div class="modulo-content">
+    <a href="/Taller/Taller-Mecanica/view/Autoadorno/ACotizacion.php">Cotizacion</a>
+    <a href="/Taller/Taller-Mecanica/view/Autoadorno/ADevolucion.php">Devolucion</a>
+    <a href="/Taller/Taller-Mecanica/view/Autoadorno/AAperturaCaja.php">Apertura de caja</a>
+    <a href="/Taller/Taller-Mecanica/view/Inventario/CAlmacen.php">Almacen</a>
+    <a href="/Taller/Taller-Mecanica/view/Autoadorno/ACCotizacion.php">Historial de Cotizacion</a>
+    <a href="/Taller/Taller-Mecanica/view/Autoadorno/ACAperturaCaja.php">Historial de Apertura</a>
+    <a href="/Taller/Taller-Mecanica/view/Autoadorno/ACDevolucion.php">Historial de devolucion</a>
+  </div>
+</div>
+
+<div class="modulo">
+    <a href="/Taller/Taller-Mecanica/logout.php" class="modulo-btn" id="logoutBtn">
         <img src="img/salida.png" class="icono-modulo">
         <span>Cerrar sesión</span>
     </a>

@@ -11,12 +11,12 @@ date_default_timezone_set('America/Santo_Domingo');
     </div>
 
     <div class="header-right">
-        <img src="img/user.png" class="user-img">
+        <img src="/Taller/Taller-Mecanica/img/user.png" class="user-img">
     </div>
 
 </div>
 
-<script>
+<!-- <script>
 function actualizarFechaHora() {
     const ahora = new Date();
 
@@ -36,4 +36,6 @@ function actualizarFechaHora() {
 
 setInterval(actualizarFechaHora, 1000);
 actualizarFechaHora();
-</script>
+</script> -->
+
+

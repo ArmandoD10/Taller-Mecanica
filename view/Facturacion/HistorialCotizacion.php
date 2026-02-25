@@ -4,7 +4,7 @@ require("../../header.php");
 ?>
 
 <main class="contenido">
-    <h1>Aqui va contenido del procesos de cotizacion del autoadorno</h1>
+    <h1>Aqui va contenido de la consulta y reporte de cotizaciones</h1>
 </main>
 
 </body>

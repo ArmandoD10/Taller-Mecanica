@@ -1,143 +1,89 @@
+:root {
+    --primary-blue: #0d47a1;
+    --hover-blue: #1565c0;
+    --bg-gray: #f8fafc;
+    --white: #ffffff;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    display: flex;
+    background-color: var(--bg-gray);
+}
+
 .contenido {
-    margin-left: 270px; /* ancho real del sidebar */
-    margin-top: 70px;   /* alto real del header */
+    margin-top: 90px; /* un poco más que el header */
     padding: 20px;
 }
 
-
- body {
-  margin: 0;
-  font-family: 'Poppins', sans-serif;
-}
-
 .sidebar {
-  width: 270px;
-  height: 100vh;
-  background: #0d47a1; /* azul */
-  color: white;
-  position: fixed;
-left: 0;
-top: 0;
+    width: 270px;
+    height: 100vh;
+    background: var(--primary-blue);
+    color: var(--white);
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
 }
 
 .sidebar-header {
-  background: #08306b;
-  padding: 20px;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 600;
+    background: var(--white);
+    padding: 20px;
+    text-align: center;
 }
 
-/* ===== MODULOS ===== */
+.logo-img { max-width: 100%; height: auto; }
+
+/* Estructura de Módulos */
 .modulo-btn {
-  width: 100%;
-  background: #1565c0;
-  color: white;
-  padding: 14px;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: 16px;
+    width: 100%;
+    padding: 15px 20px;
+    background: transparent;
+    border: none;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    font-size: 16px;
+    text-align: left;
+    transition: background 0.3s;
 }
 
-.modulo-btn:hover {
-  background: #1976d2;
-}
-
-/* Contenedor animado */
-.modulo-content {
-  max-height: 0;
-  overflow: hidden;
-  background: #f2f2f2; /* gris claro */
-  transition: max-height 0.4s ease;
-}
-
-/* ===== SUBMENUS ===== */
-.submenu-btn {
-  width: 100%;
-  background: gray;
-  color: #0d47a1;
-  padding: 12px 16px;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 500;
-}
-
-
-.submenu-btn:hover {
-  background: #d5d5d5;
-}
-
-.submenu-content {
-  max-height: 0;
-  overflow: hidden;
-  background: #f7f7f7;
-  transition: max-height 0.35s ease;
-}
-
-.submenu-content a {
-  display: block;
-  padding: 10px 30px;
-  color: #333;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.submenu-content a:hover {
-  background: #eaeaea;
-}
-
-.modulo-btn {
-  display: flex;
-  align-items: center;      /* centra icono y texto */
-  gap: 14px;                /* espacio entre icono y texto */
-  width: 100%;
-  min-height: 52px;         /* altura cómoda */
-  padding: 0 18px;          /* espacio lateral */
-  background: transparent;  /* evita bloques feos */
-  border: none;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 16px;
-  text-align: left;
-  box-sizing: border-box;
-}
-
+.modulo-btn:hover { background: var(--hover-blue); }
 
 .icono-modulo {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-  flex-shrink: 0;   /* evita que se deforme */
+    width: 22px;
+    height: 22px;
+    filter: brightness(0) invert(1); /* Convierte iconos a blanco */
 }
 
-.modulo {
-  margin-top: 6px;
+/* Submenús */
+.modulo-content {
+    max-height: 0;
+    overflow: hidden;
+    background: #1f2937;
+    transition: max-height 0.4s ease-out;
+    display: flex;
+    flex-direction: column;
 }
 
-.modulo-btn span {
-  line-height: 1;
-  font-weight: 500;
+.modulo.active .modulo-content {
+    max-height: 500px; /* Expansión al hacer clic */
 }
 
-.logo-link {
+.modulo.active .modulo-btn { background: var(--hover-blue); font-weight: 600; }
+
+.modulo-content a {
+    padding: 12px 20px 12px 55px;
+    color: #cbd5e1;
     text-decoration: none;
-    color: white;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.logo {
-    margin: 0;
-    font-weight: 600;
-    font-size: 20px;
-    transition: 0.3s;
-}
-
-.logo-link:hover .logo {
-    color: #00c6ff;
-    cursor: pointer;
-}
+.modulo-content a:hover { background: rgba(255, 255, 255, 0.1); color: var(--white); }
 
 
   .header {

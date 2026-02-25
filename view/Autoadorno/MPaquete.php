@@ -4,7 +4,7 @@ require("../../header.php");
 ?>
 
 <main class="contenido">
-    <h1>Aqui va contenido del proceso de devolución de autoadornos</h1>
+    <h1>Aqui va contenido del mantenimiento, consulta y reporte del paquete de detalling</h1>
 </main>
 
 </body>

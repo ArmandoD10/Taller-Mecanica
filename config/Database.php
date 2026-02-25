@@ -3,7 +3,7 @@ class Database {
     public static function conectar() {
         $host = "localhost";
         $usuario = "root";
-        $contrasena = "1234";
+        $contrasena = "";
         $base_datos = "taller";
 
         // Creamos la conexión usando MySQLi orientado a objetos

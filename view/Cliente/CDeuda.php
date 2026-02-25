@@ -4,7 +4,7 @@ require("../../header.php");
 ?>
 
 <main class="contenido">
-    <h1>Aqui va contenido de la consulta de apertura de caja</h1>
+    <h1>Aqui va contenido del historial de deuda de clientes</h1>
 </main>
 
 </body>

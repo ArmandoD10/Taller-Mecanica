@@ -1,9 +1,12 @@
+console.log("✅ Scripts_Menu.js cargado correctamente");
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.modulo-btn');
+    console.log("🔎 Botones encontrados:", buttons.length);
 
     buttons.forEach(btn => {
         btn.addEventListener('click', function() {
             // No activar acordeón para el botón de cerrar sesión
+            console.log("🖱️ Click en:", this.innerText);
             if (this.id === 'logoutBtn') return;
 
             const modulo = this.parentElement;
@@ -29,3 +32,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+function actualizarFechaHora() {
+    const ahora = new Date();
+
+    const opciones = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    };
+
+    const fecha = ahora.toLocaleDateString('es-ES', opciones);
+    const hora = ahora.toLocaleTimeString('es-ES');
+
+    document.getElementById("fechaHora").innerHTML =
+        fecha.charAt(0).toUpperCase() + fecha.slice(1) + " | " + hora;
+}
+
+setInterval(actualizarFechaHora, 1000);
+actualizarFechaHora();

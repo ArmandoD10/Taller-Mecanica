@@ -4,7 +4,7 @@ require("../../header.php");
 ?>
 
 <main class="contenido">
-    <h1>Aqui va contenido de la consulta de pagos</h1>
+    <h1>Aqui va contenido de la consultas y reportes de servicios</h1>
 </main>
 
 </body>

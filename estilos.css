@@ -12,9 +12,15 @@ body {
     background-color: var(--bg-gray);
 }
 
+/* 2. Asegura que el contenido principal use todo el espacio */
 .contenido {
-    margin-top: 90px; /* un poco más que el header */
+    margin-left: 270px; /* Espacio fijo para el sidebar */
+    margin-top: 70px;
     padding: 20px;
+    background-color: var(--bg-gray);
+    min-height: calc(100vh - 70px);
+    display: block; /* Cambiamos flex por block para que use todo el ancho */
+    width: auto; /* Deja que el navegador calcule el espacio restante */
 }
 
 .sidebar {
@@ -121,3 +127,59 @@ body {
     border: 2px solid #444;
 }
 
+/* Ajuste para que el contenido no tape el sidebar y se centre */
+
+/* Contenedor del formulario con estilo de "Tarjeta" */
+/* 1. Haz que el contenedor ocupe casi todo el ancho disponible */
+/* Modifica esta regla para expandir el formulario */
+/* Expandimos la tarjeta blanca */
+
+/* Títulos más limpios */
+h2 {
+    color: var(--primary-blue);
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+/* Reemplazo para la línea de guiones (hr) */
+.separador-limpio {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin-bottom: 25px;
+}
+
+/* Ajuste de la Lupa */
+.icono-filtro {
+    width: 20px;  /* Tamaño pequeño para la lupa */
+    height: 20px;
+    object-fit: contain;
+    opacity: 0.6;
+}
+
+/* Estilo para los inputs y selects */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    padding: 10px;
+}
+
+.form-control:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+}
+
+/* Botones con mejor espacio */
+.gap-0 {
+    gap: 15px !important; /* Añadimos espacio entre botones */
+}
+
+/* 2. Hacemos que la tarjeta del formulario sea gigante */
+.container{
+    width: 100% !important;   /* Ocupa el 100% del espacio disponible */
+    max-width: 95% !important; /* Un margen pequeño a los lados para que no toque los bordes */
+    margin-left: auto !important;
+    margin-right: auto !important;
+    background: #ffffff;
+    padding: 40px !important;
+    border-radius: 12px;
+}

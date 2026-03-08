@@ -33,7 +33,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Función para actualizar la fecha y hora en el menú
 function actualizarFechaHora() {
+
+    const elemento = document.getElementById("fechaHora");
+
+    if(!elemento) return; // si no existe el elemento, no hace nada
+
     const ahora = new Date();
 
     const opciones = {
@@ -46,9 +52,25 @@ function actualizarFechaHora() {
     const fecha = ahora.toLocaleDateString('es-ES', opciones);
     const hora = ahora.toLocaleTimeString('es-ES');
 
-    document.getElementById("fechaHora").innerHTML =
+    elemento.innerHTML =
         fecha.charAt(0).toUpperCase() + fecha.slice(1) + " | " + hora;
 }
 
 setInterval(actualizarFechaHora, 1000);
 actualizarFechaHora();
+
+// Función para limpiar el formulario de registro de clientes
+function limpiarFormulario() {
+    const campos = document.querySelectorAll("input, textarea, select");
+
+    campos.forEach(campo => {
+        switch(campo.type) {
+            case "checkbox":
+            case "radio":
+                campo.checked = false;
+                break;
+            default:
+                campo.value = "";
+        }
+    });
+}

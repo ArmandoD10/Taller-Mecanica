@@ -6,6 +6,8 @@ if (!isset($_SESSION['id_usuario'])) {
 }
 $nombreTaller = "Mecánica Automotriz Díaz & Pantaleón";
 $usuarioActivo = $_SESSION['user'] ?? "Administrador";
+// Supongamos que en el login guardaste el rol en $_SESSION['nivel']
+$nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
 
 // Estadísticas operativas extraídas de la base de datos 'taller'
 $stats = [
@@ -22,13 +24,16 @@ $stats = [
     <title><?php echo $nombreTaller; ?></title>
     <link rel="stylesheet" href="Archivo_Menu.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <aside class="sidebar">
         <div class="sidebar-header">
             <a href="Menu.php"><img src="img/logo.png" class="logo-img" alt="Logo"></a>
         </div>
+        
         <nav class="menu-container">
+            <?php if ($nivelAcceso === "Administrador") : ?>
             <div class="modulo">
                 <button class="modulo-btn">
                     <img src="img/seguridad.png" class="icono-modulo"> <span>Seguridad</span>
@@ -39,8 +44,10 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Seguridad/CHistorialAcceso.php">Historial de Accesos</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if ($nivelAcceso === "Administrador") : ?>
                 <button class="modulo-btn">
                     <img src="img/rrhh.png" class="icono-modulo"> <span>Recursos Humanos</span>
                 </button>
@@ -51,6 +58,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSueldoSeguro.php">Sueldos y Seguros</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
                 <button class="modulo-btn">
@@ -70,7 +78,9 @@ $stats = [
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MVehiculo.php">Registro de Vehículos</a>
+                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MMarcaModelo.php">Marcas y Modelos</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Historial Vehiculo</a>
                 </div>
             </div>
@@ -83,9 +93,11 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MArticulo.php">Artículos y Repuestos</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacenes</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
+                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MovimientoStock.php">Movimientos de Stock</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialCompra.php">Historial de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialPago.php">Historial de Pagos</a>
                 </div>
@@ -117,7 +129,9 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Gestion de pago credito</a>
+                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/RFactura.php">Reportes de Ventas (NCF)</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialFactura.php">Historial Factura</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialCotizacion.php">Historial Cotizacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagoCredito.php">Historial de Pagos</a>
@@ -169,6 +183,20 @@ $stats = [
             <div class="card"><h3>Listos para Entrega</h3><p><?php echo $stats['listos_entrega']; ?></p></div>
         </section>
     </main>
+        <div class="config-flotante-container">
+            <button class="btn-config-flotante" id="btnConfig">
+                <img src="img/configuracion.png" alt="Config" class="icono-rueda">
+            </button>
+            <div class="menu-config-desplegable" id="menuConfig">
+                <a href="#"><i class="fas fa-user-circle"></i> Perfil</a>
+                <a href="#"><i class="fas fa-shield-alt"></i> Seguridad</a>
+                <a href="#"><i class="fas fa-credit-card"></i> Membresías</a>
+                <?php if ($nivelAcceso === "Administrador") : ?>
+                <a href="#"><i class="fas fa-percentage"></i> Ofertas</a>
+                <a href="#"><i class="fas fa-file-invoice-dollar"></i> Impuestos</a>
+                <?php endif; ?>
+            </div>
+        </div>
     <script src="Scripts_Menu.js"></script>
 </body>
 </html>

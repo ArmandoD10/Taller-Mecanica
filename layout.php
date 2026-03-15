@@ -1,3 +1,9 @@
+<?php
+// Supongamos que en el login guardaste el rol en $_SESSION['nivel']
+$nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
+
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,6 +22,7 @@
             <a href="/Taller/Taller-Mecanica/Menu.php"><img src="/Taller/Taller-Mecanica/img/logo.png" class="logo-img" alt="Logo"></a>
         </div>
         <nav class="menu-container">
+            <?php if ($nivelAcceso === "Administrador") : ?>
             <div class="modulo">
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/seguridad.png" class="icono-modulo"> <span>Seguridad</span>
@@ -26,8 +33,10 @@
                     <a href="/Taller/Taller-Mecanica/view/Seguridad/CHistorialAcceso.php">Historial de Accesos</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if ($nivelAcceso === "Administrador") : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/rrhh.png" class="icono-modulo"> <span>Recursos Humanos</span>
                 </button>
@@ -38,6 +47,7 @@
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSueldoSeguro.php">Sueldos y Seguros</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
                 <button class="modulo-btn">
@@ -57,7 +67,9 @@
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MVehiculo.php">Registro de Vehículos</a>
+                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MMarcaModelo.php">Marcas y Modelos</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Historial Vehiculo</a>
                 </div>
             </div>
@@ -70,9 +82,11 @@
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MArticulo.php">Artículos y Repuestos</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacenes</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
+                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MovimientoStock.php">Movimientos de Stock</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialCompra.php">Historial de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialPago.php">Historial de Pagos</a>
                 </div>
@@ -104,7 +118,9 @@
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Gestion de pago credito</a>
+                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/RFactura.php">Reportes de Ventas (NCF)</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialFactura.php">Historial Factura</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialCotizacion.php">Historial Cotizacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagoCredito.php">Historial de Pagos</a>

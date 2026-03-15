@@ -74,3 +74,23 @@ function limpiarFormulario() {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btnConfig');
+    const menu = document.getElementById('menuConfig');
+
+    if (btn && menu) {
+        // Abrir/Cerrar al hacer clic
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            menu.classList.toggle('show');
+        });
+
+        // Cerrar si haces clic fuera del menú
+        document.addEventListener('click', function(e) {
+            if (!menu.contains(e.target) && e.target !== btn) {
+                menu.classList.remove('show');
+            }
+        });
+    }
+});

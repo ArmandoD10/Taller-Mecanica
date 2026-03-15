@@ -180,6 +180,27 @@ document.getElementById('filtro').addEventListener('keyup', function() {
 
 // --- LÓGICA PARA MODIFICAR Y ELIMINAR proveedores ---
 document.getElementById('formulario').addEventListener('submit', function(e) {
+    e.preventDefault(); // Detenemos el envío para validar
+
+    // --- VALIDACIÓN SOLO PARA NUEVOS REGISTROS ---
+    if (!modoEdicion) { 
+        const pass1 = document.getElementById('contrasena').value;
+        const pass2 = document.getElementById('repetircontrasena').value;
+
+        // Validar que no estén vacíos al insertar
+        if (pass1 === '' || pass2 === '') {
+            alert("Por favor, completa ambos campos de contraseña.");
+            return;
+        }
+
+        // Validar que coincidan
+        if (pass1 !== pass2) {
+            alert("¡Error! Las contraseñas no coinciden.");
+            return; 
+        }
+    }
+    // ---------------------------------------------
+    
     if (modoEdicion) {
         e.preventDefault(); // Evita que el formulario se envíe de forma normal
         const formData = new FormData(this);

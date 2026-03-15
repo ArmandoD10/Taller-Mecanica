@@ -134,7 +134,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Prepara la consulta SQL para actualizar los datos.
     $sql = "UPDATE usuario SET
                 username = ?,
-                password_hash = ?,
                 correo_org = ?,
                 nivel = ?,
                 interfaz_acceso = ?
@@ -144,7 +143,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt = $conexion->prepare($sql)) {
         // Asocia los parámetros a la consulta.
         // 'ssssssssisi' son los tipos de datos: string, string, string, etc.
-        $stmt->bind_param("sssssi", $nombre, $contrasena, $correo, $nivel, $interfaz, $id_usuario);
+        $stmt->bind_param("ssssi", $nombre, $correo, $nivel, $interfaz, $id_usuario);
 
         // Ejecuta la consulta
         if ($stmt->execute()) {

@@ -51,7 +51,7 @@ function cargarTablaAreas(page = 1) {
                             <i class="fas fa-edit"></i>
                         </button>
                         <button type="button" class="btn btn-danger btn-sm" onclick="eliminarRegistro(${registro.id_usuario})">
-                            <i class="fas fa-trash-alt"></i>
+                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </td>
                 `;

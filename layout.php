@@ -1,5 +1,6 @@
 <?php
 // Supongamos que en el login guardaste el rol en $_SESSION['nivel']
+session_start();
 $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
 
 ?>
@@ -11,6 +12,7 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/Taller/Taller-Mecanica/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/Taller/Taller-Mecanica/estilos.css">
 
@@ -87,8 +89,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MovimientoStock.php">Movimientos de Stock</a>
                     <?php endif; ?>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/RecepcionCompra.php">Recepción de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialCompra.php">Historial de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialPago.php">Historial de Pagos</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialRecepcion.php">Historial de Recepción</a>
                 </div>
             </div>
 

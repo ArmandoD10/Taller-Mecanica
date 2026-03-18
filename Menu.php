@@ -96,10 +96,11 @@ $stats = [
                     <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
-                    <a href="/Taller/Taller-Mecanica/view/Inventario/MovimientoStock.php">Movimientos de Stock</a>
                     <?php endif; ?>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/RecepcionCompra.php">Recepción de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialCompra.php">Historial de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialPago.php">Historial de Pagos</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialRecepcion.php">Historial de Recepción</a>
                 </div>
             </div>
 

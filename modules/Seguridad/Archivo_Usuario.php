@@ -197,7 +197,7 @@ function desactivar($conexion) {
         }
     
         // Prepara la consulta para actualizar el estado
-        $sql = "UPDATE usuario SET estado = 'Inactivo' WHERE id_usuario = ?";
+        $sql = "UPDATE usuario SET estado = 'inactivo' WHERE id_usuario = ?";
         
         if ($stmt = $conexion->prepare($sql)) {
             $stmt->bind_param("i", $id_usuario);

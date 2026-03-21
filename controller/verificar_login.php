@@ -19,6 +19,7 @@ if ($username === '' || $password === '') {
 $sql = "SELECT id_usuario, username, password_hash, id_nivel
         FROM usuario 
         WHERE username = ? 
+        AND estado = 'activo'
         LIMIT 1";
 
 $stmt = $conexion->prepare($sql);

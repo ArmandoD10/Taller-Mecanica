@@ -107,6 +107,7 @@ window.cambiarPagina = function(page) {
 
 //funcion para cargar los niveles de acceso en el select del formulario
 function cargarNiveles() {
+    console.log(document.getElementById("nivel"));
     fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=niveles")
     .then(res => res.json())
     .then(data => {

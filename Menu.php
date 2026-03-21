@@ -7,7 +7,7 @@ if (!isset($_SESSION['id_usuario'])) {
 $nombreTaller = "Mecánica Automotriz Díaz & Pantaleón";
 $usuarioActivo = $_SESSION['user'] ?? "Administrador";
 // Supongamos que en el login guardaste el rol en $_SESSION['nivel']
-$nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
+$modulos = $_SESSION['modulos'] ?? [];
 
 // Estadísticas operativas extraídas de la base de datos 'taller'
 $stats = [
@@ -33,7 +33,7 @@ $stats = [
         </div>
         
         <nav class="menu-container">
-            <?php if ($nivelAcceso === "Administrador") : ?>
+            <?php if (in_array("Seguridad", $modulos)) : ?>
             <div class="modulo">
                 <button class="modulo-btn">
                     <img src="img/seguridad.png" class="icono-modulo"> <span>Seguridad</span>
@@ -47,7 +47,7 @@ $stats = [
             <?php endif; ?>
 
             <div class="modulo">
-                <?php if ($nivelAcceso === "Administrador") : ?>
+                <?php if (in_array("RRHH", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/rrhh.png" class="icono-modulo"> <span>Recursos Humanos</span>
                 </button>
@@ -61,6 +61,7 @@ $stats = [
             <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Cliente", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/cliente.png" class="icono-modulo"> <span>Cliente</span>
                 </button>
@@ -71,21 +72,23 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialCredito.php">Consulta de Deuda</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Vehiculo", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/coche.png" class="icono-modulo"> <span>Vehículo</span>
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MVehiculo.php">Registro de Vehículos</a>
-                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MMarcaModelo.php">Marcas y Modelos</a>
-                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Historial Vehiculo</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Inventario", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/inventario.png" class="icono-modulo"> <span>Inventario</span>
                 </button>
@@ -93,7 +96,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MArticulo.php">Artículos y Repuestos</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacenes</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
-                    <?php if ($nivelAcceso === "Administrador") : ?>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
                     <?php endif; ?>
@@ -103,8 +106,10 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialRecepcion.php">Historial de Recepción</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Taller", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/taller.png" class="icono-modulo"> <span>Taller</span>
                 </button>
@@ -120,8 +125,10 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialInspeccion.php">Historial de Inspecciones</a>
                 </div>
             </div>
+            <?php endif; ?>
   
             <div class="modulo">
+                <?php if (in_array("Facturacion", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/facturacion.png" class="icono-modulo"> <span>Facturacion</span>
                 </button>
@@ -130,17 +137,17 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Gestion de pago credito</a>
-                    <?php if ($nivelAcceso === "Administrador") : ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/RFactura.php">Reportes de Ventas (NCF)</a>
-                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialFactura.php">Historial Factura</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialCotizacion.php">Historial Cotizacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagoCredito.php">Historial de Pagos</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialDevolucion.php">Historial de Devoluciones</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Autolavado", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/lavado.png" class="icono-modulo"> <span>Autolavado</span>
                 </button>
@@ -151,8 +158,10 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Autolavado/HistorialLavado.php">Historial Lavado</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Autoadorno", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="img/carreras.png" class="icono-modulo"> <span>Autoadorno</span>
                 </button>
@@ -163,6 +172,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/HistorialServicio.php">Historial de Servicio</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
                 <a href="logout.php" class="modulo-btn" id="logoutBtn" style="text-decoration: none;">
@@ -189,11 +199,19 @@ $stats = [
                 <img src="img/configuracion.png" alt="Config" class="icono-rueda">
             </button>
             <div class="menu-config-desplegable" id="menuConfig">
+                <?php if (in_array("Perfil", $modulos)) : ?>
                 <a href="#"><i class="fas fa-user-circle"></i> Perfil</a>
+                <?php endif; ?>
+                <?php if (in_array("Contrasena", $modulos)) : ?>
                 <a href="#"><i class="fas fa-shield-alt"></i> Seguridad</a>
+                <?php endif; ?>
+                <?php if (in_array("Membresia", $modulos)) : ?>
                 <a href="#"><i class="fas fa-credit-card"></i> Membresías</a>
-                <?php if ($nivelAcceso === "Administrador") : ?>
+                <?php endif; ?>
+                <?php if (in_array("Ofertas", $modulos)) : ?>
                 <a href="#"><i class="fas fa-percentage"></i> Ofertas</a>
+                <?php endif; ?>
+                <?php if (in_array("Impuestos", $modulos)) : ?>
                 <a href="#"><i class="fas fa-file-invoice-dollar"></i> Impuestos</a>
                 <?php endif; ?>
             </div>

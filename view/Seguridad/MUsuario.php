@@ -37,8 +37,6 @@ require("../../header.php");
                     <label for="nivel" class="form-label" style="color: var(--primary-blue)">Nivel de Acceso</label>
                     <select class="form-select" id="nivel" name="nivel">
                         <option value="" selected disabled>Selecciona una opción</option>
-                        <option value="Administrador">Administrador</option>
-                        <option value="Usuario">Usuario</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -62,6 +60,17 @@ require("../../header.php");
                 <div class="mb-3 d-flex align-items-center gap-2">
                     <input type="text" class="form-control" id="filtro" placeholder="Escribe para filtrar...">
                     <img src="/Restaurante AD/Imagenes/lupa.png" alt="Icono de filtro" class="icono-filtro">
+                    <!-- SWITCH -->
+                    <div class="switch-container">
+                        <span id="label-left">ID</span>
+
+                        <label class="switch">
+                            <input type="checkbox" id="tipoFiltro">
+                            <span class="slider"></span>
+                        </label>
+
+                        <span id="label-right">Username</span>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mt-4" id="tabladatos">

@@ -105,9 +105,28 @@ window.cambiarPagina = function(page) {
     }
 };
 
+//funcion para cargar los niveles de acceso en el select del formulario
+function cargarNiveles() {
+    fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=niveles")
+    .then(res => res.json())
+    .then(data => {
+        const select = document.getElementById("nivel");
+
+        select.innerHTML = '<option disabled selected>Selecciona una opción</option>';
+
+        data.forEach(nivel => {
+            const option = document.createElement("option");
+            option.value = nivel.id_nivel; // 🔥 IMPORTANTE
+            option.textContent = nivel.nombre;
+            select.appendChild(option);
+        });
+    });
+}
+
 // Llamar a la función al cargar la página
 document.addEventListener('DOMContentLoaded', () => {
     cargarTablaAreas();
+    cargarNiveles();
 });
 
 // --- FUNCIONES PARA EL FORMULARIO DE ÁREAS (Se usa el array 'areas') ---
@@ -118,7 +137,7 @@ window.editarRegistro = function(id) {
     if (proveedorParaEditar) {
         document.getElementById('id_oculto').value = proveedorParaEditar.id_usuario;
         document.getElementById('nombre').value = proveedorParaEditar.username;
-        document.getElementById('nivel').value = proveedorParaEditar.nivel;
+        document.getElementById('nivel').value = proveedorParaEditar.id_nivel;
         document.getElementById('correo').value = proveedorParaEditar.correo_org;
         document.getElementById('interfaz').value = proveedorParaEditar.interfaz_acceso  ;
         
@@ -336,3 +355,29 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
 // formatearNombre('nombre');
 
 // });
+
+//Funcion para swithc del filtro.
+function filtrarTabla() {
+    const texto = document.getElementById("filtro").value.toLowerCase();
+    const usarUsername = document.getElementById("tipoFiltro").checked;
+
+    const filas = document.querySelectorAll("#cuerpo-tabla tr");
+
+    filas.forEach(fila => {
+        let valor;
+
+        if (usarUsername) {
+            // Columna USERNAME (col 3 → índice 2)
+            valor = fila.children[2].innerText.toLowerCase();
+        } else {
+            // Columna ID (col 2 → índice 1)
+            valor = fila.children[1].innerText.toLowerCase();
+        }
+
+        fila.style.display = valor.includes(texto) ? "" : "none";
+    });
+}
+
+document.getElementById("filtro").addEventListener("keyup", filtrarTabla);
+document.getElementById("tipoFiltro").addEventListener("change", filtrarTabla);
+

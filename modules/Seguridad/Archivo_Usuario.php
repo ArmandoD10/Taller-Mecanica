@@ -22,6 +22,9 @@ switch ($action) {
     case 'desactivar':
         desactivar($conexion);
         break;
+    case 'niveles':
+        niveles($conexion);
+        break;
     default:
         // Mensaje de error para acciones no válidas
         echo json_encode(['success' => false, 'message' => 'Acción no válida.']);
@@ -46,7 +49,13 @@ $total_rows = $count_result->fetch_assoc()['total'];
 
 // 2. Obtener los registros de la página actual de la tabla 'sala'
 $proveedor = [];
-$sql = "SELECT id_usuario, nivel, username, password_hash, interfaz_acceso, correo_org, fecha_creacion, estado FROM usuario WHERE estado = 'Activo'
+$sql = "SELECT u.id_usuario, u.id_nivel, u.username, 
+               u.interfaz_acceso, u.correo_org, 
+               u.fecha_creacion, u.estado,
+               n.nombre AS nivel
+        FROM usuario u
+        JOIN nivel n ON u.id_nivel = n.id_nivel
+        WHERE u.estado = 'activo'
         LIMIT $limit OFFSET $offset";
 
 $resultado = $conexion->query($sql);
@@ -86,7 +95,7 @@ function guardar($conexion) {
             exit;
         }
     
-        $sql = "INSERT INTO usuario (username, password_hash, correo_org, nivel, interfaz_acceso, estado, fecha_creacion, usuario_creacion, id_organizacion)
+        $sql = "INSERT INTO usuario (username, password_hash, correo_org, id_nivel, interfaz_acceso, estado, fecha_creacion, usuario_creacion, id_organizacion)
 
                 VALUES ('$nombre', '$contrasena', '$correo', '$nivel', '$interfaz', 'Activo', NOW(), 1, 1)";
               
@@ -135,7 +144,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $sql = "UPDATE usuario SET
                 username = ?,
                 correo_org = ?,
-                nivel = ?,
+                id_nivel = ?,
                 interfaz_acceso = ?
             WHERE id_usuario = ?";
 
@@ -143,7 +152,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt = $conexion->prepare($sql)) {
         // Asocia los parámetros a la consulta.
         // 'ssssssssisi' son los tipos de datos: string, string, string, etc.
-        $stmt->bind_param("ssssi", $nombre, $correo, $nivel, $interfaz, $id_usuario);
+        $stmt->bind_param("ssisi", $nombre, $correo, $nivel, $interfaz, $id_usuario);
 
         // Ejecuta la consulta
         if ($stmt->execute()) {
@@ -214,5 +223,18 @@ function desactivar($conexion) {
     }
     
     echo json_encode($response);
+}
+
+function niveles($conexion){
+    $sql = "SELECT id_nivel, nombre FROM nivel WHERE estado='activo'";
+    $resultado = $conexion->query($sql);
+
+    $niveles = [];
+
+    while($fila = $resultado->fetch_assoc()){
+        $niveles[] = $fila;
+    }
+
+    echo json_encode($niveles);
 }
 ?>

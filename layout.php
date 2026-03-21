@@ -1,7 +1,7 @@
 <?php
 // Supongamos que en el login guardaste el rol en $_SESSION['nivel']
 session_start();
-$nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
+$modulos = $_SESSION['modulos'] ?? [];
 
 ?>
 
@@ -24,7 +24,7 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
             <a href="/Taller/Taller-Mecanica/Menu.php"><img src="/Taller/Taller-Mecanica/img/logo.png" class="logo-img" alt="Logo"></a>
         </div>
         <nav class="menu-container">
-            <?php if ($nivelAcceso === "Administrador") : ?>
+            <?php if (in_array("Seguridad", $modulos)) : ?>
             <div class="modulo">
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/seguridad.png" class="icono-modulo"> <span>Seguridad</span>
@@ -38,7 +38,7 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
             <?php endif; ?>
 
             <div class="modulo">
-                <?php if ($nivelAcceso === "Administrador") : ?>
+                <?php if (in_array("RRHH", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/rrhh.png" class="icono-modulo"> <span>Recursos Humanos</span>
                 </button>
@@ -52,6 +52,7 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
             <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Cliente", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/cliente.png" class="icono-modulo"> <span>Cliente</span>
                 </button>
@@ -62,8 +63,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialCredito.php">Consulta de Deuda</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Vehiculo", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/coche.png" class="icono-modulo"> <span>Vehículo</span>
                 </button>
@@ -75,8 +78,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Historial Vehiculo</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Inventario", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/inventario.png" class="icono-modulo"> <span>Inventario</span>
                 </button>
@@ -84,7 +89,7 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MArticulo.php">Artículos y Repuestos</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacenes</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
-                    <?php if ($nivelAcceso === "Administrador") : ?>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MovimientoStock.php">Movimientos de Stock</a>
@@ -95,8 +100,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialRecepcion.php">Historial de Recepción</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Taller", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/taller.png" class="icono-modulo"> <span>Taller</span>
                 </button>
@@ -112,8 +119,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialInspeccion.php">Historial de Inspecciones</a>
                 </div>
             </div>
+            <?php endif; ?>
   
             <div class="modulo">
+                <?php if (in_array("Facturacion", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/facturacion.png" class="icono-modulo"> <span>Facturacion</span>
                 </button>
@@ -131,8 +140,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialDevolucion.php">Historial de Devoluciones</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Autolavado", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/lavado.png" class="icono-modulo"> <span>Autolavado</span>
                 </button>
@@ -143,8 +154,10 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Autolavado/HistorialLavado.php">Historial Lavado</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
+                <?php if (in_array("Autoadorno", $modulos)) : ?>
                 <button class="modulo-btn">
                     <img src="/Taller/Taller-Mecanica/img/carreras.png" class="icono-modulo"> <span>Autoadorno</span>
                 </button>
@@ -155,6 +168,7 @@ $nivelAcceso = $_SESSION['nivel'] ?? "Usuario";
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/HistorialServicio.php">Historial de Servicio</a>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="modulo">
                 <a href="/Taller/Taller-Mecanica/logout.php" class="modulo-btn" id="logoutBtn" style="text-decoration: none;">

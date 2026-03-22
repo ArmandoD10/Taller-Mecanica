@@ -30,9 +30,9 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <img src="/img/seguridad.png" class="icono-modulo"> <span>Seguridad</span>
                 </button>
                 <div class="modulo-content">
-                    <a href="view/Seguridad/MUsuario.php">Usuarios</a>
-                    <a href="view/Seguridad/MRoles.php">Roles y Permisos</a>
-                    <a href="view/Seguridad/CHistorialAcceso.php">Historial de Accesos</a>
+                    <a href="/view/Seguridad/MUsuario.php">Usuarios</a>
+                    <a href="/view/Seguridad/MRoles.php">Roles y Permisos</a>
+                    <a href="Taller/Taller-Mecanica/view/Seguridad/CHistorialAcceso.php">Historial de Accesos</a>
                 </div>
             </div>
             <?php endif; ?>

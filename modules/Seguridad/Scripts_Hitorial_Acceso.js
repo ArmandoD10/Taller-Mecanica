@@ -7,7 +7,7 @@ const recordsPerPage = 11;
 
 // --- LÓGICA PARA CARGAR TABLA CON PAGINACIÓN ---
 function cargarTablaAreas(page = 1) {
-    fetch(`/modules/Seguridad/Archivo_Historial_Acceso.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
+    fetch(`/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Historial_Acceso.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
     .then(response => {
         if (!response.ok) {
             throw new Error('Error al cargar la tabla: ' + response.status);

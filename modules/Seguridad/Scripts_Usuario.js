@@ -23,7 +23,7 @@ const recordsPerPage = 6;
 
 // --- LÓGICA PARA CARGAR TABLA CON PAGINACIÓN ---
 function cargarTablaAreas(page = 1) {
-    fetch(`/modules/Seguridad/Archivo_Usuario.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
+    fetch(`/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
     .then(response => {
         if (!response.ok) {
             throw new Error('Error al cargar la tabla: ' + response.status);
@@ -108,7 +108,7 @@ window.cambiarPagina = function(page) {
 //funcion para cargar los niveles de acceso en el select del formulario
 function cargarNiveles() {
     console.log(document.getElementById("nivel"));
-    fetch("/modules/Seguridad/Archivo_Usuario.php?action=niveles")
+    fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=niveles")
     .then(res => res.json())
     .then(data => {
         const select = document.getElementById("nivel");
@@ -225,7 +225,7 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
         e.preventDefault(); // Evita que el formulario se envíe de forma normal
         const formData = new FormData(this);
         
-        fetch("/modules/Seguridad/Archivo_Usuario.php?action=actualizar", {
+        fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=actualizar", {
             method: 'POST',
             body: formData
         })
@@ -248,7 +248,7 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
 
 window.eliminarRegistro = function(id) {
     if (confirm(`¿Estás seguro de que quieres desactivar el registro con ID ${id}?`)) {
-        fetch("/modules/Seguridad/Archivo_Usuario.php?action=desactivar", {
+        fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=desactivar", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -325,9 +325,9 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
 
     // --- CAMBIO AQUÍ: Lógica para elegir la URL de guardado o actualización ---
     if (modoEdicion) {
-        url = "/modules/Seguridad/Archivo_Usuario.php?action=actualizar";
+        url = "/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=actualizar";
     } else {
-        url = "/modules/Seguridad/Archivo_Usuario.php?action=guardar";
+        url = "/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=guardar";
     }
 
     fetch(url, {

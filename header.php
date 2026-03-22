@@ -1,6 +1,5 @@
 <?php
 date_default_timezone_set('America/Santo_Domingo');
-$path = "/Taller";
 ?>
 
 <link rel="stylesheet" href="/Taller/Taller-Mecanica/estilos.css">

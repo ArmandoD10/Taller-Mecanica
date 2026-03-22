@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
 ========================= */
 function cargarModulos(){
 
-    fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Permisos.php?action=modulos")
+    fetch("/modules/Seguridad/Archivo_Permisos.php?action=modulos")
     .then(res => res.json())
     .then(data => {
 
@@ -42,7 +42,7 @@ function cargarModulos(){
 ========================= */
 function cargarTablaNiveles(page = 1){
 
-    fetch(`/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Permisos.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
+    fetch(`/modules/Seguridad/Archivo_Permisos.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
     .then(res => res.json())
     .then(data => {
 
@@ -103,7 +103,7 @@ function guardarNivel(){
 
     modulos.forEach(m => formData.append("modulos[]", m));
 
-    fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Permisos.php?action=guardar", {
+    fetch("/modules/Seguridad/Archivo_Permisos.php?action=guardar", {
         method: "POST",
         body: formData
     })
@@ -153,7 +153,7 @@ function editarNivel(id){
     }
 
     // 🔥 4. CARGAR PERMISOS DESDE PHP
-    fetch(`/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Permisos.php?action=obtener_permisos&id_nivel=${id}`)
+    fetch(`/modules/Seguridad/Archivo_Permisos.php?action=obtener_permisos&id_nivel=${id}`)
     .then(res => res.json())
     .then(data => {
 

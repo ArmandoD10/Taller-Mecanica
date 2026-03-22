@@ -1,8 +1,9 @@
 <?php
 date_default_timezone_set('America/Santo_Domingo');
+$path = "/Taller";
 ?>
 
-<link rel="stylesheet" href="/Taller/Taller-Mecanica/estilos.css">
+<link rel="stylesheet" href="/estilos.css">
 
 <div class="header">
 
@@ -11,7 +12,7 @@ date_default_timezone_set('America/Santo_Domingo');
     </div>
 
     <div class="header-right">
-        <img src="/Taller/Taller-Mecanica/img/user.png" class="user-img">
+        <img src="/img/user.png" class="user-img">
     </div>
 
 </div>

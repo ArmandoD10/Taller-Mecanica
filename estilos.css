@@ -3,6 +3,7 @@
     --hover-blue: #1565c0;
     --bg-gray: #f8fafc;
     --white: #ffffff;
+    --sidebar-width: 270px;
 }
 
 body {
@@ -12,25 +13,17 @@ body {
     background-color: var(--bg-gray);
 }
 
-/* 2. Asegura que el contenido principal use todo el espacio */
-.contenido {
-    margin-left: 270px; /* Espacio fijo para el sidebar */
-    margin-top: 70px;
-    padding: 20px;
-    background-color: var(--bg-gray);
-    min-height: calc(100vh - 70px);
-    display: block; /* Cambiamos flex por block para que use todo el ancho */
-    width: auto; /* Deja que el navegador calcule el espacio restante */
-}
-
+/* --- SIDEBAR --- */
 .sidebar {
-    width: 270px;
+    width: var(--sidebar-width);
     height: 100vh;
     background: var(--primary-blue);
     color: var(--white);
-    position: sticky;
+    position: fixed; /* Mantenlo fijo para que no se mueva */
     top: 0;
+    left: 0;
     overflow-y: auto;
+    z-index: 1100;
 }
 
 .sidebar-header {
@@ -41,7 +34,33 @@ body {
 
 .logo-img { max-width: 100%; height: auto; }
 
-/* Estructura de Módulos */
+/* --- HEADER --- */
+.header {
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width);
+    right: 0;
+    height: 70px;
+    background: var(--primary-blue);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 25px;
+    color: white;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* --- CONTENIDO --- */
+.contenido {
+    margin-left: var(--sidebar-width);
+    margin-top: 70px;
+    padding: 25px;
+    flex-grow: 1;
+    min-height: calc(100vh - 70px);
+}
+
+/* --- LÓGICA DE SUBMENÚS (RESTAURADA) --- */
 .modulo-btn {
     width: 100%;
     padding: 15px 20px;
@@ -59,27 +78,24 @@ body {
 
 .modulo-btn:hover { background: var(--hover-blue); }
 
-.icono-modulo {
-    width: 22px;
-    height: 22px;
-    filter: brightness(0) invert(1); /* Convierte iconos a blanco */
-}
-
-/* Submenús */
 .modulo-content {
-    max-height: 0;
+    max-height: 0; /* Cerrado por defecto */
     overflow: hidden;
-    background: #1f2937;
-    transition: max-height 0.4s ease-out;
+    background: #1a2533; 
+    transition: max-height 0.4s ease-out; /* Animación de apertura */
     display: flex;
     flex-direction: column;
 }
 
+/* ESTO ES LO QUE HACÍA QUE ABRIERAN: */
 .modulo.active .modulo-content {
-    max-height: 500px; /* Expansión al hacer clic */
+    max-height: 1000px; /* Suficiente para mostrar todos los enlaces */
 }
 
-.modulo.active .modulo-btn { background: var(--hover-blue); font-weight: 600; }
+.modulo.active .modulo-btn { 
+    background: var(--hover-blue); 
+    font-weight: 600; 
+}
 
 .modulo-content a {
     padding: 12px 20px 12px 55px;
@@ -91,157 +107,113 @@ body {
 
 .modulo-content a:hover { background: rgba(255, 255, 255, 0.1); color: var(--white); }
 
-
-  .header {
-    position: fixed;
-    top: 0;
-    left: 270px; /* mismo ancho del sidebar */
-    right: 0;
-    height: 70px;
-    background: #0d47a1; /* mismo color del menú */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 25px;
-    color: white;
-    z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+/* --- ELEMENTOS ADICIONALES --- */
+.icono-modulo {
+    width: 22px;
+    height: 22px;
+    filter: brightness(0) invert(1);
 }
 
-.header-left {
-    font-size: 14px;
-    font-weight: 500;
+.container {
+    width: 100% !important;
+    max-width: 1300px !important;
+    margin: 0 auto !important;
 }
 
-.header-right {
-    display: flex;
-    align-items: center;
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
+    margin-bottom: 20px;
 }
 
+/* --- SWITCHES Y TABLAS --- */
+.fila-login { background-color: #d4edda !important; color: #155724 !important; }
+.fila-logout { background-color: #f8d7da !important; color: #721c24 !important; }
+
+.switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+.switch input { display: none; }
+.slider {
+    position: absolute; cursor: pointer; background-color: #ccc;
+    border-radius: 24px; top: 0; left: 0; right: 0; bottom: 0; transition: 0.4s;
+}
+.slider:before {
+    position: absolute; content: ""; height: 18px; width: 18px;
+    left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.4s;
+}
+input:checked + .slider { background-color: #28a745; }
+input:checked + .slider:before { transform: translateX(26px); }
+
+/* --- AJUSTE DE IMÁGENES Y LOGOS --- */
+.logo-img { 
+    max-width: 100%; 
+    height: auto; 
+    display: block;
+    margin: 0 auto;
+}
+
+/* Ajuste específico para la Lupa y otros iconos de filtro */
+.icono-filtro {
+    width: 20px !important;  /* Tamaño pequeño para que no rompa el input */
+    height: 20px !important;
+    object-fit: contain;
+    opacity: 0.6;
+}
+
+/* Si usas iconos dentro de los inputs de búsqueda */
+.input-group-text img {
+    width: 18px;
+    height: 18px;
+}
+
+/* --- REPARACIÓN DEL HEADER (Logo y Usuario) --- */
 .user-img {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
     cursor: pointer;
-    border: 2px solid #444;
+    border: 2px solid rgba(255,255,255,0.2);
 }
 
-/* Ajuste para que el contenido no tape el sidebar y se centre */
+/* --- ESPACIADO DE BOTONES --- */
+/* .gap-2 {
+    gap: 15px !important; /* Aumenta el espacio entre botones */
+/* } */
 
-/* Contenedor del formulario con estilo de "Tarjeta" */
-/* 1. Haz que el contenedor ocupe casi todo el ancho disponible */
-/* Modifica esta regla para expandir el formulario */
-/* Expandimos la tarjeta blanca */
-
-/* Títulos más limpios */
-h2 {
-    color: var(--primary-blue);
-    font-weight: 600;
-    margin-bottom: 10px;
+#filtro {
+    max-width: 900px; /* Puedes ajustar este número a tu gusto */
+    margin-bottom: 0; /* Alineación limpia con otros elementos */
 }
 
-/* Reemplazo para la línea de guiones (hr) */
-.separador-limpio {
-    border: none;
-    border-top: 2px solid #e2e8f0;
-    margin-bottom: 25px;
-}
-
-/* Ajuste de la Lupa */
-.icono-filtro {
-    width: 20px;  /* Tamaño pequeño para la lupa */
-    height: 20px;
-    object-fit: contain;
-    opacity: 0.6;
-}
-
-/* Estilo para los inputs y selects */
-.form-control, .form-select {
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    padding: 10px;
-}
-
-.form-control:focus {
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
-}
-
-/* Botones con mejor espacio */
-.gap-0 {
-    gap: 15px !important; /* Añadimos espacio entre botones */
-}
-
-/* 2. Hacemos que la tarjeta del formulario sea gigante */
-.container{
-    width: 100% !important;   /* Ocupa el 100% del espacio disponible */
-    max-width: 95% !important; /* Un margen pequeño a los lados para que no toque los bordes */
-    margin-left: auto !important;
-    margin-right: auto !important;
-    background: #ffffff;
-    padding: 40px !important;
-    border-radius: 12px;
-}
-
-/* LOGIN = VERDE */
+/* Color para Login (Verde suave) */
 .fila-login {
-    background-color: #d4edda !important;
-    color: #179c36;
+    background-color: #d1e7dd !important; /* Fondo verde claro */
+    color: #0f5132 !important;           /* Texto verde oscuro */
 }
 
-/* LOGOUT = ROJO */
+/* Color para Logout (Rojo suave) */
 .fila-logout {
-    background-color: #f8d7da !important;
-    color: #c61d2e;
+    background-color: #f8d7da !important; /* Fondo rojo claro */
+    color: #842029 !important;           /* Texto rojo oscuro */
 }
 
-.switch-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: bold;
-}
+/* Efecto opcional para que al pasar el mouse no se pierda el color */
+.fila-login:hover { background-color: #c1d9ce !important; }
+.fila-logout:hover { background-color: #f1c1c5 !important; }
 
-.switch {
-    position: relative;
+.titulo-seccion {
     display: inline-block;
-    width: 50px;
-    height: 24px;
+    position: relative;
+    padding-bottom: 8px;
 }
 
-.switch input {
-    display: none;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    background-color: #ccc;
-    border-radius: 24px;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    transition: 0.4s;
-}
-
-.slider:before {
-    position: absolute;
+.titulo-seccion::after {
     content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    border-radius: 50%;
-    transition: 0.4s;
-}
-
-input:checked + .slider {
-    background-color: #28a745;
-}
-
-input:checked + .slider:before {
-    transform: translateX(26px);
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--primary-blue);
 }

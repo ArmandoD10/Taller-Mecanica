@@ -44,6 +44,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MEmpleado.php">Empleados</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSucursal.php">Sucursales</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MDepartamento.php">Departamentos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSueldoSeguro.php">Sueldos y Seguros</a>
@@ -72,7 +73,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MVehiculo.php">Registro de Vehículos</a>
-                    <?php if ($nivelAcceso === "Administrador") : ?>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MMarcaModelo.php">Marcas y Modelos</a>
                     <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Historial Vehiculo</a>

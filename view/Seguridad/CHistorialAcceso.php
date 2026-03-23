@@ -10,24 +10,28 @@ require("../../header.php");
 
             <div class="mt-5">
                 <h2>Consulta de Registros</h2>
-                <div class="mb-3 d-flex align-items-center gap-2">
-                    <input type="text" class="form-control" id="filtro" placeholder="Escribe para filtrar...">
-                    <img src="/Restaurante AD/Imagenes/lupa.png" alt="Icono de filtro" class="icono-filtro">
-                    <!-- SWITCH -->
-                    <div class="switch-container">
-                        <span id="label-left">ID</span>
+                <div class="mb-3 d-flex align-items-center gap-3">
+    
+                    <div class="input-group" style="width: 50%; min-width: 400px;">
+                        <span class="input-group-text bg-white border-end-0">
+                            <img src="/Restaurante AD/Imagenes/lupa.png" alt="Lupa" class="icono-filtro">
+                        </span>
+                        <input type="text" class="form-control border-start-0 ps-0" id="filtro" placeholder="Escribe para filtrar...">
+                    </div>
 
+                    <div class="switch-container d-flex align-items-center gap-2 ms-2">
+                        <span class="fw-bold small">ID</span>
                         <label class="switch">
                             <input type="checkbox" id="tipoFiltro">
                             <span class="slider"></span>
                         </label>
-
-                        <span id="label-right">Username</span>
+                        <span class="fw-bold small">Username</span>
                     </div>
-                    
+
                     <button class="btn btn-primary" id="btnBuscar">
                         Imprimir Reporte
                     </button>
+
                 </div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mt-4" id="tabladatos">

@@ -183,6 +183,10 @@ require("../../header.php");
                             <input class="form-check-input" type="radio" name="criterioFiltro" id="radioCedula" value="cedula">
                             <label class="form-check-label small" for="radioCedula">Cédula</label>
                         </div>
+
+                        <button class="btn btn-primary" id="btnBuscar">
+                                Imprimir Reporte
+                            </button>
                     </div>
                 </div>
                 <div class="table-responsive">

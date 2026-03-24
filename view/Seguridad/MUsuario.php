@@ -75,6 +75,10 @@ require("../../header.php");
                         <span class="fw-bold small">Nivel</span>
                     </div>
 
+                    <button class="btn btn-primary" id="btnBuscar">
+                        Imprimir Reporte
+                    </button>
+
                 </div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mt-4" id="tabladatos">

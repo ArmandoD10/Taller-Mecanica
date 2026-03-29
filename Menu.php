@@ -54,6 +54,7 @@ $stats = [
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MEmpleado.php">Empleados</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSucursal.php">Sucursales</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MDepartamento.php">Departamentos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSueldoSeguro.php">Sueldos y Seguros</a>
@@ -208,6 +209,9 @@ $stats = [
                 <?php endif; ?>
                 <?php if (in_array("Membresia", $modulos)) : ?>
                 <a href="#"><i class="fas fa-credit-card"></i> Membresías</a>
+                <?php endif; ?>
+                <?php if (in_array("Evaluacion", $modulos)) : ?>
+                <a href="#"><i class="fas fa-poll-h"></i> Evaluación</a>
                 <?php endif; ?>
                 <?php if (in_array("Ofertas", $modulos)) : ?>
                 <a href="#"><i class="fas fa-percentage"></i> Ofertas</a>

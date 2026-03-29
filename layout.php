@@ -45,6 +45,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MEmpleado.php">Empleados</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSucursal.php">Sucursales</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MDepartamento.php">Departamentos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSueldoSeguro.php">Sueldos y Seguros</a>
@@ -132,7 +133,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Gestion de pago credito</a>
-                    <?php if ($nivelAcceso === "Administrador") : ?>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/RFactura.php">Reportes de Ventas (NCF)</a>
                     <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialFactura.php">Historial Factura</a>

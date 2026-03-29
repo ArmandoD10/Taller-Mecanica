@@ -91,7 +91,7 @@ function cargarUsuariosEmpleado(){
                 <td>${reg.username}</td>
                 <td>${reg.nivel}</td>
                 <td>
-                    <span class="${reg.estado === 'activo' ? 'text-success' : 'text-warning'} fw-bold">
+                    <span class="badge rounded-pill bg-success">
                         ${reg.estado}
                     </span>
                 </td>

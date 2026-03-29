@@ -56,11 +56,13 @@ function buscarEmpleado($conexion){
 
     $sql = "SELECT 
                 e.id_empleado,
+                p.cedula,
                 CONCAT(p.nombre, ' ', p.apellido_p) AS nombre
             FROM empleado e
             INNER JOIN persona p ON e.id_persona = p.id_persona
             WHERE 
                 e.id_empleado = '$filtro'
+                OR p.cedula LIKE '%$filtro%'
                 OR p.nombre LIKE '%$filtro%'
                 OR p.apellido_p LIKE '%$filtro%'
             LIMIT 1";

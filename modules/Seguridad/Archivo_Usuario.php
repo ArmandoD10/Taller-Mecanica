@@ -22,6 +22,9 @@ switch ($action) {
     case 'desactivar':
         desactivar($conexion);
         break;
+    case 'generar_username':
+        generar_username($conexion);
+        break;
     case 'niveles':
         niveles($conexion);
         break;
@@ -93,6 +96,19 @@ function guardar($conexion) {
         if (empty($nombre) || empty($contrasena) || empty($correo)) {
             echo json_encode(['success' => false, 'message' => 'Faltan datos para guardar.']);
             exit;
+        }
+
+        // 🔴 AQUÍ VA TU VALIDACIÓN DE DUPLICADO 👇
+        $checkCorreo = "SELECT COUNT(*) as total FROM usuario WHERE correo_org = '$correo'";
+        $resultCorreo = $conexion->query($checkCorreo);
+        $rowCorreo = $resultCorreo->fetch_assoc();
+
+        if ($rowCorreo['total'] > 0) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Correo ya existente.'
+            ]);
+            exit; // 🚨 DETIENE TODO
         }
     
         $sql = "INSERT INTO usuario (username, password_hash, correo_org, id_nivel, interfaz_acceso, estado, fecha_creacion, usuario_creacion, id_organizacion)
@@ -237,4 +253,36 @@ function niveles($conexion){
 
     echo json_encode($niveles);
 }
+
+function generar_username($conexion) {
+
+    $sql = "SELECT username FROM usuario 
+            WHERE username LIKE 'DP%' 
+            ORDER BY username DESC 
+            LIMIT 1";
+
+    $resultado = $conexion->query($sql);
+
+    if ($resultado && $fila = $resultado->fetch_assoc()) {
+        $ultimo = $fila['username']; // Ej: DP0005
+
+        // Extraer número
+        $numero = (int) substr($ultimo, 2); // 5
+
+        $nuevoNumero = $numero + 1;
+
+        // Formatear con ceros
+        $nuevoUsername = "DP" . str_pad($nuevoNumero, 4, "0", STR_PAD_LEFT);
+
+    } else {
+        // Si no hay registros
+        $nuevoUsername = "DP0001";
+    }
+
+    echo json_encode([
+        'success' => true,
+        'username' => $nuevoUsername
+    ]);
+}
 ?>
+

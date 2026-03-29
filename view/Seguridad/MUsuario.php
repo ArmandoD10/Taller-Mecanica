@@ -15,7 +15,7 @@ require("../../header.php");
             <div class="col-md-6 d-flex flex-column">
                 <div class="mb-3">
                     <label for="nombre" class="form-label" style="color: var(--primary-blue)">Nombre de Usuario</label>
-                    <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ingrese el nombre">
+                    <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ingrese el nombre" readonly>
                 </div>
                 <div class="mb-3">
                     <label for="contrasena" class="form-label" style="color: var(--primary-blue)">Contrasena</label>
@@ -30,9 +30,23 @@ require("../../header.php");
             
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label for="emailempleado" class="form-label" style="color: var(--primary-blue)">Correo Organizativo</label>
-                    <input type="email" class="form-control" id="correo" name="correo" placeholder="Ingrese el correo">
-                </div>  
+                        <label class="form-label" style="color: var(--primary-blue)">
+                            Correo Organizativo
+                        </label>
+
+                        <div class="input-group">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="correo_usuario" 
+                                placeholder="usuario"
+                            >
+                            <span class="input-group-text">@dp.com.do</span>
+                        </div>
+
+                        <!-- Este es el que se envía -->
+                        <input type="hidden" id="correo" name="correo">
+                    </div>
                 <div class="mb-3">
                     <label for="nivel" class="form-label" style="color: var(--primary-blue)">Nivel de Acceso</label>
                     <select class="form-select" id="nivel" name="nivel">

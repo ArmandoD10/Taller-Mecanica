@@ -174,9 +174,6 @@ function cargar_ciudades($conexion) {
 //////////////////////////////////////////////////////////
 function guardar($conexion) {
 
-    try {
-        $conexion->begin_transaction();
-
         // 🔐 USUARIO DE SESIÓN
         $usuario_creacion = $_SESSION['id_usuario'] ?? null;
 
@@ -216,6 +213,27 @@ function guardar($conexion) {
         $puesto = $_POST['puesto'];
         $sueldo = $_POST['sueldo'];
 
+        if (
+            $nombre1 === "" ||
+            $apellido_p === "" ||
+            $cedula === "" ||
+            $correo === "" ||
+            $telefono === "" ||
+            $puesto === "" ||
+            $fecha_nacimiento === "" ||
+            $nombre_e === "" ||
+            $telefono_e === "" ||
+            $sueldo === ""
+        ) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Por favor complete todos los campos obligatorios'
+            ]);
+            exit;
+        }
+
+    try {
+    $conexion->begin_transaction();
         //////////////////////////////////////////////////
         // 🏠 DIRECCION
         //////////////////////////////////////////////////

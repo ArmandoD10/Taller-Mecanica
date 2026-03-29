@@ -217,3 +217,46 @@ input:checked + .slider:before { transform: translateX(26px); }
     height: 2px;
     background-color: var(--primary-blue);
 }
+
+/* Colores de las Cards de Indicadores */
+.card-kpi {
+    border: none;
+    border-left: 5px solid;
+    border-radius: 8px;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+}
+
+.icon-circle {
+    height: 3rem;
+    width: 3rem;
+    border-radius: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+/* Variantes de color suaves para los iconos */
+.bg-info-light { background-color: #e3f2fd; color: #0dcaf0; }
+.bg-success-light { background-color: #e8f5e9; color: #198754; }
+.bg-danger-light { background-color: #ffebee; color: #dc3545; }
+.bg-warning-light { background-color: #fffde7; color: #ffc107; }
+
+/* Estilo de la cabecera de la tabla según la imagen */
+.table-header-custom {
+    background-color: #1a3c6d; /* Azul oscuro taller */
+    color: #ffffff;
+}
+
+.table-header-custom th {
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    padding: 12px;
+}
+
+/* Ajustes de inputs */
+.form-control:focus, .form-select:focus {
+    border-color: #1a3c6d;
+    box-shadow: 0 0 0 0.25rem rgba(26, 60, 109, 0.1);
+}

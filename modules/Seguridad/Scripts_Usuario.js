@@ -1,7 +1,7 @@
 // Función para limpiar el formulario de registro de clientes
 function limpiarFormulario() {
     const campos = document.querySelectorAll("input, textarea, select");
-
+    generarUsername()
     campos.forEach(campo => {
         switch(campo.type) {
             case "checkbox":
@@ -13,6 +13,19 @@ function limpiarFormulario() {
         }
     });
 }
+
+document.getElementById("correo_usuario").addEventListener("input", function () {
+    const usuario = this.value.trim();
+    document.getElementById("correo").value = usuario + "@dp.com.do";
+});
+
+document.getElementById("correo_usuario").addEventListener("input", function () {
+    // Eliminar todo lo que NO sea letras o números
+    this.value = this.value.replace(/[^a-zA-Z0-9]/g, "");
+
+    // Construir correo completo
+    document.getElementById("correo").value = this.value + "@dp.com.do";
+});
 
 //---------------------------------------------------------
 
@@ -139,8 +152,16 @@ window.editarRegistro = function(id) {
         document.getElementById('id_oculto').value = proveedorParaEditar.id_usuario;
         document.getElementById('nombre').value = proveedorParaEditar.username;
         document.getElementById('nivel').value = proveedorParaEditar.id_nivel;
-        document.getElementById('correo').value = proveedorParaEditar.correo_org;
         document.getElementById('interfaz').value = proveedorParaEditar.interfaz_acceso  ;
+
+        // 🔥 AQUÍ ESTÁ LA CLAVE
+        const correoCompleto = proveedorParaEditar.correo_org;
+
+        if (correoCompleto) {
+            const usuarioCorreo = correoCompleto.split("@")[0]; // ← solo lo de antes
+            document.getElementById('correo_usuario').value = usuarioCorreo;
+            document.getElementById('correo').value = correoCompleto;
+        }
         
         document.getElementById('btnMostrar').textContent = 'Actualizar';
         modoEdicion = true;
@@ -377,6 +398,21 @@ function filtrarTabla() {
 
         fila.style.display = valor.includes(texto) ? "" : "none";
     });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    generarUsername();
+});
+
+function generarUsername() {
+    fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=generar_username")
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById("nombre").value = data.username;
+            }
+        })
+        .catch(error => console.error("Error:", error));
 }
 
 document.getElementById("filtro").addEventListener("keyup", filtrarTabla);

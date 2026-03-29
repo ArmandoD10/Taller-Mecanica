@@ -77,6 +77,7 @@ function cargarTabla(page = 1) {
 //---------------------------------------------------------
 function renderizarTabla(lista) {
     const tbody = document.getElementById("cuerpo-tabla");
+    
     tbody.innerHTML = "";
 
     lista.forEach(emp => {
@@ -88,7 +89,7 @@ function renderizarTabla(lista) {
             <td>${emp.cedula}</td>
             <td>${emp.puesto}</td>
             <td>${emp.sueldo}</td>
-            <td>${emp.estado}</td>
+            <td><span class="badge rounded-pill bg-success">${emp.estado}</td>
             <td>
                 <button class="btn btn-warning btn-sm" onclick="editarRegistro(${emp.id_empleado})">
                     <i class="fas fa-edit"></i>

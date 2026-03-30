@@ -77,10 +77,12 @@ function cargarTabla(page = 1) {
 //---------------------------------------------------------
 function renderizarTabla(lista) {
     const tbody = document.getElementById("cuerpo-tabla");
-    
     tbody.innerHTML = "";
 
     lista.forEach(emp => {
+        // Determinamos el color: verde para activo, rojo para inactivo
+        const colorBadge = emp.estado.toLowerCase() === 'activo' ? 'bg-success' : 'bg-danger';
+        
         const fila = document.createElement("tr");
         fila.innerHTML = `
             <td>${emp.id_empleado}</td>
@@ -89,7 +91,7 @@ function renderizarTabla(lista) {
             <td>${emp.cedula}</td>
             <td>${emp.puesto}</td>
             <td>${emp.sueldo}</td>
-            <td><span class="badge rounded-pill bg-success">${emp.estado}</td>
+            <td><span class="badge rounded-pill ${colorBadge}">${emp.estado}</span></td>
             <td>
                 <button class="btn btn-warning btn-sm" onclick="editarRegistro(${emp.id_empleado})">
                     <i class="fas fa-edit"></i>
@@ -409,5 +411,45 @@ document.addEventListener("DOMContentLoaded", function() {
 
             e.target.value = formateado;
         });
+    });
+});
+
+// Confirmacion antes de guardar o actualizar al inactivar.
+document.getElementById("formulario").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    // --- NUEVA LÓGICA DE CONFIRMACIÓN ---
+    if (modoEdicion) {
+        // Buscamos el radio de inactivo
+        const estaInactivo = document.getElementById("inactivo").checked;
+        
+        if (estaInactivo) {
+            const respuesta = confirm("¿Está seguro de que desea inactivar a este empleado? El usuario ya no aparecerá en las listas operativas.");
+            if (!respuesta) {
+                return; // Si el usuario cancela, detenemos el envío del formulario
+            }
+        }
+    }
+    // ------------------------------------
+
+    const formData = new FormData(this);
+
+    let url = modoEdicion
+        ? "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Empleado.php?action=actualizar"
+        : "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Empleado.php?action=guardar";
+
+    fetch(url, {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            limpiarFormulario();
+            location.reload();
+        } else {
+            alert("Error: " + data.message);
+        }
     });
 });

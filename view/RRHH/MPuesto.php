@@ -5,50 +5,21 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container">
-        <h2 class="mb-4">Gestion de Sucursales</h2>
+        <h2 class="mb-4">Gestion de Puestos</h2>
         <!-- <h3 class="mb-4">_______________________________________________________________________________________________</h3> -->
         
-        <form method="POST" action="/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Sucursal.php?action=guardar" id="formulario">
-            <input type="hidden" id="id_oculto" name="id_sucursal">
+        <form method="POST" action="/Taller/Taller-Mecanica/modules/RRHH/Archivo_Puesto.php?action=guardar" id="formulario">
+            <input type="hidden" id="id_oculto" name="id_puesto">
             <div class="row">
             
-            <h3 class="titulo-seccion">Datos Sucursal</h3>
+            <h3 class="titulo-seccion">Datos Puesto</h3>
             <div class="col-md-6 d-flex flex-column">
                 <div class="mb-3 mt-2">
-                    <label for="primer_nombre" class="form-label" style="color: var(--primary-blue)">Nombre otorgado a la Sucursal</label>
-                    <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ingrese el nombre de la sucursal">
+                    <label for="primer_nombre" class="form-label" style="color: var(--primary-blue)">Nombre otorgado al Puesto</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ingrese el nombre del puesto">
                 </div>
-                
-            </div> 
 
-            <div class="col-md-6">
-                
-                <div class="mb-3 mt-2">
-                    <label for="emailempleado" class="form-label" style="color: var(--primary-blue)">Telefono extension de sucursal</label>
-                    <input type="text" class="form-control f-telefono" id="telefono" name="telefono" placeholder="Ingrese el teléfono">
-                </div>  
-    
-            </div>
-
-            <!-- ================= DATOS Direccion ================= -->
-                <h3 class="mt-4 titulo-seccion">Datos de Ubicacion</h3>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3 mt-2">
-                            <label for="puesto" class="form-label" style="color: var(--primary-blue)">Pais</label>
-                            <select class="form-select" id="pais" name="pais">
-                                <option value="" selected disabled>Selecciona una opción</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="sueldo" class="form-label" style="color: var(--primary-blue)">Provincia</label>
-                            <select class="form-select" id="provincia" name="provincia">
-                                <option value="" selected disabled>Selecciona una opción</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3 d-none" id="contenedor-estado">
+                <div class="mb-3 d-none" id="contenedor-estado">
                             <label class="form-label" style="color: var(--primary-blue); display: block;">Estado</label>
                             
                             <div class="form-check form-check-inline">
@@ -61,22 +32,16 @@ require("../../header.php");
                                 <label class="form-check-label" for="inactivo">Inactivo</label>
                             </div>
                         </div>
-                    </div>
-                
-                    <div class="col-md-6">
-                        <div class="mb-3 mt-2">
-                            <label for="sueldo" class="form-label" style="color: var(--primary-blue)">Ciudad</label>
-                            <select class="form-select" id="ciudad" name="ciudad">
+            </div> 
+
+            <div class="col-md-6">
+                <div class="mb-3 mt-2">
+                            <label for="sueldo" class="form-label" style="color: var(--primary-blue)">Departamento</label>
+                            <select class="form-select" id="departamento" name="departamento">
                                 <option value="" selected disabled>Selecciona una opción</option>
                             </select>
                         </div>
-
-                        <div class="mb-3">
-                            <label for="direccion" class="form-label" style="color: var(--primary-blue)">Direccion</label>
-                            <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Ingrese la dirección">
-                        </div>
-                    </div>
-                </div>
+            </div>
 
             
             <div class="d-flex gap-4 mb-4 mt-4">
@@ -98,18 +63,13 @@ require("../../header.php");
                         <span class="fw-bold small">Filtrar por:</span>
                         
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="criterioFiltro" id="radioId" value="id_sucursal" checked>
+                            <input class="form-check-input" type="radio" name="criterioFiltro" id="radioId" value="id_puesto" checked>
                             <label class="form-check-label small" for="radioId">Codigo</label>
                         </div>
                         
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="criterioFiltro" id="radioNombre" value="nombre">
                             <label class="form-check-label small" for="radioNombre">Nombre</label>
-                        </div>
-                        
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="criterioFiltro" id="radioCedula" value="ciudad">
-                            <label class="form-check-label small" for="radioCiudad">Ciudad</label>
                         </div>
 
                         <button class="btn btn-primary" id="btnBuscar">
@@ -121,11 +81,10 @@ require("../../header.php");
                     <table class="table table-striped table-hover mt-4" id="tabladatos">
                         <thead class="table-dark">
                             <tr>
-                                <th>Codigo Sucursal</th>
-                                <th class="p-2">Nombre Sucursal</th>
-                                <th class="p-2">Telefono Ext</th>
-                                <th>Direccion</th>
-                                <th>Ciudad</th>
+                                <th>Codigo</th>
+                                <th class="p-2">Nombre Puesto</th>
+                                <th>Departamento</th>
+                                <th>Fecha Creacion</th>
                                 <th>Estado</th>
                                 <th></th>
                             </tr>
@@ -143,7 +102,7 @@ require("../../header.php");
     </div>
 </main>
 
-<script src="/Taller/Taller-Mecanica/modules/RRHH/Scripts_Sucursal.js"></script>
+<script src="/Taller/Taller-Mecanica/modules/RRHH/Scripts_Puesto.js"></script>
 
 </body>
 </html>

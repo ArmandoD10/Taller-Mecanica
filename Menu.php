@@ -53,11 +53,12 @@ $stats = [
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MEmpleado.php">Empleados</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSucursal.php">Sucursales</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MDepartamento.php">Departamentos</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/MSueldoSeguro.php">Sueldos y Seguros</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/MPuesto.php">Puestos</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">As. Departamento</a>
                 </div>
             </div>
             <?php endif; ?>

@@ -3,10 +3,20 @@ include("../../controller/conexion.php");
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? '';
+session_start();
 
 switch ($action) {
+    case 'cargar_selects':
+        cargar_selects($conexion);
+        break;
     case 'cargar':
         cargar($conexion);
+        break;
+    case 'cargar_provincias':
+        cargar_provincias($conexion);
+        break;
+    case 'cargar_ciudades':
+        cargar_ciudades($conexion);
         break;
     case 'guardar':
         guardar($conexion);
@@ -14,206 +24,239 @@ switch ($action) {
     case 'actualizar':
         actualizar($conexion);
         break;
-    case 'cambiar_estado':
-        cambiar_estado($conexion);
-        break;
     default:
-        echo json_encode(['success' => false, 'message' => 'Acción no válida.']);
+        echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
 }
 
 function cargar($conexion) {
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 6;
-    $offset = ($page - 1) * $limit;
-
-    $count_sql = "SELECT COUNT(*) as total FROM Cliente";
-    $count_result = $conexion->query($count_sql);
-    $total_rows = $count_result ? $count_result->fetch_assoc()['total'] : 0;
-
-    $clientes = [];
-    
     $sql = "SELECT 
-                c.id_cliente, 
-                p.nombre, 
-                p.apellido_p AS apellido, 
-                p.cedula AS cedula_rnc, 
-                p.email AS correo, 
-                d.Descripcion AS direccion, 
-                c.estado, 
-                c.fecha_creacion AS fecha_registro,
-                (SELECT t.numero 
-                 FROM Telefono t 
-                 JOIN Cliente_Telefono ct ON t.id_telefono = ct.id_telefono 
-                 WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'activo' LIMIT 1) AS telefono
-            FROM Cliente c
-            INNER JOIN Persona p ON c.id_persona = p.id_persona
-            INNER JOIN Direccion d ON p.id_direccion = d.id_direccion
-            ORDER BY c.id_cliente DESC
-            LIMIT $limit OFFSET $offset";
+            c.id_cliente,
+            -- PERSONA
+            p.tipo_persona, 
+            p.nombre,
+            p.apellido_p,
+            p.apellido_m,
+            p.cedula,
+            p.email,
+            p.fecha_nacimiento,
+            p.sexo,
+            p.nacionalidad,
+            -- DIRECCION
+            d.descripcion AS direccion,
+            ci.id_ciudad,
+            ci.nombre AS ciudad,
+            pr.id_provincia,
+            pr.nombre AS provincia,
+            pa.id_pais,
+            pa.nombre AS pais,
+            -- TELEFONO CLIENTE
+            (SELECT t.numero 
+             FROM Telefono t 
+             JOIN Cliente_Telefono ct ON t.id_telefono = ct.id_telefono 
+             WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'activo' LIMIT 1) AS telefono,
+            -- CLIENTE
+            c.limite_credito,
+            c.estado,
+            c.fecha_creacion AS fecha_registro
+        FROM Cliente c
+        JOIN Persona p ON c.id_persona = p.id_persona
+        JOIN Direccion d ON p.id_direccion = d.id_direccion
+        JOIN Ciudad ci ON d.id_ciudad = ci.id_ciudad
+        JOIN Provincia pr ON ci.id_provincia = pr.id_provincia
+        JOIN Pais pa ON pr.id_pais = pa.id_pais
+        ORDER BY c.id_cliente DESC";
 
     $resultado = $conexion->query($sql);
-
-    if ($resultado && $resultado->num_rows > 0) {
+    $data = [];
+    if ($resultado) {
         while ($fila = $resultado->fetch_assoc()) {
-            $clientes[] = $fila;
+            $data[] = $fila;
         }
     }
 
-    echo json_encode([
-        'data' => $clientes,
-        'total_records' => (int)$total_rows,
-        'page' => $page,
-        'limit' => $limit
-    ]);
+    echo json_encode(['success' => true, 'data' => $data]);
+}
+
+function cargar_selects($conexion) {
+    $data = [];
+    $res = $conexion->query("SELECT id_pais, nombre FROM Pais ORDER BY nombre ASC");
+    if($res) $data['pais'] = $res->fetch_all(MYSQLI_ASSOC);
+
+    echo json_encode(['success' => true, 'data' => $data]);
+}
+
+function cargar_provincias($conexion) {
+    $id_pais = $_GET['id_pais'] ?? 0;
+    $stmt = $conexion->prepare("SELECT id_provincia, nombre FROM Provincia WHERE id_pais=?");
+    $stmt->bind_param("i", $id_pais);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    echo json_encode($result);
+}
+
+function cargar_ciudades($conexion) {
+    $id_provincia = $_GET['id_provincia'] ?? 0;
+    $stmt = $conexion->prepare("SELECT id_ciudad, nombre FROM Ciudad WHERE id_provincia=?");
+    $stmt->bind_param("i", $id_provincia);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    echo json_encode($result);
 }
 
 function guardar($conexion) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $nombre = $conexion->real_escape_string($_POST['nombre'] ?? '');
-        $apellido = $conexion->real_escape_string($_POST['apellido'] ?? '');
-        $cedula = $conexion->real_escape_string($_POST['cedula_rnc'] ?? '');
-        $telefono = $conexion->real_escape_string($_POST['telefono'] ?? '');
-        $correo = $conexion->real_escape_string($_POST['correo'] ?? '');
-        $direccion = $conexion->real_escape_string($_POST['direccion'] ?? 'No especificada');
-        
-        $id_ciudad = 1; 
-        $nacionalidad = 1; 
-        $fecha_nac = '2000-01-01'; 
-        $usuario_creacion = 1; 
+    $usuario_creacion = $_SESSION['id_usuario'] ?? 1; 
 
-        if (empty($nombre) || empty($cedula)) {
-            echo json_encode(['success' => false, 'message' => 'Nombre y Cédula son obligatorios.']);
-            exit;
-        }
+    // Recibimos si es física o jurídica desde el formulario
+    $tipo_persona_input = $_POST['tipo_persona'] ?? 'fisica';
+    $es_empresa = ($tipo_persona_input === 'juridica');
+    
+    // Valor exacto para el ENUM de la base de datos
+    $tipo_persona_db = $es_empresa ? 'Juridica' : 'Fisica';
 
-        $check = "SELECT id_persona FROM Persona WHERE cedula = '$cedula'";
-        $result = $conexion->query($check);
-        if ($result && $result->num_rows > 0) {
-            echo json_encode(['success' => false, 'message' => 'Este RNC o Cédula ya está registrado.']);
-            exit;
-        }
+    $nombre = $_POST['nombre'] ?? '';
+    $apellido_p = $es_empresa ? '' : ($_POST['apellido_p'] ?? '');
+    $apellido_m = $es_empresa ? '' : ($_POST['apellido_m'] ?? '');
+    $sexo = $es_empresa ? NULL : ($_POST['sexo'] ?? '');
+    
+    $cedula = $_POST['cedula'] ?? '';
+    $correo = $_POST['correo'] ?? '';
+    $fecha_nacimiento = $_POST['fecha_nacimiento'] ?? '';
+    $nacionalidad = $_POST['nacionalidad'] ?? '';
 
+    $id_ciudad = $_POST['ciudad'] ?? '';
+    $direccion = $_POST['direccion'] ?? '';
+    $telefono = $_POST['telefono'] ?? '';
+
+    if (empty($nombre) || empty($cedula) || empty($id_ciudad) || empty($fecha_nacimiento) || (!$es_empresa && empty($apellido_p))) {
+        echo json_encode(['success' => false, 'message' => 'Por favor complete todos los campos obligatorios']);
+        exit;
+    }
+
+    try {
         $conexion->begin_transaction();
 
-        try {
-            $sqlDir = "INSERT INTO Direccion (id_ciudad, Descripcion, estado) VALUES ($id_ciudad, '$direccion', 'activo')";
-            $conexion->query($sqlDir);
-            $id_direccion = $conexion->insert_id;
+        $sql = "INSERT INTO Direccion (id_ciudad, Descripcion, estado) VALUES (?, ?, 'activo')";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("is", $id_ciudad, $direccion);
+        $stmt->execute();
+        $id_direccion = $conexion->insert_id;
 
-            $sqlPersona = "INSERT INTO Persona (nombre, apellido_p, cedula, email, fecha_nacimiento, id_direccion, nacionalidad, estado)
-                           VALUES ('$nombre', '$apellido', '$cedula', '$correo', '$fecha_nac', $id_direccion, $nacionalidad, 'activo')";
-            $conexion->query($sqlPersona);
-            $id_persona = $conexion->insert_id;
+        $sql = "INSERT INTO Persona (tipo_persona, nombre, apellido_p, apellido_m, sexo, cedula, email, fecha_nacimiento, id_direccion, nacionalidad, estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("ssssssssii", $tipo_persona_db, $nombre, $apellido_p, $apellido_m, $sexo, $cedula, $correo, $fecha_nacimiento, $id_direccion, $nacionalidad);
+        $stmt->execute();
+        $id_persona = $conexion->insert_id;
 
-            $sqlCliente = "INSERT INTO Cliente (id_persona, fecha_creacion, usuario_creacion, estado)
-                           VALUES ($id_persona, NOW(), $usuario_creacion, 'activo')";
-            $conexion->query($sqlCliente);
-            $id_cliente = $conexion->insert_id;
+        $sql = "INSERT INTO Cliente (id_persona, limite_credito, fecha_creacion, usuario_creacion, estado)
+                VALUES (?, 0.00, NOW(), ?, 'activo')";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("ii", $id_persona, $usuario_creacion);
+        $stmt->execute();
+        $id_cliente = $conexion->insert_id;
 
-            if (!empty($telefono)) {
-                $sqlTel = "INSERT INTO Telefono (numero, estado) VALUES ('$telefono', 'activo')";
-                $conexion->query($sqlTel);
-                $id_telefono = $conexion->insert_id;
+        if (!empty($telefono)) {
+            $sql = "INSERT INTO Telefono (numero, estado) VALUES (?, 'activo')";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("s", $telefono);
+            $stmt->execute();
+            $id_telefono = $conexion->insert_id;
 
-                $sqlCliTel = "INSERT INTO Cliente_Telefono (id_cliente, id_telefono, fecha_creacion, estado)
-                              VALUES ($id_cliente, $id_telefono, NOW(), 'activo')";
-                $conexion->query($sqlCliTel);
-            }
-
-            $conexion->commit();
-            echo json_encode(['success' => true, 'message' => 'Cliente registrado con éxito.']);
-
-        } catch (Exception $e) {
-            $conexion->rollback();
-            echo json_encode(['success' => false, 'message' => 'Error al guardar: ' . $e->getMessage()]);
+            $sql = "INSERT INTO Cliente_Telefono (id_cliente, id_telefono, fecha_creacion, estado) VALUES (?, ?, NOW(), 'activo')";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("ii", $id_cliente, $id_telefono);
+            $stmt->execute();
         }
+
+        $conexion->commit();
+        echo json_encode(['success' => true, 'message' => 'Cliente guardado correctamente']);
+
+    } catch (Exception $e) {
+        $conexion->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 
 function actualizar($conexion) {
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $id_cliente = (int)($_POST['id_cliente'] ?? 0);
-        $nombre = $conexion->real_escape_string($_POST['nombre'] ?? '');
-        $apellido = $conexion->real_escape_string($_POST['apellido'] ?? '');
-        $cedula = $conexion->real_escape_string($_POST['cedula_rnc'] ?? '');
-        $telefono_nuevo = $conexion->real_escape_string($_POST['telefono'] ?? '');
-        $correo = $conexion->real_escape_string($_POST['correo'] ?? '');
-        $direccion_nueva = $conexion->real_escape_string($_POST['direccion'] ?? '');
-
-        if (!$id_cliente) {
-            echo json_encode(['success' => false, 'message' => 'ID no proporcionado.']);
-            exit;
-        }
-
+    try {
         $conexion->begin_transaction();
 
-        try {
-            $query_ids = "SELECT p.id_persona, p.id_direccion, ct.id_telefono 
-                          FROM Cliente c 
-                          JOIN Persona p ON c.id_persona = p.id_persona 
-                          LEFT JOIN Cliente_Telefono ct ON c.id_cliente = ct.id_cliente AND ct.estado = 'activo'
-                          WHERE c.id_cliente = $id_cliente LIMIT 1";
-            
-            $resultado_ids = $conexion->query($query_ids);
-            if (!$resultado_ids || $resultado_ids->num_rows === 0) {
-                throw new Exception("Cliente no encontrado en la base de datos.");
-            }
-            
-            $ids = $resultado_ids->fetch_assoc();
-            $id_persona = $ids['id_persona'];
-            $id_direccion = $ids['id_direccion'];
-            $id_telefono_viejo = $ids['id_telefono'];
-
-            $sqlPersona = "UPDATE Persona SET nombre='$nombre', apellido_p='$apellido', cedula='$cedula', email='$correo' WHERE id_persona=$id_persona";
-            $conexion->query($sqlPersona);
-
-            if ($id_direccion) {
-                $sqlDir = "UPDATE Direccion SET Descripcion='$direccion_nueva' WHERE id_direccion=$id_direccion";
-                $conexion->query($sqlDir);
-            }
-
-            if (!empty($telefono_nuevo)) {
-                if ($id_telefono_viejo) {
-                    $sqlTel = "UPDATE Telefono SET numero='$telefono_nuevo' WHERE id_telefono=$id_telefono_viejo";
-                    $conexion->query($sqlTel);
-                } else {
-                    $sqlTel = "INSERT INTO Telefono (numero, estado) VALUES ('$telefono_nuevo', 'activo')";
-                    $conexion->query($sqlTel);
-                    $nuevo_id_tel = $conexion->insert_id;
-                    
-                    $sqlCliTel = "INSERT INTO Cliente_Telefono (id_cliente, id_telefono, fecha_creacion, estado)
-                                  VALUES ($id_cliente, $nuevo_id_tel, NOW(), 'activo')";
-                    $conexion->query($sqlCliTel);
-                }
-            }
-
-            $conexion->commit();
-            echo json_encode(['success' => true, 'message' => 'Datos actualizados correctamente.']);
-
-        } catch (Exception $e) {
-            $conexion->rollback();
-            echo json_encode(['success' => false, 'message' => 'Error al actualizar: ' . $e->getMessage()]);
-        }
-    }
-}
-
-function cambiar_estado($conexion) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id_cliente = (int)($_POST['id_cliente'] ?? 0);
-        $nuevo_estado = $conexion->real_escape_string($_POST['estado'] ?? 'inactivo');
+        $id_cliente = $_POST['id_cliente'];
         
-        if ($id_cliente > 0) {
-            $sql = "UPDATE Cliente SET estado = '$nuevo_estado' WHERE id_cliente = $id_cliente";
-            if ($conexion->query($sql)) {
-                $mensaje = $nuevo_estado == 'activo' ? 'Cliente reactivado con éxito.' : 'Cliente desactivado correctamente.';
-                echo json_encode(['success' => true, 'message' => $mensaje]);
+        $sql = "SELECT p.id_persona, p.id_direccion, 
+                       (SELECT ct.id_telefono FROM Cliente_Telefono ct WHERE ct.id_cliente = e.id_cliente AND ct.estado = 'activo' LIMIT 1) as id_telefono
+                FROM Cliente e
+                JOIN Persona p ON e.id_persona = p.id_persona
+                WHERE e.id_cliente=?";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("i", $id_cliente);
+        $stmt->execute();
+        $data = $stmt->get_result()->fetch_assoc();
+
+        $id_persona   = $data['id_persona'];
+        $id_direccion = $data['id_direccion'];
+        $id_telefono_viejo = $data['id_telefono'];
+
+        $tipo_persona_input = $_POST['tipo_persona'] ?? 'fisica';
+        $es_empresa = ($tipo_persona_input === 'juridica');
+        
+        $tipo_persona_db = $es_empresa ? 'Juridica' : 'Fisica';
+
+        $nombre = $_POST['nombre'];
+        $apellido_p = $es_empresa ? '' : ($_POST['apellido_p'] ?? '');
+        $apellido_m = $es_empresa ? '' : ($_POST['apellido_m'] ?? '');
+        $sexo = $es_empresa ? NULL : ($_POST['sexo'] ?? '');
+        $cedula = $_POST['cedula'];
+        $correo = $_POST['correo'];
+        $fecha_nacimiento = $_POST['fecha_nacimiento'];
+        $nacionalidad = $_POST['nacionalidad'];
+        $direccion = $_POST['direccion'];
+        $id_ciudad = $_POST['ciudad'];
+        $telefono = $_POST['telefono'];
+        $estado = $_POST['estado'] ?? 'activo';
+
+        $sql = "UPDATE Direccion SET id_ciudad=?, Descripcion=? WHERE id_direccion=?";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("isi", $id_ciudad, $direccion, $id_direccion);
+        $stmt->execute();
+
+        $sql = "UPDATE Persona SET tipo_persona=?, nombre=?, apellido_p=?, apellido_m=?, sexo=?, cedula=?, email=?, fecha_nacimiento=?, nacionalidad=? WHERE id_persona=?";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("ssssssssii", $tipo_persona_db, $nombre, $apellido_p, $apellido_m, $sexo, $cedula, $correo, $fecha_nacimiento, $nacionalidad, $id_persona);
+        $stmt->execute();
+
+        if (!empty($telefono)) {
+            if ($id_telefono_viejo) {
+                $sql = "UPDATE Telefono SET numero=? WHERE id_telefono=?";
+                $stmt = $conexion->prepare($sql);
+                $stmt->bind_param("si", $telefono, $id_telefono_viejo);
+                $stmt->execute();
             } else {
-                echo json_encode(['success' => false, 'message' => 'Error al cambiar estado: ' . $conexion->error]);
+                $sql = "INSERT INTO Telefono (numero, estado) VALUES (?, 'activo')";
+                $stmt = $conexion->prepare($sql);
+                $stmt->bind_param("s", $telefono);
+                $stmt->execute();
+                $nuevo_id = $conexion->insert_id;
+
+                $sql = "INSERT INTO Cliente_Telefono (id_cliente, id_telefono, fecha_creacion, estado) VALUES (?, ?, NOW(), 'activo')";
+                $stmt = $conexion->prepare($sql);
+                $stmt->bind_param("ii", $id_cliente, $nuevo_id);
+                $stmt->execute();
             }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'ID de cliente inválido.']);
         }
+
+        $sql = "UPDATE Cliente SET estado=? WHERE id_cliente=?";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("si", $estado, $id_cliente);
+        $stmt->execute();
+
+        $conexion->commit();
+        echo json_encode(['success' => true, 'message' => 'Cliente actualizado correctamente']);
+
+    } catch (Exception $e) {
+        $conexion->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 ?>

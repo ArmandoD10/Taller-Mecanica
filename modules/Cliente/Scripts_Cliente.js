@@ -1,195 +1,294 @@
-// --- VARIABLES GLOBALES ---
-let clientes = [];
+let clientesRaw = [];
 let modoEdicion = false;
-let currentPage = 1;
-const recordsPerPage = 6;
 
-// --- INICIALIZACIÓN ---
-document.addEventListener('DOMContentLoaded', () => {
-    cargarTablaClientes();
-    formatearNombre('nombre');
-    formatearNombre('apellido');
-    formatearNombre('direccion');
+document.addEventListener("DOMContentLoaded", () => {
+    cargarTabla();
+    cargarSelects();
+    
+    // Escuchar el cambio de Tipo de Cliente
+    document.querySelectorAll('input[name="tipo_persona"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            toggleTipoPersona(this.value);
+        });
+    });
 });
 
-// --- LÓGICA DE CARGA Y PAGINACIÓN ---
-function cargarTablaClientes(page = 1) {
-    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
-    .then(response => response.json())
+function toggleTipoPersona(tipo) {
+    const lblNombre = document.getElementById('lbl_nombre');
+    const colApeP = document.getElementById('col_apellido_p');
+    const colApeM = document.getElementById('col_apellido_m');
+    const lblCedula = document.getElementById('lbl_cedula');
+    const lblFecha = document.getElementById('lbl_fecha');
+    const colSexo = document.getElementById('col_sexo');
+    const cedulaInput = document.getElementById('cedula');
+
+    // Limpiar valores para evitar mezclas de datos
+    document.getElementById('nombre').value = '';
+    document.getElementById('apellido_p').value = '';
+    document.getElementById('apellido_m').value = '';
+    document.getElementById('sexo').value = '';
+    cedulaInput.value = '';
+
+    if(tipo === 'juridica') {
+        lblNombre.textContent = 'Razón Social (Empresa)';
+        colApeP.classList.add('d-none');
+        colApeM.classList.add('d-none');
+        colSexo.classList.add('d-none');
+        lblCedula.textContent = 'RNC';
+        lblFecha.textContent = 'Fecha de Constitución';
+        cedulaInput.placeholder = "123456789";
+        cedulaInput.maxLength = 9; 
+    } else {
+        lblNombre.textContent = 'Primer Nombre';
+        colApeP.classList.remove('d-none');
+        colApeM.classList.remove('d-none');
+        colSexo.classList.remove('d-none');
+        lblCedula.textContent = 'Cédula';
+        lblFecha.textContent = 'Fecha Nacimiento';
+        cedulaInput.placeholder = "000-0000000-0";
+        cedulaInput.maxLength = 13; 
+    }
+}
+
+function limpiarFormulario() {
+    const campos = document.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], select");
+    campos.forEach(campo => campo.value = "");
+
+    document.getElementById("fisica").checked = true;
+    toggleTipoPersona('fisica'); // Restaurar a vista normal
+    
+    document.getElementById("btnGuardar").textContent = "Registrar";
+    modoEdicion = false;
+    document.getElementById("contenedor-estado").classList.add("d-none");
+}
+
+function cargarTabla() {
+    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar`)
+    .then(res => res.json())
     .then(data => {
-        clientes = data.data; 
-        const tbody = document.getElementById("cuerpo-tabla");
-        tbody.innerHTML = "";
-
-        if (clientes.length > 0) {
-            clientes.forEach(registro => {
-                
-                // Lógica dinámica para el botón de estado
-                let isActivo = registro.estado.toLowerCase() === 'activo';
-                let colorEstado = isActivo ? 'bg-success' : 'bg-danger';
-                let colorBtn = isActivo ? 'btn-secondary' : 'btn-success';
-                let tituloBtn = isActivo ? 'Desactivar Cliente' : 'Activar Cliente';
-                let nuevoEstado = isActivo ? 'inactivo' : 'activo';
-
-                const fila = document.createElement("tr");
-                fila.innerHTML = `
-                    <td>${registro.id_cliente}</td>
-                    <td>${registro.nombre} ${registro.apellido}</td>
-                    <td>${registro.cedula_rnc}</td>
-                    <td>${registro.telefono || 'N/A'}</td>
-                    <td>${registro.correo || 'N/A'}</td>
-                    <td>${registro.fecha_registro}</td>
-                    <td><span class="badge ${colorEstado}">${registro.estado}</span></td>
-                    <td>
-                        <button type="button" class="btn btn-warning btn-sm me-2" onclick="editarRegistro(${registro.id_cliente})" title="Editar Cliente">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        
-                        <button type="button" class="btn ${colorBtn} btn-sm" onclick="cambiarEstado(${registro.id_cliente}, '${nuevoEstado}')" title="${tituloBtn}">
-                            <i class="fas fa-power-off"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(fila);
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay clientes registrados.</td></tr>`;
-        }
-
-        generarPaginacion(data.total_records, data.page, data.limit);
-    })
-    .catch(error => console.error("Error al obtener los clientes:", error));
+        clientesRaw = data.data; 
+        renderizarTabla(clientesRaw);
+    });
 }
 
-function generarPaginacion(totalRecords, currentPage, limit) {
-    const totalPages = Math.ceil(totalRecords / limit);
-    const paginationContainer = document.getElementById('pagination-container');
-    paginationContainer.innerHTML = ''; 
+function renderizarTabla(lista) {
+    const tbody = document.getElementById("cuerpo-tabla");
+    tbody.innerHTML = "";
 
-    if (totalPages <= 1) return;
-
-    const liPrev = document.createElement('li');
-    liPrev.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-    liPrev.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${currentPage - 1})">Anterior</a>`;
-    paginationContainer.appendChild(liPrev);
-
-    for (let i = 1; i <= totalPages; i++) {
-        const li = document.createElement('li');
-        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-        li.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${i})">${i}</a>`;
-        paginationContainer.appendChild(li);
-    }
-
-    const liNext = document.createElement('li');
-    liNext.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-    liNext.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${currentPage + 1})">Siguiente</a>`;
-    paginationContainer.appendChild(liNext);
+    lista.forEach(cli => {
+        const colorBadge = cli.estado.toLowerCase() === 'activo' ? 'bg-success' : 'bg-danger';
+        // Determinar nombre completo si es empresa o persona física
+        const esEmpresa = (cli.tipo_persona && cli.tipo_persona.toLowerCase() === 'juridica');
+        const nombreCompleto = esEmpresa ? cli.nombre : `${cli.nombre} ${cli.apellido_p} ${cli.apellido_m || ''}`;
+        
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+            <td>${cli.id_cliente}</td>
+            <td class="fw-bold">${nombreCompleto}</td>
+            <td>${cli.cedula}</td>
+            <td>${cli.telefono || 'N/A'}</td>
+            <td><span class="badge rounded-pill ${colorBadge}">${cli.estado}</span></td>
+            <td>
+                <button type="button" class="btn btn-warning btn-sm" onclick="editarRegistro(${cli.id_cliente})">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(fila);
+    });
 }
 
-window.cambiarPagina = function(page) {
-    if (page > 0) cargarTablaClientes(page);
-};
+// Filtro
+document.getElementById('filtro').addEventListener('input', function(e) {
+    const busqueda = e.target.value.toLowerCase();
+    const radioSeleccionado = document.querySelector('input[name="criterioFiltro"]:checked');
+    const criterio = radioSeleccionado ? radioSeleccionado.value : 'nombre';
 
-// --- ACCIONES DEL FORMULARIO ---
+    const resultados = clientesRaw.filter(cli => {
+        const valorCampo = String(cli[criterio]).toLowerCase();
+        return valorCampo.includes(busqueda);
+    });
+    renderizarTabla(resultados);
+});
+
+document.querySelectorAll('input[name="criterioFiltro"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        const inputFiltro = document.getElementById('filtro');
+        inputFiltro.value = "";
+        inputFiltro.focus();
+        renderizarTabla(clientesRaw); 
+    });
+});
+
+// Cascada de Selects
+function cargarSelects() {
+    fetch("/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_selects")
+    .then(res => res.json())
+    .then(data => {
+        const pais = document.getElementById("pais");
+        const nacionalidad = document.getElementById("nacionalidad");
+        pais.innerHTML = '<option disabled selected>Seleccione</option>';
+        nacionalidad.innerHTML = '<option disabled selected>Seleccione</option>';
+        data.data.pais.forEach(p => {
+            pais.innerHTML += `<option value="${p.id_pais}">${p.nombre}</option>`;
+            nacionalidad.innerHTML += `<option value="${p.id_pais}">${p.nombre}</option>`;
+        });
+    });
+}
+
+document.getElementById("pais").addEventListener("change", function () {
+    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_provincias&id_pais=${this.value}`)
+    .then(res => res.json())
+    .then(data => {
+        const provincia = document.getElementById("provincia");
+        provincia.innerHTML = '<option disabled selected>Seleccione</option>';
+        data.forEach(p => provincia.innerHTML += `<option value="${p.id_provincia}">${p.nombre}</option>`);
+        document.getElementById("ciudad").innerHTML = '<option disabled selected>Seleccione Prov. Primero</option>';
+    });
+});
+
+document.getElementById("provincia").addEventListener("change", function () {
+    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_ciudades&id_provincia=${this.value}`)
+    .then(res => res.json())
+    .then(data => {
+        const ciudad = document.getElementById("ciudad");
+        ciudad.innerHTML = '<option disabled selected>Seleccione</option>';
+        data.forEach(c => ciudad.innerHTML += `<option value="${c.id_ciudad}">${c.nombre}</option>`);
+    });
+});
+
+// Editar
 window.editarRegistro = function(id) {
-    const clienteEditar = clientes.find(reg => reg.id_cliente == id);
-    if (clienteEditar) {
-        document.getElementById('id_oculto').value = clienteEditar.id_cliente;
-        document.getElementById('nombre').value = clienteEditar.nombre;
-        document.getElementById('apellido').value = clienteEditar.apellido;
-        document.getElementById('cedula_rnc').value = clienteEditar.cedula_rnc;
-        document.getElementById('telefono').value = clienteEditar.telefono;
-        document.getElementById('correo').value = clienteEditar.correo;
-        document.getElementById('direccion').value = clienteEditar.direccion;
+    const cli = clientesRaw.find(c => c.id_cliente == id);
+    if (!cli) return;
 
-        document.getElementById('btnMostrar').textContent = 'Actualizar';
-        modoEdicion = true;
-
-        document.getElementById('formulario').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Detectar si es empresa según el campo de la base de datos
+    if (cli.tipo_persona && cli.tipo_persona.toLowerCase() === 'juridica') {
+        document.getElementById("juridica").checked = true;
+        toggleTipoPersona('juridica');
+    } else {
+        document.getElementById("fisica").checked = true;
+        toggleTipoPersona('fisica');
+        document.getElementById("apellido_p").value = cli.apellido_p;
+        document.getElementById("apellido_m").value = cli.apellido_m;
+        document.getElementById("sexo").value = cli.sexo;
     }
+
+    document.getElementById("contenedor-estado").classList.remove("d-none");
+    document.getElementById("id_oculto").value = cli.id_cliente;
+    document.getElementById("nombre").value = cli.nombre;
+    document.getElementById("cedula").value = cli.cedula;
+    document.getElementById("correo").value = cli.email;
+    document.getElementById("fecha_nacimiento").value = cli.fecha_nacimiento;
+    document.getElementById("nacionalidad").value = cli.nacionalidad;
+    document.getElementById("telefono").value = cli.telefono;
+
+    const estado = cli.estado?.toLowerCase();
+    if (estado === "activo") document.getElementById("activo").checked = true;
+    else if (estado === "inactivo") document.getElementById("inactivo").checked = true;
+
+    document.getElementById("pais").value = cli.id_pais;
+
+    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_provincias&id_pais=${cli.id_pais}`)
+    .then(res => res.json())
+    .then(prov => {
+        const provincia = document.getElementById("provincia");
+        provincia.innerHTML = "";
+        prov.forEach(p => provincia.innerHTML += `<option value="${p.id_provincia}">${p.nombre}</option>`);
+        provincia.value = cli.id_provincia;
+        return fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_ciudades&id_provincia=${cli.id_provincia}`);
+    })
+    .then(res => res.json())
+    .then(ciudades => {
+        const ciudad = document.getElementById("ciudad");
+        ciudad.innerHTML = "";
+        ciudades.forEach(c => ciudad.innerHTML += `<option value="${c.id_ciudad}">${c.nombre}</option>`);
+        ciudad.value = cli.id_ciudad;
+    });
+
+    document.getElementById("direccion").value = cli.direccion;
+    document.getElementById("btnGuardar").textContent = "Actualizar";
+    modoEdicion = true;
+    document.getElementById("formulario").scrollIntoView({ behavior: "smooth" });
 };
 
-document.getElementById('formulario').addEventListener('submit', function(e) {
+// Guardar
+document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
-    const formData = new FormData(this);
-    const url = modoEdicion 
-        ? "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=actualizar"
-        : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=guardar";
 
-    fetch(url, { method: 'POST', body: formData })
+    if (modoEdicion && document.getElementById("inactivo").checked) {
+        if (!confirm("¿Está seguro de que desea inactivar a este cliente?")) return; 
+    }
+
+    const formData = new FormData(this);
+    let url = modoEdicion ? "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=actualizar" : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=guardar";
+
+    fetch(url, { method: "POST", body: formData })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
             alert(data.message);
             limpiarFormulario();
-            cargarTablaClientes(currentPage);
+            cargarTabla(); 
         } else {
-            alert('Error: ' + data.message);
+            alert("Error: " + data.message);
         }
     });
 });
 
-window.cambiarEstado = function(id, estadoDeseado) {
-    let accion = estadoDeseado === 'activo' ? 'activar' : 'desactivar';
-    
-    if (confirm(`¿Seguro que desea ${accion} el cliente con ID ${id}?`)) {
-        const formData = new FormData();
-        formData.append('id_cliente', id);
-        formData.append('estado', estadoDeseado);
-
-        fetch("/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cambiar_estado", {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                cargarTablaClientes(currentPage);
-            } else {
-                alert("Error: " + data.message);
+// Máscaras de Validación
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Nombres: Solo letras. PERO si es empresa, debe permitir números y símbolos
+    const camposNombres = document.querySelectorAll('#nombre, #apellido_p, #apellido_m');
+    camposNombres.forEach(input => {
+        input.addEventListener('input', function(e) {
+            const isEmpresa = document.getElementById('juridica').checked;
+            let valor = e.target.value;
+            
+            // Si es persona física (apellidos existen), limpiamos. Si es empresa, dejamos todo.
+            if(input.id !== 'nombre' || !isEmpresa) {
+                valor = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
             }
-        })
-        .catch(error => console.error("Error al cambiar estado:", error));
+            if (valor.length > 0) valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+            e.target.value = valor;
+        });
+    });
+
+    // 2. Cédula Inteligente
+    const cedulaInput = document.getElementById('cedula');
+    if(cedulaInput){
+        cedulaInput.addEventListener('input', function(e) {
+            const isEmpresa = document.getElementById('juridica').checked;
+            let valor = e.target.value.replace(/\D/g, '');
+            
+            if(isEmpresa) {
+                // RNC: 9 dígitos, sin formato
+                e.target.value = valor.substring(0, 9);
+            } else {
+                // Cédula: 000-0000000-0
+                valor = valor.substring(0, 11);
+                let formateado = "";
+                if (valor.length > 0) {
+                    formateado += valor.substring(0, 3);
+                    if (valor.length > 3) formateado += "-" + valor.substring(3, 10);
+                    if (valor.length > 10) formateado += "-" + valor.substring(10, 11);
+                }
+                e.target.value = formateado;
+            }
+        });
     }
-};
 
-window.limpiarFormulario = function() {
-    document.getElementById('formulario').reset();
-    document.getElementById('btnMostrar').textContent = 'Registrar';
-    document.getElementById('id_oculto').value = '';
-    modoEdicion = false;
-};
-
-// --- UTILIDADES Y FILTROS ---
-
-document.getElementById('telefono').addEventListener('input', function(e) {
-    let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-    e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+    // 3. Teléfono
+    document.querySelectorAll('.f-telefono').forEach(input => {
+        input.addEventListener('input', function(e) {
+            let num = e.target.value.replace(/\D/g, '').substring(0, 10);
+            let form = "";
+            if (num.length > 0) {
+                form += "(" + num.substring(0, 3);
+                if (num.length > 3) form += ") " + num.substring(3, 6);
+                if (num.length > 6) form += "-" + num.substring(6, 10);
+            }
+            e.target.value = form;
+        });
+    });
 });
-
-function filtrarTabla() {
-    const texto = document.getElementById("filtro").value.toLowerCase();
-    const usarNombre = !document.getElementById("tipoFiltro").checked; 
-    const filas = document.querySelectorAll("#cuerpo-tabla tr");
-
-    filas.forEach(fila => {
-        let valor = usarNombre 
-            ? fila.children[1].innerText.toLowerCase()  
-            : fila.children[2].innerText.toLowerCase(); 
-        fila.style.display = valor.includes(texto) ? "" : "none";
-    });
-}
-
-document.getElementById("filtro").addEventListener("keyup", filtrarTabla);
-document.getElementById("tipoFiltro").addEventListener("change", filtrarTabla);
-
-function formatearNombre(idDelInput) {
-    const input = document.getElementById(idDelInput);
-    if (!input) return;
-    input.addEventListener('input', function() {
-        if (this.value.length > 0) {
-            this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
-        }
-    });
-}

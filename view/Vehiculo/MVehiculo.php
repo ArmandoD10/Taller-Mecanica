@@ -8,15 +8,31 @@ require("../../header.php");
         <h2 class="mb-4">Registro de Vehículos</h2>
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Vehiculo.php?action=guardar" id="formulario">
-            <input type="hidden" id="id_oculto" name="id_vehiculo">
+            <input type="hidden" id="id_oculto" name="sec_vehiculo">
             <div class="row">
             
                 <div class="col-md-6 d-flex flex-column">
-                    <div class="mb-3">
-                        <label class="form-label" style="color: var(--primary-blue)">Propietario (Cliente)</label>
-                        <select class="form-select" id="id_cliente" name="id_cliente" required>
-                            <option value="" disabled selected>Cargando clientes...</option>
-                        </select>
+                    <div class="mb-3 position-relative">
+                        <label class="form-label fw-bold" style="color: var(--primary-blue)">Propietario (Buscar por ID o Cédula)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" class="form-control" id="buscar_cliente" placeholder="Escriba para buscar...">
+                        </div>
+                        <ul id="lista_clientes_res" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></ul>
+                        
+                        <div id="info_cliente_seleccionado" class="mt-2 p-3 border rounded bg-light d-none">
+                            <input type="hidden" id="id_cliente" name="id_cliente">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="mb-0 small text-muted">Cliente Seleccionado:</p>
+                                    <h6 class="mb-0"><span id="lbl_cli_id"></span> - <span id="lbl_cli_nombre"></span></h6>
+                                    <small class="text-secondary">Documento: <span id="lbl_cli_doc"></span></small>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="deseleccionarCliente()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="color: var(--primary-blue)">Número de Chasis (VIN)</label>
@@ -29,15 +45,26 @@ require("../../header.php");
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" style="color: var(--primary-blue)">Modelo</label>
-                        <input type="text" class="form-control" id="modelo" name="modelo" placeholder="Ej. Civic, Corolla" required>
+                        <label class="form-label fw-bold" style="color: var(--primary-blue)">Modelo</label>
+                        <select class="form-select" id="id_modelo_rel" name="modelo" required disabled>
+                            <option value="" disabled selected>Seleccione una marca primero</option>
+                        </select>
                     </div>
                 </div>
                 
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label" style="color: var(--primary-blue)">Placa</label>
-                        <input type="text" class="form-control" id="placa" name="placa" placeholder="Ej. A123456">
+                        <label class="form-label fw-bold" style="color: var(--primary-blue)">Placa</label>
+                        <input type="text" 
+                            class="form-control" 
+                            id="placa" 
+                            name="placa" 
+                            placeholder="Ej. A123456" 
+                            maxlength="7" 
+                            minlength="7" 
+                            pattern="[A-Z0-9]{7}" 
+                            title="La placa debe tener exactamente 7 caracteres (Letras mayúsculas y números)" 
+                            required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="color: var(--primary-blue)">Color</label>
@@ -46,8 +73,16 @@ require("../../header.php");
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" style="color: var(--primary-blue)">Año</label>
-                        <input type="number" class="form-control" id="anio" name="anio" placeholder="Ej. 2019" min="1950" max="2030">
+                        <label class="form-label fw-bold" style="color: var(--primary-blue)">Año</label>
+                        <input type="number" 
+                            class="form-control" 
+                            id="anio" 
+                            name="anio" 
+                            placeholder="Ej. 2024" 
+                            min="1950" 
+                            max="2027" 
+                            oninput="if(this.value.length > 4) this.value = this.value.slice(0, 4);" 
+                            required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="color: var(--primary-blue)">Kilometraje Actual</label>

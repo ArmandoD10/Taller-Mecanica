@@ -76,7 +76,8 @@ $modulos = $_SESSION['modulos'] ?? [];
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/MVehiculo.php">Registro de Vehículos</a>
                     <?php if (in_array("Seguridad", $modulos)) : ?>
-                    <a href="/Taller/Taller-Mecanica/view/Vehiculo/MMarcaModelo.php">Marcas y Modelos</a>
+                    <a href="/Taller/Taller-Mecanica/view/Vehiculo/MMarcaModelo.php">Marcas</a>
+                    <a href="/Taller/Taller-Mecanica/view/Vehiculo/MModelo.php">Modelos</a>
                     <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Vehiculo/RHistorialVehiculo.php">Historial Vehiculo</a>
                 </div>

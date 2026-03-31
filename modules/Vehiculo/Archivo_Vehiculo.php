@@ -17,12 +17,36 @@ switch ($action) {
     case 'cambiar_estado':
         cambiar_estado($conexion);
         break;
+    case 'buscar_cliente': 
+        buscar_cliente($conexion); 
+        break;
+    case 'get_modelos_por_marca': 
+        get_modelos_por_marca($conexion); 
+        break;
     case 'get_selects':
         get_selects($conexion);
         break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida.']);
         break;
+}
+
+function get_modelos_por_marca($conexion) {
+    $id_marca = (int)($_GET['id_marca'] ?? 0);
+    $sql = "SELECT nombre FROM Modelo WHERE id_marca = $id_marca AND estado = 'activo' ORDER BY nombre ASC";
+    $res = $conexion->query($sql);
+    $modelos = [];
+    while($row = $res->fetch_assoc()) { $modelos[] = $row['nombre']; }
+    echo json_encode($modelos);
+}
+
+function get_selects($conexion) {
+    $data = ['marcas' => [], 'colores' => []];
+    $resMar = $conexion->query("SELECT id_marca, nombre FROM Marca WHERE estado = 'activo' ORDER BY nombre ASC");
+    while($row = $resMar->fetch_assoc()) $data['marcas'][] = $row;
+    $resCol = $conexion->query("SELECT id_color, nombre FROM Color WHERE estado = 'activo' ORDER BY nombre ASC");
+    while($row = $resCol->fetch_assoc()) $data['colores'][] = $row;
+    echo json_encode($data);
 }
 
 function cargar($conexion) {
@@ -36,11 +60,12 @@ function cargar($conexion) {
 
     $vehiculos = [];
     
-    // JOIN robusto para traer nombres en lugar de IDs
+    // Cambiamos v.id_vehiculo por v.sec_vehiculo
     $sql = "SELECT 
-                v.id_vehiculo, 
+                v.sec_vehiculo, 
                 v.id_cliente,
                 CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, '')) AS cliente_nombre,
+                p.cedula AS cliente_cedula,
                 v.vin_chasis, 
                 v.placa, 
                 v.id_marca,
@@ -57,7 +82,7 @@ function cargar($conexion) {
             INNER JOIN Persona p ON cli.id_persona = p.id_persona
             INNER JOIN Marca m ON v.id_marca = m.id_marca
             INNER JOIN Color c ON v.id_color = c.id_color
-            ORDER BY v.id_vehiculo DESC
+            ORDER BY v.sec_vehiculo DESC
             LIMIT $limit OFFSET $offset";
 
     $resultado = $conexion->query($sql);
@@ -74,6 +99,7 @@ function cargar($conexion) {
         'page' => $page,
         'limit' => $limit
     ]);
+    exit;
 }
 
 function guardar($conexion) {
@@ -94,7 +120,7 @@ function guardar($conexion) {
         }
 
         // Validar Chasis duplicado
-        $check = "SELECT id_vehiculo FROM Vehiculo WHERE vin_chasis = '$vin_chasis'";
+        $check = "SELECT sec_vehiculo FROM Vehiculo WHERE vin_chasis = '$vin_chasis'";
         $result = $conexion->query($check);
         if ($result && $result->num_rows > 0) {
             echo json_encode(['success' => false, 'message' => 'Este Chasis/VIN ya está registrado.']);
@@ -114,7 +140,7 @@ function guardar($conexion) {
 
 function actualizar($conexion) {
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $id_vehiculo = (int)($_POST['id_vehiculo'] ?? 0);
+        $id_vehiculo = (int)($_POST['sec_vehiculo'] ?? 0);
         $id_cliente = (int)($_POST['id_cliente'] ?? 0);
         $vin_chasis = $conexion->real_escape_string($_POST['vin_chasis'] ?? '');
         $placa = $conexion->real_escape_string($_POST['placa'] ?? '');
@@ -132,7 +158,7 @@ function actualizar($conexion) {
         $sql = "UPDATE Vehiculo 
                 SET id_cliente=$id_cliente, vin_chasis='$vin_chasis', placa='$placa', id_marca=$id_marca, 
                     id_color=$id_color, modelo='$modelo', anio=$anio, kilometraje_actual=$kilometraje 
-                WHERE id_vehiculo=$id_vehiculo";
+                WHERE sec_vehiculo = $id_vehiculo";
         
         if ($conexion->query($sql)) {
             echo json_encode(['success' => true, 'message' => 'Vehículo actualizado correctamente.']);
@@ -144,11 +170,11 @@ function actualizar($conexion) {
 
 function cambiar_estado($conexion) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id_vehiculo = (int)($_POST['id_vehiculo'] ?? 0);
+        $id_vehiculo = (int)($_POST['sec_vehiculo'] ?? 0);
         $nuevo_estado = $conexion->real_escape_string($_POST['estado'] ?? 'inactivo');
         
         if ($id_vehiculo > 0) {
-            $sql = "UPDATE Vehiculo SET estado = '$nuevo_estado' WHERE id_vehiculo = $id_vehiculo";
+            $sql = "UPDATE Vehiculo SET estado = '$nuevo_estado' WHERE sec_vehiculo = $id_vehiculo";
             if ($conexion->query($sql)) {
                 $mensaje = $nuevo_estado == 'activo' ? 'Vehículo reactivado con éxito.' : 'Vehículo desactivado correctamente.';
                 echo json_encode(['success' => true, 'message' => $mensaje]);
@@ -159,22 +185,37 @@ function cambiar_estado($conexion) {
     }
 }
 
-// Nueva función para llenar los Selects del formulario
-function get_selects($conexion) {
-    $data = ['clientes' => [], 'marcas' => [], 'colores' => []];
+function buscar_cliente($conexion) {
+    // Limpiamos cualquier salida previa para evitar errores de JSON
+    if (ob_get_length()) ob_clean();
 
-    // Clientes Activos
-    $resCli = $conexion->query("SELECT c.id_cliente, CONCAT(p.nombre, ' ', p.apellido_p) AS nombre FROM Cliente c JOIN Persona p ON c.id_persona = p.id_persona WHERE c.estado = 'activo'");
-    if($resCli) while($row = $resCli->fetch_assoc()) $data['clientes'][] = $row;
+    $term = $conexion->real_escape_string($_GET['term'] ?? '');
+    $data = [];
 
-    // Marcas Activas
-    $resMar = $conexion->query("SELECT id_marca, nombre FROM Marca WHERE estado = 'activo'");
-    if($resMar) while($row = $resMar->fetch_assoc()) $data['marcas'][] = $row;
+    if (!empty($term)) {
+        // Consulta SQL para buscar en Persona vinculada al Cliente
+        $sql = "SELECT c.id_cliente, p.cedula, p.nombre, p.apellido_p 
+                FROM Cliente c 
+                JOIN Persona p ON c.id_persona = p.id_persona 
+                WHERE (c.id_cliente LIKE '%$term%' OR p.cedula LIKE '%$term%') 
+                AND c.estado = 'activo' 
+                LIMIT 5";
+        
+        $res = $conexion->query($sql);
 
-    // Colores Activos
-    $resCol = $conexion->query("SELECT id_color, nombre FROM Color WHERE estado = 'activo'");
-    if($resCol) while($row = $resCol->fetch_assoc()) $data['colores'][] = $row;
+        if ($res) {
+            while($row = $res->fetch_assoc()) {
+                $data[] = [
+                    'id' => $row['id_cliente'],
+                    'doc' => $row['cedula'],
+                    'nombre' => $row['nombre'] . ' ' . $row['apellido_p']
+                ];
+            }
+        }
+    }
 
+    // Enviamos el JSON y matamos el proceso para que no salga nada más
     echo json_encode($data);
+    die(); 
 }
 ?>

@@ -63,7 +63,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <a href="/Taller/Taller-Mecanica/view/Cliente/MCliente.php">Gestión de Clientes</a>
                     <a href="/Taller/Taller-Mecanica/view/Cliente/MCredito.php">Créditos y Cobranzas</a>
                     <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialCredito.php">Historial de Crédito</a>
-                    <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialCredito.php">Consulta de Deuda</a>
+                    <a href="/Taller/Taller-Mecanica/view/Cliente/CDeuda.php">Consulta de Deuda</a>
                 </div>
             </div>
             <?php endif; ?>

@@ -129,7 +129,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Taller/Entrega.php">Entrega de Servicios</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialServicio.php">Historial de Servicios</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialEntrega.php">Historial de Entregas</a>
-                    <a href="/Taller/Taller-Mecanica/view/Taller/HistorialInspeccion.php">Historial de Inspecciones</a>
+                    <a href="/Taller/Taller-Mecanica/view/Taller/CHistorialInspeccion.php">Historial de Inspecciones</a>
                 </div>
             </div>
             <?php endif; ?>

@@ -73,6 +73,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Cliente/MCredito.php">Créditos y Cobranzas</a>
                     <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialCredito.php">Historial de Crédito</a>
                     <a href="/Taller/Taller-Mecanica/view/Cliente/CHistorialCredito.php">Consulta de Deuda</a>
+                    <a href="/Taller/Taller-Mecanica/view/Cliente/CDatacredito.php">Maestro DataCredito</a>
                 </div>
             </div>
             <?php endif; ?>

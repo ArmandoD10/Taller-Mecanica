@@ -272,7 +272,7 @@ require("../../header.php");
                         <div class="row px-2">
                             <div class="col-3">
                                 <div class="text-center">
-                                    <img src="../../img/iconos_motor.jpg" alt="Testigos" class="img-referencia border p-1 bg-white mb-2">
+                                    <img src="../../img/iconos_motor.jpeg" alt="Testigos" class="img-referencia border p-1 bg-white mb-2">
                                 </div>
                             </div>
                             <div class="col-9">

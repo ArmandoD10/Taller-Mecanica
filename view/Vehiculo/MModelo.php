@@ -9,28 +9,37 @@ require("../../header.php");
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Modelo.php?action=guardar" id="formulario">
             <input type="hidden" id="id_oculto" name="id_modelo">
-            <div class="row card p-4 shadow-sm mx-0 mb-4">
-                
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold" style="color: var(--primary-blue)">Nombre del Modelo</label>
-                    <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej. Corolla, Civic, F-150" required>
-                </div>
-                
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold" style="color: var(--primary-blue)">Marca del Modelo</label>
-                    <select class="form-select" id="id_marca" name="id_marca" required>
-                        <option value="" disabled selected>Cargando marcas...</option>
-                    </select>
-                </div>
+            <div class="card p-4 shadow-sm mb-4">
+                <div class="row mx-0">
+                    <div class="col-md-8">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold" style="color: var(--primary-blue)">Nombre del Modelo</label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej. Corolla, Civic, F-150" required>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold" style="color: var(--primary-blue)">Marca del Modelo</label>
+                                <select class="form-select" id="id_marca" name="id_marca" required>
+                                    <option value="" disabled selected>Cargando marcas...</option>
+                                </select>
+                            </div>
 
-                <div class="col-md-4 mb-3">
-                    <label for="nivel" class="form-label fw-bold" style="color: var(--primary-blue)">fecha de Lanzamiento</label>
-                    <input type="date" class="form-control" id="fecha_lanzamiento" name="fecha_lanzamiento" placeholder="Ingrese la fecha de lanzamiento del modelo">
-                </div>
-                
-                <div class="col-12 d-flex gap-3 mt-2">
-                    <button type="submit" class="btn btn-success" style="width: 150px" id="btnMostrar">Registrar</button>
-                    <button type="button" class="btn btn-secondary" style="width: 150px" onclick="limpiarFormulario()">Limpiar</button>
+                            <div class="col-md-6 mb-3">
+                                <label for="fecha_lanzamiento" class="form-label fw-bold" style="color: var(--primary-blue)">Fecha de Lanzamiento</label>
+                                <input type="date" class="form-control" id="fecha_lanzamiento" name="fecha_lanzamiento">
+                            </div>
+                            
+                            <div class="col-12 d-flex gap-3 mt-2">
+                                <button type="submit" class="btn btn-success" style="width: 150px" id="btnMostrar">Registrar</button>
+                                <button type="button" class="btn btn-secondary" style="width: 150px" onclick="limpiarFormulario()">Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 d-none d-md-flex align-items-center justify-content-center border-start">
+                        <img src="/Taller/Taller-Mecanica/img/civic.webp" alt="Ilustración Modelo" class="img-fluid" style="max-height: 180px; opacity: 0.8;">
+                    </div>
                 </div>
             </div>
 

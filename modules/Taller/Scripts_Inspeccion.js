@@ -59,23 +59,35 @@ txtBuscar.addEventListener('input', function() {
     }
 });
 
-// --- CARGAR VEHÍCULOS DEL CLIENTE ---
 function cargarVehiculosCliente(id_cliente) {
     const selVehiculo = document.getElementById("id_vehiculo");
     selVehiculo.innerHTML = '<option value="">Cargando vehículos...</option>';
 
+    // Asegúrate de que id_cliente sea un número válido
+    console.log("Cargando vehículos para el cliente ID:", id_cliente);
+
     fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Inspeccion.php?action=cargar_vehiculos_cliente&id_cliente=${id_cliente}`)
     .then(res => res.json())
     .then(data => {
-        selVehiculo.innerHTML = '';
-        if (data.data.length > 0) {
+        console.log("Respuesta del servidor:", data); // ESTO ES CLAVE PARA DEBUREAR
+        
+        selVehiculo.innerHTML = ''; 
+        
+        // CORRECCIÓN: Verifica si data.success existe y si data.data tiene elementos
+        if (data.success && data.data && data.data.length > 0) {
+            selVehiculo.innerHTML = '<option value="">Seleccione un vehículo...</option>';
             data.data.forEach(v => {
-                let desc = v.placa ? `Placa: ${v.placa}` : `VIN: ${v.vin_chasis}`;
-                selVehiculo.innerHTML += `<option value="${v.id_vehiculo}">${desc} - ${v.marca} ${v.modelo}</option>`;
+                let placa = v.placa ? v.placa : 'Sin Placa';
+                // Usamos v.id_vehiculo porque en el SQL usamos el alias "AS id_vehiculo"
+                selVehiculo.innerHTML += `<option value="${v.id_vehiculo}">${placa} - ${v.marca} ${v.modelo}</option>`;
             });
         } else {
             selVehiculo.innerHTML = '<option value="">El cliente no tiene vehículos activos...</option>';
         }
+    })
+    .catch(error => {
+        console.error("Error en el fetch:", error);
+        selVehiculo.innerHTML = '<option value="">Error al cargar datos</option>';
     });
 }
 

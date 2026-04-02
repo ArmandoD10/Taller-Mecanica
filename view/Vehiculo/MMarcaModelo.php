@@ -9,28 +9,39 @@ require("../../header.php");
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=guardar" id="formulario">
             <input type="hidden" id="id_oculto" name="id_marca">
-            <div class="row card p-4 shadow-sm mx-0 mb-4">
-                
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold" style="color: var(--primary-blue)">Nombre de la Marca</label>
-                    <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej. Toyota, Honda, Ford" required>
-                </div>
-                
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold" style="color: var(--primary-blue)">País de Origen</label>
-                    <select class="form-select" id="id_pais" name="id_pais" required>
-                        <option value="" disabled selected>Cargando países...</option>
-                    </select>
-                </div>
+            <div class="card p-4 shadow-sm mb-4">
+                <div class="row mx-0">
+                    
+                    <div class="col-md-8">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold" style="color: var(--primary-blue)">Nombre de la Marca</label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej. Toyota, Honda, Ford" required>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold" style="color: var(--primary-blue)">País de Origen</label>
+                                <select class="form-select" id="id_pais" name="id_pais" required>
+                                    <option value="" disabled selected>Cargando países...</option>
+                                </select>
+                            </div>
 
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold" style="color: var(--primary-blue)">Correo Corporativo (Opcional)</label>
-                    <input type="email" class="form-control" id="correo" name="correo" placeholder="contacto@marca.com">
-                </div>
-                
-                <div class="col-12 d-flex gap-3 mt-2">
-                    <button type="submit" class="btn btn-success" style="width: 150px" id="btnMostrar">Registrar</button>
-                    <button type="button" class="btn btn-secondary" style="width: 150px" onclick="limpiarFormulario()">Limpiar</button>
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label fw-bold" style="color: var(--primary-blue)">Correo Corporativo (Opcional)</label>
+                                <input type="email" class="form-control" id="correo" name="correo" placeholder="contacto@marca.com">
+                            </div>
+                            
+                            <div class="col-12 d-flex gap-3 mt-2">
+                                <button type="submit" class="btn btn-success" style="width: 150px" id="btnMostrar">Registrar</button>
+                                <button type="button" class="btn btn-secondary" style="width: 150px" onclick="limpiarFormulario()">Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 d-none d-md-flex align-items-center justify-content-center border-start">
+                        <img src="/Taller/Taller-Mecanica/img/honda.webp" alt="Logo de Marca" class="img-fluid" style="max-height: 180px; width: auto; opacity: 0.9;">
+                    </div>
+
                 </div>
             </div>
 

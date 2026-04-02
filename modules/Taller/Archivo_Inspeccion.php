@@ -35,12 +35,17 @@ function cargar_datos_iniciales($conexion) {
 
 function cargar_vehiculos_cliente($conexion) {
     $id_cliente = (int)($_GET['id_cliente'] ?? 0);
-    $sql = "SELECT v.id_vehiculo, v.placa, v.vin_chasis, m.nombre AS marca, mo.nombre AS modelo 
-            FROM Vehiculo v 
-            JOIN Marca m ON v.id_marca = m.id_marca 
-            JOIN Modelo mo ON v.id_modelo = mo.id_modelo 
-            WHERE v.id_cliente = ? AND v.estado = 'activo'";
-    
+    $sql = "SELECT 
+            v.sec_vehiculo AS id_vehiculo, 
+            v.placa, 
+            v.vin_chasis, 
+            m.nombre AS marca, 
+            v.modelo AS modelo 
+        FROM Vehiculo v 
+        LEFT JOIN Marca m ON v.id_marca = m.id_marca 
+        LEFT JOIN Modelo mo ON v.modelo = mo.id_modelo 
+        WHERE v.id_cliente = ? 
+        AND v.estado = 'activo'";
     $stmt = $conexion->prepare($sql);
     $stmt->bind_param("i", $id_cliente);
     $stmt->execute();
@@ -58,7 +63,7 @@ function guardar($conexion) {
 
     try {
         $conexion->begin_transaction();
-        $sql = "INSERT INTO Inspeccion (id_vehiculo, id_empleado, kilometraje_recepcion, nivel_combustible, observacion, estado, usuario_creacion) VALUES (?, ?, ?, ?, ?, 'activo', ?)";
+        $sql = "INSERT INTO Inspeccion (id_vehiculo, id_empleado, kilometraje_recepcion, nivel_combustible, observacion, estado, usuario_creacion, fecha_inspeccion) VALUES (?, ?, ?, ?, ?, 'activo', ?, NOW())";
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param("iiissi", $id_vehiculo, $id_empleado, $kilometraje, $combustible, $motivo_visita, $usuario_creacion);
         $stmt->execute();

@@ -203,3 +203,35 @@ function guardarConsultaBackend() {
     })
     .catch(err => console.error("Error:", err));
 }
+
+function limpiarFormularioConsulta() {
+    // 1. Limpiar el input de la cédula
+    const input = document.getElementById('cedula_consulta');
+    if (input) input.value = '';
+
+    // 2. Ocultar el reporte y los mensajes de error
+    document.getElementById('reporte_final').classList.add('d-none');
+    document.getElementById('msg_error').classList.add('d-none');
+    document.getElementById('loader_datacredito').classList.add('d-none');
+
+    // 3. Resetear la variable global de datos
+    dataActual = {
+        id_cliente: null,
+        referencia: null,
+        resultado: null
+    };
+
+    // 4. Restaurar el botón de guardado a su estado original
+    const btn = document.getElementById('btn_guardar_consulta');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save me-1"></i> Guardar Consulta';
+        btn.classList.replace('btn-secondary', 'btn-light');
+    }
+
+    // 5. Limpiar los contenedores de texto del reporte
+    document.getElementById('contenedor_cuentas').innerHTML = '';
+    
+    // Opcional: Hacer scroll al inicio suavemente
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}

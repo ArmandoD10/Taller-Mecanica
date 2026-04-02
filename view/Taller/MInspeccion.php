@@ -44,8 +44,8 @@ require("../../header.php");
             <form id="formulario_inspeccion" method="POST">
                 <div class="row align-items-center mb-2">
                     <div class="col-4 text-center">
-                        <i class="fas fa-tools fs-2" style="color: var(--form-border-color);"></i>
-                        <h6 class="fw-bold mt-1 mb-0" style="color: var(--form-border-color);">TALLER MECÁNICO</h6>
+                        <img src="../../img/logo.png" alt="Logo Taller" style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
+                        <small class="fw-bold d-block mt-1" style="color: var(--primary-dark); font-size: 10px;">MECÁNICA AUTOMOTRIZ</small>
                     </div>
                     <div class="col-4 text-center"><h5 class="fw-bold mb-0">HOJA DE INSPECCIÓN</h5></div>
                     <div class="col-4">

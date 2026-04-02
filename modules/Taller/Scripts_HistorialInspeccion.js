@@ -91,6 +91,11 @@ function verDetalle(id_inspeccion) {
                         if (index !== -1) {
                             const nameRadio = `${prefijos[check.categoria]}_${index}`; // ej. int_4
                             
+                            // AGREGA ESTO:
+                            const val = check.estado;
+            
+            // AGREGA ESTO:
+                             console.log(`Buscando Radio: name="${nameRadio}" con valor="${val}"`);
                             // Buscamos el radio button que coincida en nombre y en valor (B, F o D) y lo marcamos
                             const radioBtn = document.querySelector(`#modalInspeccion input[name="${nameRadio}"][value="${check.estado}"]`);
                             if (radioBtn) {

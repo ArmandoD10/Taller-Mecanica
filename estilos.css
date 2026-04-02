@@ -260,3 +260,39 @@ input:checked + .slider:before { transform: translateX(26px); }
     border-color: #1a3c6d;
     box-shadow: 0 0 0 0.25rem rgba(26, 60, 109, 0.1);
 }
+
+
+/* Fondo oscuro que cubre toda la pantalla */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px); /* Efecto de desenfoque al fondo */
+}
+
+/* Caja del mensaje blanco */
+.modal-content-error {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    animation: scaleUp 0.3s ease-out;
+}
+
+.modal-icon {
+    font-size: 60px;
+    color: #dc3545;
+}
+
+@keyframes scaleUp {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}

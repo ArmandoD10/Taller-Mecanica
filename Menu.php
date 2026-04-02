@@ -59,6 +59,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">As. Departamento</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestEmpleado_Sucursal.php">As. Sucursal Empl</a>
                 </div>
             </div>
             <?php endif; ?>

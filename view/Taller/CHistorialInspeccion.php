@@ -121,6 +121,51 @@ require("../../header.php");
             -webkit-print-color-adjust: exact !important; 
             print-color-adjust: exact !important; 
         }
+
+        /* Estilo para los radio buttons de la inspección */
+.print-checkbox {
+    appearance: none; /* Quita el estilo por defecto del navegador */
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ccc; /* Borde gris suave por defecto */
+    border-radius: 50%;
+    background-color: #fff;
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    cursor: default; /* Como están disabled, mostramos que son solo lectura */
+}
+
+/* Cuando el radio button está seleccionado (checked) */
+.print-checkbox:checked {
+    background-color: #3498db; /* Azul suave/vibrante */
+    border-color: #2980b9; /* Azul un poco más oscuro para el borde */
+}
+
+/* El punto blanco interno para el efecto de "seleccionado" */
+.print-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background-color: white;
+    border-radius: 50%;
+}
+
+/* Estilo para resaltar la celda cuando está seleccionado (Opcional pero recomendado) */
+.col-check {
+    text-align: center;
+    width: 30px;
+}
+
+/* Quitar la opacidad que tenías antes para que el azul brille bien */
+.print-checkbox:disabled {
+    opacity: 1 !important; 
+}
     }
 </style>
 
@@ -165,8 +210,8 @@ require("../../header.php");
                     
                     <div class="row align-items-center mb-3">
                         <div class="col-5 text-center">
-                            <i class="fas fa-tools fs-2" style="color: var(--primary-dark);"></i>
-                            <h6 class="fw-bold mt-1 mb-0" style="color: var(--primary-dark); font-size: 14px;">TALLER MECÁNICO</h6>
+                            <img src="../../img/logo.png" alt="Logo Taller" style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
+                            <small class="fw-bold d-block mt-1" style="color: var(--primary-dark); font-size: 10px;">MECÁNICA AUTOMOTRIZ</small>
                         </div>
                         <div class="col-3 text-center">
                             <h5 class="fw-bold mb-0" style="font-size: 16px;">HOJA DE INSPECCIÓN</h5>
@@ -236,9 +281,16 @@ require("../../header.php");
                                     <thead><tr><th colspan="4">Interior</th></tr><tr><th>Elemento</th><th>B</th><th>F</th><th>D</th></tr></thead>
                                     <tbody>
                                         <?php
-                                        $items = ['Beeper', 'Pito/Bocina', 'Luces int.', 'Aire Cond.', 'Radio', 'Cristales'];
-                                        foreach ($items as $item) { echo "<tr><td class='col-item'>$item</td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td></tr>"; }
-                                        ?>
+                                            $items = ['Beeper', 'Pito/Bocina', 'Luces int.', 'Aire Cond.', 'Radio', 'Cristales', 'Seguros', 'Retrovisor'];
+                                            foreach ($items as $index => $item) { 
+                                                echo "<tr>
+                                                        <td class='col-item'>$item</td>
+                                                        <td class='col-check'><input type='radio' name='int_$index' value='B' disabled class='print-checkbox'></td>
+                                                        <td class='col-check'><input type='radio' name='int_$index' value='F' disabled class='print-checkbox'></td>
+                                                        <td class='col-check'><input type='radio' name='int_$index' value='D' disabled class='print-checkbox'></td>
+                                                    </tr>"; 
+                                            }
+                                            ?>
                                     </tbody>
                                 </table>
                             </div>
@@ -247,9 +299,16 @@ require("../../header.php");
                                     <thead><tr><th colspan="4">Exterior</th></tr><tr><th>Elemento</th><th>B</th><th>F</th><th>D</th></tr></thead>
                                     <tbody>
                                         <?php
-                                        $items_ext = ['Goma Rep.', 'Gato', 'Herram.', 'Llave Rueda', 'Luces Tras.', 'Tapa Comb.'];
-                                        foreach ($items_ext as $item) { echo "<tr><td class='col-item'>$item</td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td></tr>"; }
-                                        ?>
+                                            $items_ext = ['Goma Rep.', 'Gato', 'Herram.', 'Llave Rueda', 'Luces Tras.', 'Tapa Comb.', 'Botiquín', 'Triángulo'];
+                                            foreach ($items_ext as $index => $item) { 
+                                                echo "<tr>
+                                                        <td class='col-item'>$item</td>
+                                                        <td class='col-check'><input type='radio' name='ext_$index' value='B' disabled class='print-checkbox'></td>
+                                                        <td class='col-check'><input type='radio' name='ext_$index' value='F' disabled class='print-checkbox'></td>
+                                                        <td class='col-check'><input type='radio' name='ext_$index' value='D' disabled class='print-checkbox'></td>
+                                                    </tr>"; 
+                                            }
+                                            ?>
                                     </tbody>
                                 </table>
                             </div>
@@ -258,9 +317,16 @@ require("../../header.php");
                                     <thead><tr><th colspan="4">Motor</th></tr><tr><th>Elemento</th><th>B</th><th>F</th><th>D</th></tr></thead>
                                     <tbody>
                                         <?php
-                                        $items_mot = ['Varilla Aceite', 'Tapón Aceite', 'Radiador', 'Batería', 'Agua L/V', 'Filtro Aire'];
-                                        foreach ($items_mot as $item) { echo "<tr><td class='col-item'>$item</td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td><td class='col-check'><input type='radio' disabled class='print-checkbox'></td></tr>"; }
-                                        ?>
+                                            $items_mot = ['Varilla Aceite', 'Tapón Aceite', 'Radiador', 'Batería', 'Agua L/V', 'Filtro Aire', 'Correas', 'Tapas'];
+                                            foreach ($items_mot as $index => $item) { 
+                                                echo "<tr>
+                                                        <td class='col-item'>$item</td>
+                                                        <td class='col-check'><input type='radio' name='mot_$index' value='B' disabled class='print-checkbox'></td>
+                                                        <td class='col-check'><input type='radio' name='mot_$index' value='F' disabled class='print-checkbox'></td>
+                                                        <td class='col-check'><input type='radio' name='mot_$index' value='D' disabled class='print-checkbox'></td>
+                                                    </tr>"; 
+                                            }
+                                            ?>
                                     </tbody>
                                 </table>
                             </div>

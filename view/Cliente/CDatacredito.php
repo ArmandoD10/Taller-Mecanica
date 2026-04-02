@@ -21,7 +21,7 @@ require("../../header.php");
                     <button class="btn btn-success btn-lg w-100" onclick="solicitarConsulta()">
                         <i class="fas fa-paper-plane me-2"></i>Enviar Solicitud
                     </button>
-                    <button class="btn btn-outline-secondary btn-lg" onclick="limpiarPantalla()">
+                    <button class="btn btn-outline-secondary btn-lg" onclick="limpiarFormularioConsulta() ">
                         <i class="fas fa-sync"></i>
                     </button>
                 </div>

@@ -13,6 +13,73 @@ const formatoMoneda = new Intl.NumberFormat('es-DO', {
     minimumFractionDigits: 2
 });
 
+// --- NUEVAS FUNCIONES ---
+
+function buscarConsultasDataCredito(id_cliente) {
+    const contenedor = document.getElementById('contenedor_consultas_api');
+    const lista = document.getElementById('lista_consultas_api');
+    
+    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=cargar_consultas_api&id_cliente=${id_cliente}`)
+    .then(res => res.json())
+    .then(res => {
+        if (res.success && res.data.length > 0) {
+            contenedor.classList.remove('d-none');
+            lista.innerHTML = '';
+            
+            res.data.forEach(con => {
+                const item = document.createElement('button');
+                item.type = "button";
+                item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+                item.innerHTML = `
+                    <div>
+                        <small class="d-block text-muted">${con.fecha_consulta}</small>
+                        <strong>Ref: ${con.referencia_consulta}</strong> | Score: <span class="badge bg-primary">${con.score_crediticio}</span>
+                    </div>
+                    <span class="btn btn-sm btn-outline-success">Usar Datos</span>
+                `;
+                
+                item.onclick = () => aplicarDatosConsulta(con);
+                lista.appendChild(item);
+            });
+        } else {
+            contenedor.classList.add('d-none');
+        }
+    });
+}
+
+function aplicarDatosConsulta(consulta) {
+    // 1. Llenar la referencia
+    document.getElementById('referencia_datacredito').value = consulta.referencia_consulta;
+    
+    // 2. Calcular monto aprobado según el Score
+    const score = parseInt(consulta.score_crediticio);
+    let monto = 0;
+
+    if (score < 150) {
+        monto = 0;
+        alert("El score es demasiado bajo para generar un monto aprobado automáticamente (Menor a 150).");
+    } else if (score >= 150 && score <= 200) {
+        monto = 5000;
+    } else if (score >= 201 && score <= 400) {
+        monto = 10000;
+    } else if (score >= 401 && score <= 700) {
+        monto = 25000;
+    } else if (score >= 701 && score <= 1000) {
+        monto = 35000;
+    }
+
+    document.getElementById('monto_credito').value = monto;
+    
+    // Efecto visual de resaltado
+    document.getElementById('monto_credito').classList.add('is-valid');
+    document.getElementById('referencia_datacredito').classList.add('is-valid');
+    
+    setTimeout(() => {
+        document.getElementById('monto_credito').classList.remove('is-valid');
+        document.getElementById('referencia_datacredito').classList.remove('is-valid');
+    }, 2000);
+}
+
 function limpiarFormulario() {
     document.getElementById("id_oculto").value = "";
     document.getElementById("id_cliente").value = "";
@@ -28,6 +95,9 @@ function limpiarFormulario() {
 
     document.getElementById("btnGuardar").textContent = "Aprobar Crédito";
     modoEdicion = false;
+
+    document.getElementById('contenedor_consultas_api').classList.add('d-none');
+    document.getElementById('lista_consultas_api').innerHTML = '';
 }
 
 // --- LÓGICA DEL BUSCADOR AUTOCOMPLETABLE ---
@@ -73,6 +143,9 @@ buscador.addEventListener('input', function() {
                 inputIdCliente.value = cli.id_cliente; // Guardamos ID oculto
                 buscador.value = cli.nombre_cliente; // Mostramos nombre bonito
                 listaClientes.classList.add('d-none'); // Ocultamos lista
+
+                // NUEVO: Al seleccionar un cliente, buscar sus consultas de DataCrédito
+                buscarConsultasDataCredito(cli.id_cliente);
             };
             listaClientes.appendChild(li);
         });
@@ -92,6 +165,16 @@ document.addEventListener('click', function(e) {
 });
 // -------------------------------------------
 
+// Función para mostrar el modal con el mensaje que venga del Backend
+function mostrarModalError(mensaje) {
+    document.getElementById('modal_error_mensaje').innerText = mensaje;
+    document.getElementById('custom_modal_error').classList.remove('d-none');
+}
+
+// Función para cerrar
+function cerrarModalError() {
+    document.getElementById('custom_modal_error').classList.add('d-none');
+}
 
 function cargarTabla() {
     fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=cargar`)
@@ -199,11 +282,16 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
             limpiarFormulario();
             cargarTabla(); 
         } else {
-            alert("Error: " + data.message);
+            mostrarModalError(data.message);
         }
     });
 });
 
+const selectEstado = document.getElementById('estado_credito');
+
+// Bloqueo total: guarda el valor y si cambia, lo regresa al original
+selectEstado.addEventListener('mousedown', (e) => e.preventDefault()); // Evita clic
+selectEstado.addEventListener('keydown', (e) => e.preventDefault());
 // --- MÁSCARA DE VALIDACIÓN PARA MONTO (SOLO NÚMEROS Y DECIMALES) ---
 document.addEventListener("DOMContentLoaded", function() {
     const inputMonto = document.getElementById('monto_credito');

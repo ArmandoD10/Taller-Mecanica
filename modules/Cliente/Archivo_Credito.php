@@ -18,6 +18,9 @@ switch ($action) {
     case 'actualizar':
         actualizar($conexion);
         break;
+    case 'cargar_consultas_api':
+        cargar_consultas_api($conexion);
+        break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
@@ -87,6 +90,45 @@ function guardar($conexion) {
         exit;
     }
 
+    // --- BLOQUE DE VALIDACIONES DE POLÍTICA DE CRÉDITO ---
+
+    // 1. Buscamos el crédito activo más reciente del cliente
+    $sql_check = "SELECT monto_credito, saldo_pendiente 
+                  FROM Credito 
+                  WHERE id_cliente = $id_cliente 
+                  AND estado_credito = 'Activo' 
+                  AND estado = 'activo' 
+                  ORDER BY id_credito DESC LIMIT 1";
+    
+    $res_check = $conexion->query($sql_check);
+
+    if ($res_check && $res_check->num_rows > 0) {
+        $data = $res_check->fetch_assoc();
+        $monto_actual = (float)$data['monto_credito'];
+        $saldo_actual = (float)$data['saldo_pendiente'];
+
+        // --- REGLA 1: Evitar Créditos "Vacíos" e Inactivos ---
+        if ($saldo_actual == 0) {
+            echo json_encode([
+                'success' => false, 
+                'message' => "Denegado: El cliente ya tiene una línea de crédito activa que NO ha empezado a utilizar. No se puede asignar una nueva hasta que consuma la actual."
+            ]);
+            exit;
+        }
+
+        // --- REGLA 2: Límite de Endeudamiento (75%) ---
+        $porcentaje_uso = ($saldo_actual / $monto_actual) * 100;
+
+        if ($porcentaje_uso >= 75) {
+            echo json_encode([
+                'success' => false, 
+                'message' => "Denegado: El cliente ha consumido el " . number_format($porcentaje_uso, 2) . "% de su crédito disponible. Ha superado el límite de riesgo permitido (75%)."
+            ]);
+            exit;
+        }
+    }
+    // --- FIN DE VALIDACIONES ---
+
     try {
         $conexion->begin_transaction();
 
@@ -147,5 +189,28 @@ function actualizar($conexion) {
         $conexion->rollback();
         echo json_encode(['success' => false, 'message' => 'Error al actualizar: ' . $e->getMessage()]);
     }
+}
+
+// Nueva función:
+function cargar_consultas_api($conexion) {
+    $id_cliente = $_GET['id_cliente'] ?? 0;
+    
+    // Unimos la consulta con el maestro de crédito para obtener el SCORE
+    $sql = "SELECT 
+                c.fecha_consulta, 
+                c.referencia_consulta, 
+                c.estado_consulta,
+                a.score_crediticio
+            FROM Consulta_DataCredito c
+            JOIN Api_DataCredito a ON c.referencia_consulta = a.referencia
+            WHERE c.id_cliente = $id_cliente AND c.estado = 'activo'
+            ORDER BY c.fecha_consulta DESC";
+            
+    $res = $conexion->query($sql);
+    $data = [];
+    while($row = $res->fetch_assoc()) {
+        $data[] = $row;
+    }
+    echo json_encode(['success' => true, 'data' => $data]);
 }
 ?>

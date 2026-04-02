@@ -93,6 +93,20 @@ function obtener_detalle($conexion) {
     $detalle = $stmt->get_result()->fetch_assoc();
 
     if ($detalle) {
+        // --- NUEVO: Extraer el checklist guardado ---
+    $sqlChecks = "SELECT categoria, elemento, estado FROM inspeccion_detalle WHERE id_inspeccion = ?";
+    $stmtChecks = $conexion->prepare($sqlChecks);
+    $stmtChecks->bind_param("i", $id_inspeccion);
+    $stmtChecks->execute();
+    $resChecks = $stmtChecks->get_result();
+    
+    $checklist = [];
+    while ($row = $resChecks->fetch_assoc()) {
+        $checklist[] = $row;
+    }
+    
+    // Inyectamos el array de checklist en nuestra respuesta principal
+    $detalle['checklist'] = $checklist;
         echo json_encode(['success' => true, 'data' => $detalle]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Inspección no encontrada']);

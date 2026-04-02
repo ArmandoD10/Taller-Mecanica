@@ -68,6 +68,38 @@ function verDetalle(id_inspeccion) {
             setValor("mod_km", d.kilometraje_recepcion);
             setValor("mod_combustible", d.nivel_combustible);
             setValor("mod_motivo", d.motivo_visita);
+            // 1. Limpiar todos los radio buttons del modal antes de llenarlos
+            document.querySelectorAll('#modalInspeccion input[type="radio"]').forEach(radio => {
+                radio.checked = false;
+            });
+
+            // 2. Llenar los radio buttons según la base de datos
+            if (d.checklist && d.checklist.length > 0) {
+                // Mapeo interno de nuestras listas de PHP a JavaScript
+                const categorias = {
+                    'Interior': ['Beeper', 'Pito/Bocina', 'Luces int.', 'Aire Cond.', 'Radio', 'Cristales', 'Seguros', 'Retrovisor'],
+                    'Exterior': ['Goma Rep.', 'Gato', 'Herram.', 'Llave Rueda', 'Luces Tras.', 'Tapa Comb.', 'Botiquín', 'Triángulo'],
+                    'Motor': ['Varilla Aceite', 'Tapón Aceite', 'Radiador', 'Batería', 'Agua L/V', 'Filtro Aire', 'Correas', 'Tapas']
+                };
+                const prefijos = {'Interior': 'int', 'Exterior': 'ext', 'Motor': 'mot'};
+
+                d.checklist.forEach(check => {
+                    const arrayCategoria = categorias[check.categoria];
+                    if(arrayCategoria) {
+                        // Buscamos el índice (el número) del elemento (ej. 'Radio' es el index 4)
+                        const index = arrayCategoria.indexOf(check.elemento);
+                        if (index !== -1) {
+                            const nameRadio = `${prefijos[check.categoria]}_${index}`; // ej. int_4
+                            
+                            // Buscamos el radio button que coincida en nombre y en valor (B, F o D) y lo marcamos
+                            const radioBtn = document.querySelector(`#modalInspeccion input[name="${nameRadio}"][value="${check.estado}"]`);
+                            if (radioBtn) {
+                                radioBtn.checked = true;
+                            }
+                        }
+                    }
+                });
+            }
 
             // --- APERTURA DE MODAL A PRUEBA DE FALLOS ---
             const modalElement = document.getElementById('modalInspeccion');

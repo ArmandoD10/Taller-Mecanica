@@ -63,12 +63,43 @@ function guardar($conexion) {
 
     try {
         $conexion->begin_transaction();
-        $sql = "INSERT INTO Inspeccion (id_vehiculo, id_empleado, kilometraje_recepcion, nivel_combustible, observacion, estado, usuario_creacion, fecha_inspeccion) VALUES (?, ?, ?, ?, ?, 'activo', ?, NOW())";
+        
+        // 1. Guardar la Inspección Principal
+        $sql = "INSERT INTO Inspeccion (id_vehiculo, id_empleado, kilometraje_recepcion, nivel_combustible, observacion, estado, usuario_creacion) VALUES (?, ?, ?, ?, ?, 'activo', ?)";
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param("iiissi", $id_vehiculo, $id_empleado, $kilometraje, $combustible, $motivo_visita, $usuario_creacion);
         $stmt->execute();
+        
+        // Atrapamos el ID que se acaba de generar
+        $id_inspeccion = $conexion->insert_id;
+
+        // 2. Guardar el Checklist Dinámico
+        $items_interior = ['Beeper', 'Pito/Bocina', 'Luces int.', 'Aire Cond.', 'Radio', 'Cristales', 'Seguros', 'Retrovisor'];
+        $items_ext = ['Goma Rep.', 'Gato', 'Herram.', 'Llave Rueda', 'Luces Tras.', 'Tapa Comb.', 'Botiquín', 'Triángulo'];
+        $items_mot = ['Varilla Aceite', 'Tapón Aceite', 'Radiador', 'Batería', 'Agua L/V', 'Filtro Aire', 'Correas', 'Tapas'];
+
+        $sqlDet = "INSERT INTO inspeccion_detalle (id_inspeccion, categoria, elemento, estado) VALUES (?, ?, ?, ?)";
+        $stmtDet = $conexion->prepare($sqlDet);
+
+        // Función auxiliar interna para no repetir código
+        $insertarCategoria = function($prefijo, $items, $categoria) use ($stmtDet, $id_inspeccion) {
+            foreach ($items as $i => $item) {
+                // Verificamos si el mecánico seleccionó B, F o D para este elemento
+                if (isset($_POST[$prefijo . '_' . $i])) {
+                    $estado = $_POST[$prefijo . '_' . $i];
+                    $stmtDet->bind_param("isss", $id_inspeccion, $categoria, $item, $estado);
+                    $stmtDet->execute();
+                }
+            }
+        };
+
+        // Procesamos las 3 categorías
+        $insertarCategoria('int', $items_interior, 'Interior');
+        $insertarCategoria('ext', $items_ext, 'Exterior');
+        $insertarCategoria('mot', $items_mot, 'Motor');
+
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Inspección guardada con éxito.']);
+        echo json_encode(['success' => true, 'message' => 'Inspección y checklist guardados con éxito.']);
     } catch (Exception $e) {
         $conexion->rollback();
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);

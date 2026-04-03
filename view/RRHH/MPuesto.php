@@ -5,7 +5,7 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container">
-        <h2 class="mb-4">Gestion de Puestos</h2>
+        <h2><i class="fas fa-briefcase me-2 text-primary"></i>Gestión de Puestos</h2>
         <!-- <h3 class="mb-4">_______________________________________________________________________________________________</h3> -->
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/RRHH/Archivo_Puesto.php?action=guardar" id="formulario">

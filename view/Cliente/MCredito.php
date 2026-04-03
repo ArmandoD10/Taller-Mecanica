@@ -5,7 +5,7 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container-fluid px-4">
-        <h2 class="mb-4">Gestión de Créditos y Cobranzas</h2>
+        <h2><i class="fas fa-credit-card me-2 text-primary"></i>Registro de Créditos</h2>
         
         <form method="POST" id="formulario">
             <input type="hidden" id="id_oculto" name="id_credito">

@@ -5,7 +5,7 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container">
-        <h2 class="mb-4">Registro de Usuarios</h2>
+        <h2><i class="fas fa-user-cog me-2 text-primary"></i>Registro de Usuarios</h2>
         <!-- <h3 class="mb-4">_______________________________________________________________________________________________</h3> -->
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=guardar" id="formulario">

@@ -18,6 +18,30 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ==========================================
+    // FILTRO DE NOMBRES Y APELLIDOS (Solo letras y Mayúsculas iniciales)
+    // ==========================================
+    const inputNombre = document.getElementById('nombre_persona');
+    const inputApellido = document.getElementById('apellido_p');
+
+    function formatearNombres(e) {
+        let val = e.target.value;
+        
+        // 1. Eliminar números y caracteres especiales (deja letras, espacios y acentos)
+        val = val.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+        
+        // 2. Capitalizar la primera letra de cada palabra
+        // Primero convertimos todo a minúsculas por si escribieron "jUaN"
+        val = val.toLowerCase().replace(/\b[a-záéíóúñ]/g, function(letra) {
+            return letra.toUpperCase();
+        });
+        
+        e.target.value = val;
+    }
+
+    inputNombre.addEventListener('input', formatearNombres);
+    inputApellido.addEventListener('input', formatearNombres);
+
+    // ==========================================
     // MÁSCARAS Y AUTOCOMPLETADO
     // ==========================================
     function formatCedula(e) {

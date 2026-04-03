@@ -5,7 +5,7 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container">
-        <h2 class="mb-4">Gestion de Sucursales</h2>
+        <h2><i class="fas fa-store me-2 text-primary"></i>Registro de Sucursales</h2>
         <!-- <h3 class="mb-4">_______________________________________________________________________________________________</h3> -->
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Sucursal.php?action=guardar" id="formulario">

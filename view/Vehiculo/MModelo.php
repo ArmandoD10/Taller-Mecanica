@@ -5,7 +5,7 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container">
-        <h2 class="mb-4">Gestión de Modelos de Vehículos</h2>
+        <h2><i class="fas fa-list me-2 text-primary"></i>Gestión de Modelos de vehiculos</h2>
         
         <form method="POST" action="/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Modelo.php?action=guardar" id="formulario">
             <input type="hidden" id="id_oculto" name="id_modelo">

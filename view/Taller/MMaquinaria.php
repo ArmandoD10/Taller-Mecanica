@@ -48,7 +48,7 @@ require("../../header.php");
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="fw-bold">Nombre del Recurso <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control border-dark" name="nombre" id="nombre" required>
+                                <input type="text" class="form-control border-dark" name="nombre" id="nombre" required placeholder="Escriba el nombre del recurso...">
                             </div>
                             <div class="col-md-6 mb-3 position-relative">
                                 <label class="fw-bold">Buscar Categoría <span class="text-danger">*</span></label>

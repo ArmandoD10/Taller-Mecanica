@@ -268,3 +268,27 @@ function cerrarModalUI() {
         $('#modalMaquinaria').modal('hide');
     }
 }
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    
+    const inputField = document.getElementById('nombre');
+
+    // Verificamos que el input exista para evitar errores en consola
+    if (inputField) {
+        inputField.addEventListener('input', (e) => {
+            let value = e.target.value;
+
+            // 1. Filtro de caracteres especiales (Solo letras, números y espacios)
+            value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+
+            // 2. Primera letra siempre Mayúscula
+            if (value.length > 0) {
+                value = value.charAt(0).toUpperCase() + value.slice(1);
+            }
+
+            // 3. Actualizamos el valor del input
+            e.target.value = value;
+        });
+    }
+});

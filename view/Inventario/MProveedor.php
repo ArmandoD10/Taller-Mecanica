@@ -5,13 +5,17 @@ require("../../header.php");
 
 <style>
     /* Forzamos al modal a estar por encima de la barra lateral */
-    .modal { z-index: 105000 !important; }
-    .modal-backdrop { z-index: 104900 !important; }
+    .modal { 
+        z-index: 105000 !important; 
+    }
+    .modal-backdrop { 
+        z-index: 104900 !important; 
+    }
     
-    /* Forzamos scroll interno para que los botones NUNCA se escondan */
+    /* Forzamos scroll interno para que los botones de guardar NUNCA se escondan */
     #modalProveedor .modal-body {
-        max-height: 65vh; /* Máximo 65% del alto de la pantalla */
-        overflow-y: auto; /* Agrega barra de desplazamiento si se pasa */
+        max-height: 65vh; 
+        overflow-y: auto;
     }
 </style>
 
@@ -34,7 +38,7 @@ require("../../header.php");
                                 <th>Nombre Comercial / Empresa</th>
                                 <th>Representante</th>
                                 <th>RNC / Cédula</th>
-                                <th>Correo</th>
+                                <th>Teléfonos</th>
                                 <th>Estado</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
@@ -152,10 +156,64 @@ require("../../header.php");
 
                     </div>
                     <div class="modal-footer bg-white border-top">
-                        <button type="button" class="btn btn-secondary" onclick="cerrarModalUI()">Cerrar</button>
+                        <button type="button" class="btn btn-secondary" onclick="cerrarModalUI('modalProveedor')">Cerrar</button>
                         <button type="submit" class="btn btn-success"><i class="fas fa-save me-2"></i>Guardar Proveedor</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalTelefonos" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title"><i class="fas fa-phone-alt me-2"></i>Contactos de: <span id="tituloProveedorTel" class="text-warning"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <form id="formTelefono" class="row g-3 align-items-end p-3 border border-2 border-secondary rounded mb-4 bg-white">
+                        <input type="hidden" id="prov_tel_id" name="prov_tel_id">
+                        <input type="hidden" id="id_telefono_edit" name="id_telefono_edit">
+                        
+                        <div class="col-md-5">
+                            <label class="fw-bold text-dark">Número Telefónico <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control border-dark fw-bold" id="numero_telefono" name="numero_telefono" placeholder="(000)-000-0000" required maxlength="14">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="fw-bold text-dark">Estado</label>
+                            <select class="form-select border-dark" name="estado_telefono" id="estado_telefono" required>
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex gap-1">
+                            <button type="submit" class="btn btn-primary w-100" id="btnGuardarTelefono">
+                                <i class="fas fa-plus me-1"></i>Guardar
+                            </button>
+                            <button type="button" class="btn btn-secondary d-none" id="btnCancelarEdicionTel" onclick="cancelarEdicionTelefono()" title="Cancelar Edición">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <h6 class="fw-bold border-bottom pb-2">Directorio del Proveedor</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover bg-white text-center align-middle">
+                            <thead class="bg-secondary text-white">
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Estado Relación</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuerpoTablaTelefonos"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModalUI('modalTelefonos')">Cerrar Directorio</button>
+                </div>
             </div>
         </div>
     </div>

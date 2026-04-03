@@ -50,11 +50,11 @@ require("../../header.php");
                                 <label class="fw-bold">Nombre del Recurso <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control border-dark" name="nombre" id="nombre" required placeholder="Escriba el nombre del recurso...">
                             </div>
-                            <div class="col-md-6 mb-3 position-relative">
-                                <label class="fw-bold">Buscar Categoría <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control border-dark" id="txt_buscar_cat" placeholder="Escriba la categoría..." autocomplete="off">
-                                <input type="hidden" name="id_categoria" id="id_categoria" required>
-                                <ul class="list-group position-absolute w-100 d-none shadow" id="lista_cat" style="z-index:1000; max-height: 150px; overflow-y: auto;"></ul>
+                            <div class="col-md-6 mb-3">
+                                <label class="fw-bold">Categoría <span class="text-danger">*</span></label>
+                                <select class="form-select border-dark" name="id_categoria" id="id_categoria" required>
+                                    <option value="">Cargando categorías...</option>
+                                </select>
                             </div>
                         </div>
 

@@ -1,42 +1,11 @@
 let cacheSucursales = [];
-let cacheCategorias = [];
 
 document.addEventListener("DOMContentLoaded", () => {
     listar();
     cargarDependencias();
 
     // ==========================================
-    // 1. BUSCADOR DINÁMICO DE CATEGORÍAS
-    // ==========================================
-    const txtCat = document.getElementById('txt_buscar_cat');
-    const listaCat = document.getElementById('lista_cat');
-    const hiddenCat = document.getElementById('id_categoria');
-
-    txtCat.addEventListener('input', function() {
-        const busca = this.value.toLowerCase().trim();
-        listaCat.innerHTML = '';
-        if (busca.length < 1) { listaCat.classList.add('d-none'); return; }
-        
-        const filtrados = cacheCategorias.filter(c => c.nombre.toLowerCase().includes(busca));
-        if (filtrados.length > 0) {
-            listaCat.classList.remove('d-none');
-            filtrados.forEach(c => {
-                const li = document.createElement('li');
-                li.className = 'list-group-item list-group-item-action py-1';
-                li.style.cursor = 'pointer';
-                li.textContent = c.nombre;
-                li.onclick = () => {
-                    txtCat.value = c.nombre;
-                    hiddenCat.value = c.id_categoria;
-                    listaCat.classList.add('d-none');
-                };
-                listaCat.appendChild(li);
-            });
-        } else { listaCat.classList.add('d-none'); }
-    });
-
-    // ==========================================
-    // 2. BUSCADOR DINÁMICO DE SUCURSALES
+    // 1. BUSCADOR DINÁMICO DE SUCURSALES
     // ==========================================
     const txtSuc = document.getElementById('txt_buscar_suc');
     const listaSuc = document.getElementById('lista_suc');
@@ -66,18 +35,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.addEventListener('click', (e) => {
-        if (!txtCat.contains(e.target)) listaCat.classList.add('d-none');
         if (!txtSuc.contains(e.target)) listaSuc.classList.add('d-none');
     });
 
     // ==========================================
-    // 3. GUARDAR FORMULARIO
+    // 2. GUARDAR FORMULARIO
     // ==========================================
     document.getElementById("formMaquinaria").addEventListener("submit", function(e) {
         e.preventDefault();
         
-        if(hiddenCat.value === "" || hiddenSuc.value === "") {
-            alert("Por favor, seleccione una Categoría y una Sucursal válida de la lista.");
+        if(hiddenSuc.value === "") {
+            alert("Por favor, busque y seleccione una Sucursal válida de la lista.");
             return;
         }
 
@@ -103,12 +71,30 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // Eventos para cerrar el modal
     document.querySelectorAll('#modalMaquinaria [data-bs-dismiss="modal"], #modalMaquinaria .btn-close').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             cerrarModalUI();
         });
     });
+
+    // ==========================================
+    // 3. FILTRO DE TEXTO PARA EL NOMBRE
+    // ==========================================
+    const inputField = document.getElementById('nombre');
+    if (inputField) {
+        inputField.addEventListener('input', (e) => {
+            let value = e.target.value;
+            // Solo letras, números y espacios
+            value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+            // Primera letra siempre Mayúscula
+            if (value.length > 0) {
+                value = value.charAt(0).toUpperCase() + value.slice(1);
+            }
+            e.target.value = value;
+        });
+    }
 });
 
 function listar() {
@@ -157,8 +143,15 @@ function cargarDependencias() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            // Guardamos las sucursales para el buscador dinámico
             cacheSucursales = data.data.sucursales;
-            cacheCategorias = data.data.categorias;
+            
+            // Llenamos el selector de categorías directamente
+            const selectCategoria = document.getElementById("id_categoria");
+            selectCategoria.innerHTML = '<option value="">Seleccione una categoría...</option>';
+            data.data.categorias.forEach(c => {
+                selectCategoria.innerHTML += `<option value="${c.id_categoria}">${c.nombre}</option>`;
+            });
         }
     });
 }
@@ -166,11 +159,10 @@ function cargarDependencias() {
 function nuevoRecurso() {
     document.getElementById("formMaquinaria").reset();
     document.getElementById("id_maquinaria").value = "";
-    document.getElementById("id_categoria").value = "";
     document.getElementById("id_sucursal").value = "";
     document.getElementById("estado").value = "activo";
     
-    // Por defecto colocamos la fecha de hoy para agilizar
+    // Por defecto colocamos la fecha de hoy
     document.getElementById("fecha_ingreso").value = new Date().toISOString().split('T')[0];
     
     document.getElementById("tituloModal").innerHTML = '<i class="fas fa-plus me-2"></i>Nuevo Recurso';
@@ -187,17 +179,15 @@ function editar(id) {
             const d = data.data;
             document.getElementById("id_maquinaria").value = d.id_maquinaria;
             document.getElementById("nombre").value = d.nombre;
-            document.getElementById("id_categoria").value = d.id_categoria;
+            document.getElementById("id_categoria").value = d.id_categoria; // Esto autoselecciona el <select>
             document.getElementById("id_sucursal").value = d.id_sucursal;
             document.getElementById("funcionamiento").value = d.funcionamiento;
             document.getElementById("estado_maquina").value = d.estado_maquina;
             document.getElementById("fecha_ingreso").value = d.fecha_ingreso_formato;
             document.getElementById("estado").value = d.estado;
 
-            // Rellenar buscadores
-            const cat = cacheCategorias.find(c => c.id_categoria == d.id_categoria);
+            // Rellenar visualmente el buscador de la sucursal
             const suc = cacheSucursales.find(s => s.id_sucursal == d.id_sucursal);
-            document.getElementById("txt_buscar_cat").value = cat ? cat.nombre : "";
             document.getElementById("txt_buscar_suc").value = suc ? suc.nombre : "";
             
             abrirModalUI();
@@ -268,27 +258,3 @@ function cerrarModalUI() {
         $('#modalMaquinaria').modal('hide');
     }
 }
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    
-    const inputField = document.getElementById('nombre');
-
-    // Verificamos que el input exista para evitar errores en consola
-    if (inputField) {
-        inputField.addEventListener('input', (e) => {
-            let value = e.target.value;
-
-            // 1. Filtro de caracteres especiales (Solo letras, números y espacios)
-            value = value.replace(/[^a-zA-Z0-9\s]/g, '');
-
-            // 2. Primera letra siempre Mayúscula
-            if (value.length > 0) {
-                value = value.charAt(0).toUpperCase() + value.slice(1);
-            }
-
-            // 3. Actualizamos el valor del input
-            e.target.value = value;
-        });
-    }
-});

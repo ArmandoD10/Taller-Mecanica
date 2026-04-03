@@ -123,6 +123,7 @@ $stats = [
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Taller/Servicio.php">Órdenes de Servicio</a>
+                    <a href="/Taller/Taller-Mecanica/view/Taller/MTipoServicio.php">Registro de Servicios</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MInspeccion.php">Inspecciones Técnicas</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MBahia.php">Gestión de Bahías</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MMaquinaria.php">Gestión de Recursos</a>

@@ -107,7 +107,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacenes</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MCompra.php">Orden de Compra</a>
-                    <a href="/Taller/Taller-Mecanica/view/Inventario/PagoCompra.php">Pago de Compra</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MPagoCompra.php">Pago de Compra</a>
                     <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Transferencia.php">Transferencia de Stock</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/RecepcionCompra.php">Recepción de Compra</a>

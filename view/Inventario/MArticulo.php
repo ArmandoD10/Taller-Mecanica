@@ -94,15 +94,23 @@ require("../../header.php");
                                                 <input type="number" step="0.01" class="form-control border-success" name="precio_venta" id="precio_venta">
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label fw-bold">Estado</label>
-                                                <select class="form-select" name="estado" id="estado">
-                                                    <option value="activo">Activo</option>
-                                                    <option value="inactivo">Inactivo</option>
+                                                <label class="form-label fw-bold text-primary">Condición del Repuesto</label>
+                                                <select class="form-select border-primary" name="estado_articulo" id="estado_articulo" required>
+                                                    <option value="nuevo">Nuevo</option>
+                                                    <option value="usado">Usado</option>
+                                                    <option value="reparado">Reparado</option>
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Vencimiento</label>
                                                 <input type="date" class="form-control" name="fecha_caducidad" id="fecha_caducidad">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold">Estado</label>
+                                                <select class="form-select" name="estado" id="estado">
+                                                    <option value="activo">Activo</option>
+                                                    <option value="inactivo">Inactivo</option>
+                                                </select>
                                             </div>
                                         </div>
                                     </div>
@@ -141,35 +149,51 @@ require("../../header.php");
             <div class="modal-body">
                 <div class="row">
                     <div class="col-md-5 text-center">
-                        <div class="p-2 border rounded bg-light">
+                        <div class="p-2 border rounded bg-light mb-3 mb-md-0">
                             <img id="det_imagen" src="" class="img-fluid rounded" style="max-height: 350px; object-fit: contain;">
                         </div>
                     </div>
+                    
                     <div class="col-md-7">
                         <h3 id="det_nombre" class="fw-bold text-primary mb-1"></h3>
                         <p id="det_serie" class="text-muted small mb-3"></p>
                         
-                        <div class="mb-3">
+                        <div class="mb-3 d-flex align-items-center flex-wrap gap-2">
                             <span class="badge bg-success fs-5" id="det_precio"></span>
-                            <span class="badge bg-outline-secondary text-dark border ms-2" id="det_marca"></span>
+                            <span class="badge bg-outline-secondary text-dark border" id="det_marca"></span>
+                            <span id="det_estado_admin" class="badge"></span>
+                            <span id="det_estado_fisico" class="badge text-uppercase"></span>
                         </div>
 
                         <h6 class="fw-bold border-bottom pb-1">Descripción:</h6>
-                        <p id="det_descripcion" class="text-secondary"></p>
+                        <p id="det_descripcion" class="text-secondary" style="min-height: 50px;"></p>
 
                         <div class="row mt-4">
-                            <div class="col-6">
-                                <small class="d-block text-muted">Fecha Vencimiento:</small>
-                                <strong id="det_fecha"></strong>
+                            <div class="col-6 border-end">
+                                <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Vencimiento</small>
+                                <strong id="det_fecha" class="text-dark"></strong>
                             </div>
                             <div class="col-6">
-                                <small class="d-block text-muted">Estado:</small>
-                                <strong id="det_estado"></strong>
+                                <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Identificador único</small>
+                                <strong class="text-dark">Codigo: #<span id="det_id_visual"></span></strong>
                             </div>
                         </div>
                         
-                        <div class="mt-4 p-2 bg-warning bg-opacity-10 border border-warning rounded">
-                            <i class="fas fa-warehouse me-2"></i> <small>Información de Stock (Próximamente)</small>
+                        <div class="mt-4 p-3 bg-light border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold"><i class="fas fa-warehouse me-2 text-warning"></i>Stock Disponibilidad</span>
+                                <span class="badge bg-secondary">Módulo en desarrollo</span>
+                            </div>
+                            <div class="row mt-2 text-center">
+                                <div class="col-6 border-end">
+                                    <small class="text-muted d-block">General</small>
+                                    <h5 class="mb-0">--</h5>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Sucursal</small>
+                                    <h5 class="mb-0">--</h5>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

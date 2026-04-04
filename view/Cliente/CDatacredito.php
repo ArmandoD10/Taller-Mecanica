@@ -5,20 +5,28 @@ require("../../header.php");
 
 <main class="contenido">
     <div class="container-fluid px-4">
-        <h2 class="mb-4 text-success"><i class="fas fa-shield-alt me-2"></i>Maestro DataCrédito</h2>
+        <h2 class="mb-4 text-primary"><i class="fas fa-shield-alt me-2"></i>Maestro DataCrédito</h2>
         
-        <div class="card p-4 shadow-sm border-0 mb-4 bg-white" style="border-left: 5px solid #28a745 !important;">
+        <div class="card p-4 shadow-sm border-0 mb-4 bg-white" style="border-left: 5px solid #3b51c9 !important;">
             <div class="row align-items-end">
                 <div class="col-md-7">
-                    <label class="form-label fw-bold text-success">Documento de Identidad (Cédula/RNC)</label>
+                    <label class="form-label fw-bold text-primary">Documento de Identidad (Cédula/RNC)</label>
                     <input type="text" 
                         class="form-control form-control-lg border-success" 
                         id="cedula_consulta" 
                         placeholder="001-0000000-0" 
                         maxlength="13">
                 </div>
+
+                <div class="row mt-5" id="area-placeholder">
+    <div class="col-12 text-center p-5">
+        <img src="/Taller/Taller-Mecanica/img/icondata.webp" alt="Buscar" class="img-fluid mb-4" style="max-width: 300px; opacity: 0.7;">
+        <h4 class="text-muted fw-light">Historial Crediticio al Instante</h4>
+        <p class="text-secondary mx-auto" style="max-width: 500px;">Ingrese el número de Cédula o RNC del cliente en el buscador superior para consultar su reporte consolidado en la base de datos de la República Dominicana.</p>
+    </div>
+</div>
                 <div class="col-md-5 d-flex gap-2">
-                    <button class="btn btn-success btn-lg w-100" onclick="solicitarConsulta()">
+                    <button class="btn btn-primary btn-lg w-100" onclick="solicitarConsulta()">
                         <i class="fas fa-paper-plane me-2"></i>Enviar Solicitud
                     </button>
                     <button class="btn btn-outline-secondary btn-lg" onclick="limpiarFormularioConsulta() ">
@@ -27,6 +35,36 @@ require("../../header.php");
                 </div>
             </div>
         </div>
+
+        <div class="row mt-5 g-4" id="area-placeholder">
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm bg-light text-center p-3">
+            <div class="card-body">
+                <i class="fas fa-id-card fa-3x text-primary mb-3"></i>
+                <h6 class="card-title fw-bold">Dato Requerido</h6>
+                <p class="card-text small text-muted">Asegúrese de tener la Cédula (11 dígitos) o el RNC (9 dígitos) exacto del cliente.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm bg-light text-center p-3">
+            <div class="card-body">
+                <i class="fas fa-search-dollar fa-3x text-success mb-3"></i>
+                <h6 class="card-title fw-bold">Consulta Segura</h6>
+                <p class="card-text small text-muted">El sistema se conecta al buró de crédito nacional para obtener información oficial y actualizada.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm bg-light text-center p-3">
+            <div class="card-body">
+                <i class="fas fa-file-invoice-dollar fa-3x text-warning mb-3"></i>
+                <h6 class="card-title fw-bold">Resultado</h6>
+                <p class="card-text small text-muted">Obtendrá un score crediticio, referencias bancarias y comportamiento de pagos en segundos.</p>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div id="loader_datacredito" class="text-center d-none my-5">
             <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status"></div>

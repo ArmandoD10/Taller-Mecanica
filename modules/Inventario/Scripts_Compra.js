@@ -17,14 +17,13 @@ document.addEventListener("DOMContentLoaded", () => {
     inputProv.addEventListener("input", function() {
         const val = this.value.toLowerCase().trim();
         listProv.innerHTML = "";
-        hiddenProv.value = ""; // Reseteamos el ID oculto si el usuario altera el texto
+        hiddenProv.value = ""; 
         
         if (!val) {
             listProv.style.display = "none";
             return;
         }
 
-        // Filtramos buscando en nombre o en el RNC
         const filtrados = cacheProveedores.filter(p => 
             p.nombre_comercial.toLowerCase().includes(val) || 
             (p.RNC && p.RNC.toLowerCase().includes(val))
@@ -37,12 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 item.className = "list-group-item list-group-item-action text-start";
                 item.innerHTML = `<span class="fw-bold">${p.nombre_comercial}</span> <br><small class="text-muted">RNC: ${p.RNC || 'N/A'}</small>`;
                 
-                // Al hacer clic en un resultado de la búsqueda
                 item.addEventListener("click", function(e) {
                     e.preventDefault();
-                    inputProv.value = p.nombre_comercial; // Ponemos el nombre en el campo visual
-                    hiddenProv.value = p.id_proveedor;    // Guardamos el ID en el campo oculto
-                    listProv.style.display = "none";      // Ocultamos la caja de resultados
+                    inputProv.value = p.nombre_comercial; 
+                    hiddenProv.value = p.id_proveedor;    
+                    listProv.style.display = "none";      
                 });
                 
                 listProv.appendChild(item);
@@ -73,7 +71,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Filtramos buscando en nombre o en número de serie
         const filtrados = cacheArticulos.filter(a => 
             a.nombre.toLowerCase().includes(val) || 
             (a.num_serie && a.num_serie.toLowerCase().includes(val))
@@ -86,14 +83,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 item.className = "list-group-item list-group-item-action text-start";
                 item.innerHTML = `<span class="fw-bold">${a.nombre}</span> <br><small class="text-muted">Cód: ${a.num_serie || 'N/A'} | $${a.precio_compra}</small>`;
                 
-                // Al hacer clic en un resultado
                 item.addEventListener("click", function(e) {
                     e.preventDefault();
-                    inputArt.value = a.nombre;                // Campo visual
-                    hiddenArt.value = a.id_articulo;          // Campo oculto
-                    inputPrecio.value = a.precio_compra || 0; // Traemos el precio
-                    inputCantidad.value = 1;                  // Cantidad por defecto
-                    listArt.style.display = "none";           // Ocultamos
+                    inputArt.value = a.nombre;                
+                    hiddenArt.value = a.id_articulo;          
+                    inputPrecio.value = a.precio_compra || 0; 
+                    inputCantidad.value = 1;                  
+                    listArt.style.display = "none";           
                 });
                 
                 listArt.appendChild(item);
@@ -104,9 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ==========================================
-    // CERRAR LAS LISTAS SI HACEMOS CLIC FUERA DE ELLAS
-    // ==========================================
     document.addEventListener("click", function(e) {
         if (e.target !== inputProv) {
             listProv.style.display = "none";
@@ -115,7 +108,6 @@ document.addEventListener("DOMContentLoaded", () => {
             listArt.style.display = "none";
         }
     });
-
 
     // ==========================================
     // LÓGICA DEL CARRITO: AGREGAR A LA TABLA
@@ -150,7 +142,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // Limpiar inputs del buscador
         inputArt.value = "";
         hiddenArt.value = "";
         inputPrecio.value = ""; 
@@ -330,11 +321,9 @@ function cargarDependencias() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            // Guardamos los proveedores y artículos en las variables globales para el buscador
             cacheProveedores = data.data.proveedores;
             cacheArticulos = data.data.articulos;
             
-            // Llenamos los Selects normales
             const selectMetodo = document.getElementById("id_metodo");
             const selectMoneda = document.getElementById("id_moneda");
             
@@ -358,13 +347,12 @@ function nuevaCompra() {
     document.getElementById("formCompraCabecera").reset();
     document.getElementById("id_compra").value = "";
     
-    // Resetear los buscadores nativos
     document.getElementById("buscar_proveedor").value = "";
     document.getElementById("id_proveedor").value = "";
     document.getElementById("buscar_articulo").value = "";
     document.getElementById("id_articulo_seleccionado").value = "";
     
-    bloquearFormulario(false);
+    bloquearFormulario(false, ""); // Reseteamos la alerta
     
     carritoArticulos = [];
     dibujarCarrito();
@@ -389,7 +377,6 @@ function editar(id) {
             
             document.getElementById("id_compra").value = d.id_compra;
             
-            // Llenar el buscador nativo de proveedor encontrando el nombre en caché
             const prov = cacheProveedores.find(p => p.id_proveedor == d.id_proveedor);
             document.getElementById("buscar_proveedor").value = prov ? prov.nombre_comercial : "";
             document.getElementById("id_proveedor").value = d.id_proveedor;
@@ -406,8 +393,20 @@ function editar(id) {
             });
             
             let pagado = parseFloat(d.total_pagado || 0);
-            ordenBloqueada = pagado > 0;
-            bloquearFormulario(ordenBloqueada);
+            let recepciones = parseInt(d.total_recepciones || 0);
+            
+            ordenBloqueada = (pagado > 0 || recepciones > 0);
+            
+            let mensajeBloqueo = "";
+            if (pagado > 0 && recepciones > 0) {
+                mensajeBloqueo = "Esta orden ya tiene <strong>pagos registrados y mercancía recibida</strong>. MODO LECTURA.";
+            } else if (pagado > 0) {
+                mensajeBloqueo = "Esta orden ya tiene <strong>pagos registrados</strong> en contabilidad. MODO LECTURA.";
+            } else if (recepciones > 0) {
+                mensajeBloqueo = "Esta orden ya tiene <strong>mercancía recibida</strong> en el almacén. MODO LECTURA.";
+            }
+            
+            bloquearFormulario(ordenBloqueada, mensajeBloqueo);
             
             dibujarCarrito();
             abrirModalUI('modalCompra');
@@ -418,7 +417,7 @@ function editar(id) {
     });
 }
 
-function bloquearFormulario(isLocked) {
+function bloquearFormulario(isLocked, mensaje) {
     document.getElementById("buscar_proveedor").disabled = isLocked;
     document.getElementById("id_metodo").disabled = isLocked;
     document.getElementById("id_moneda").disabled = isLocked;
@@ -442,7 +441,7 @@ function bloquearFormulario(isLocked) {
             contenedor.innerHTML = `
                 <div class="alert alert-warning fw-bold mb-3 shadow-sm border-warning">
                     <i class="fas fa-lock me-2 fs-5"></i> 
-                    Esta orden ya tiene pagos registrados y <strong>no puede ser modificada</strong>. MODO LECTURA.
+                    ${mensaje}
                 </div>`;
         }
     }

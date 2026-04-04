@@ -118,17 +118,20 @@ function guardar($conexion) {
         } else {
             // ACTUALIZAR ORDEN EXISTENTE
             
-            // --- VALIDACIÓN DE BLOQUEO CONTABLE ---
-            $sql_check = "SELECT IFNULL(SUM(monto_pagado), 0) as pagado 
-                          FROM pago_compra 
-                          WHERE id_compra = ? AND estado = 'activo'";
+            // --- VALIDACIÓN DE DOBLE BLOQUEO (PAGOS O RECEPCIONES) ---
+            $sql_check = "SELECT 
+                            IFNULL((SELECT SUM(monto_pagado) FROM pago_compra WHERE id_compra = ? AND estado = 'activo'), 0) as pagado,
+                            (SELECT COUNT(*) FROM recepcion_compra WHERE id_compra = ? AND estado = 'activo') as recepciones";
             $stmt_check = $conexion->prepare($sql_check);
-            $stmt_check->bind_param("i", $id_compra);
+            $stmt_check->bind_param("ii", $id_compra, $id_compra);
             $stmt_check->execute();
-            $pagado = $stmt_check->get_result()->fetch_assoc()['pagado'];
+            $bloqueos = $stmt_check->get_result()->fetch_assoc();
             
-            if ($pagado > 0) {
+            if ($bloqueos['pagado'] > 0) {
                 throw new Exception("ESTRICTO: No se puede modificar una orden que ya tiene pagos registrados en contabilidad.");
+            }
+            if ($bloqueos['recepciones'] > 0) {
+                throw new Exception("ESTRICTO: No se puede modificar una orden porque ya se han recibido artículos en el almacén.");
             }
             // --------------------------------------
 
@@ -164,9 +167,10 @@ function guardar($conexion) {
 function obtener($conexion) {
     $id = (int)$_GET['id_compra'];
     
-    // Obtenemos cabecera y revisamos si tiene pagos para avisarle al frontend
+    // Obtenemos cabecera y revisamos si tiene pagos o recepciones para avisarle al frontend
     $sql = "SELECT c.*, 
-            IFNULL((SELECT SUM(monto_pagado) FROM pago_compra WHERE id_compra = c.id_compra AND estado = 'activo'), 0) as total_pagado 
+            IFNULL((SELECT SUM(monto_pagado) FROM pago_compra WHERE id_compra = c.id_compra AND estado = 'activo'), 0) as total_pagado,
+            (SELECT COUNT(*) FROM recepcion_compra WHERE id_compra = c.id_compra AND estado = 'activo') as total_recepciones
             FROM compra c 
             WHERE c.id_compra = ?";
             
@@ -210,21 +214,24 @@ function eliminar($conexion) {
         $resultado_rol = $stmt_admin->get_result()->fetch_assoc();
         $nombre_rol = $resultado_rol['nombre'] ?? '';
         
-        // Comprobamos si la palabra "Administrador" o "Admin" está en el rol
         if (stripos($nombre_rol, 'Admin') === false) {
             throw new Exception("ACCESO DENEGADO: Solo un usuario con nivel de Administrador puede anular órdenes de compra.");
         }
         
-        // 2. VALIDACIÓN CONTABLE: COMPROBAR SI HAY PAGOS
-        $sql_check = "SELECT IFNULL(SUM(monto_pagado), 0) as pagado 
-                      FROM pago_compra 
-                      WHERE id_compra = ? AND estado = 'activo'";
+        // 2. VALIDACIÓN DE DOBLE BLOQUEO (PAGOS O RECEPCIONES)
+        $sql_check = "SELECT 
+                        IFNULL((SELECT SUM(monto_pagado) FROM pago_compra WHERE id_compra = ? AND estado = 'activo'), 0) as pagado,
+                        (SELECT COUNT(*) FROM recepcion_compra WHERE id_compra = ? AND estado = 'activo') as recepciones";
         $stmt_check = $conexion->prepare($sql_check);
-        $stmt_check->bind_param("i", $id);
+        $stmt_check->bind_param("ii", $id, $id);
         $stmt_check->execute();
+        $bloqueos = $stmt_check->get_result()->fetch_assoc();
         
-        if ($stmt_check->get_result()->fetch_assoc()['pagado'] > 0) {
+        if ($bloqueos['pagado'] > 0) {
             throw new Exception("No se puede anular una orden que tiene pagos registrados. Anule el pago primero.");
+        }
+        if ($bloqueos['recepciones'] > 0) {
+            throw new Exception("No se puede anular una orden porque ya se han recibido artículos de ella en el almacén.");
         }
 
         // 3. ANULACIÓN LÓGICA

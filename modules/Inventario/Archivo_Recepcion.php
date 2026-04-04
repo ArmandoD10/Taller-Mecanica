@@ -91,79 +91,79 @@ function get_almacenes($conexion) {
 }
 
 function guardar_recepcion($conexion) {
-    // IMPORTANTE: Esta es la única forma de leer un JSON enviado por fetch POST
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
     
-    // Verificación de seguridad
     if (!$data || empty($data['items'])) {
-        // Si entra aquí, es porque el JSON llegó vacío o mal formado
-        echo json_encode([
-            'success' => false, 
-            'message' => 'No hay artículos para recibir. El servidor recibió: ' . $json
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Sin datos para procesar.']);
         return;
     }
 
     $id_compra = (int)$data['id_compra'];
-    $num_conduze_input = $data['num_conduze'] ?? 0;
+    $num_conduze_input = trim((string)$data['num_conduze']);
     $usuario = $_SESSION['id_usuario'] ?? 1;
+
+    // --- NUEVA VALIDACIÓN DE CONDUCE DUPLICADO ---
+    // Verificamos si ya existe una recepción con este número de conduce
+    $sql_check = "SELECT id_recepcion FROM Recepcion_Compra WHERE num_conduze = ? LIMIT 1";
+    $stmt_check = $conexion->prepare($sql_check);
+    $stmt_check->bind_param("s", $num_conduze_input);
+    $stmt_check->execute();
+    if ($stmt_check->get_result()->num_rows > 0) {
+        echo json_encode([
+            'success' => false, 
+            'message' => "El número de conduce '$num_conduze_input' ya ha sido registrado previamente. Por favor, verifique el documento."
+        ]);
+        return;
+    }
+    // ---------------------------------------------
 
     try {
         $conexion->begin_transaction();
 
-        // Obtener id_proveedor
+        // Obtener proveedor y preparar la cabecera
         $res_p = $conexion->query("SELECT id_proveedor FROM Compra WHERE id_compra = $id_compra");
-        if($res_p->num_rows == 0) throw new Exception("La compra #$id_compra no existe.");
-        
         $prov = $res_p->fetch_assoc();
-        $id_prov = $prov['id_proveedor'];
+        $id_prov = (int)$prov['id_proveedor'];
+        $id_alm_header = (int)$data['items'][0]['id_almacen'];
 
-        // Tomamos el almacén del primer item para la cabecera
-        $id_alm_header = $data['items'][0]['id_almacen'];
-
-        // 1. Insertar Maestro Recepción
+        // 1. Maestro
         $sql_ins = "INSERT INTO Recepcion_Compra (id_proveedor, id_compra, num_conduze, id_almacen, monto_total, id_moneda, usuario_recepcion, estado) 
-                    VALUES (?, ?, ?, ?, 0.00, 1, ?, 'activo')";
+                    VALUES (?, ?, ?, ?, 0.00, 3, ?, 'activo')";
         $stmt_ins = $conexion->prepare($sql_ins);
-        $stmt_ins->bind_param("iiiii", $id_prov, $id_compra, $num_conduze_input, $id_alm_header, $usuario);
+        $stmt_ins->bind_param("iisis", $id_prov, $id_compra, $num_conduze_input, $id_alm_header, $usuario);
         $stmt_ins->execute();
 
-        // 2. Procesar cada artículo del array 'items'
+        // 2. Preparar Statements para el bucle
+        $stmt_det = $conexion->prepare("INSERT INTO Detalle_Recepcion (id_proveedor, num_conduze, id_articulo, cantidad, fecha_entrega) VALUES (?, ?, ?, ?, NOW())");
+        $stmt_upd_c = $conexion->prepare("UPDATE Detalle_Compra SET cantidad_recibida = cantidad_recibida + ? WHERE id_compra = ? AND id_articulo = ?");
+        $stmt_inv = $conexion->prepare("INSERT INTO Inventario (id_articulo, id_gondola, cantidad, estado) VALUES (?, 1, ?, 'activo') ON DUPLICATE KEY UPDATE cantidad = cantidad + ?");
+        $stmt_mov = $conexion->prepare("INSERT INTO Movimiento_Inventario_Almacen (id_compra, id_gondola, id_tipo_movimiento, fecha_movimiento, estado) VALUES (?, ?, 1, NOW(), 'activo')");
+
+        // 3. Ejecutar bucle
         foreach ($data['items'] as $item) {
             $id_art = (int)$item['id_articulo'];
-            $cant = (int)$item['cantidad'];
-            $id_alm = (int)$item['id_almacen'];
+            $cant  = (int)$item['cantidad'];
 
-            // A. Detalle Recepción
-            $sql_det = "INSERT INTO Detalle_Recepcion (id_proveedor, num_conduze, id_articulo, cantidad, fecha_entrega) 
-                        VALUES (?, ?, ?, ?, NOW())";
-            $stmt_det = $conexion->prepare($sql_det);
-            $stmt_det->bind_param("iiii", $id_prov, $num_conduze_input, $id_art, $cant);
+            $stmt_det->bind_param("isii", $id_prov, $num_conduze_input, $id_art, $cant);
             $stmt_det->execute();
 
-            // B. Actualizar lo recibido en la Orden de Compra
-            $sql_upd_c = "UPDATE Detalle_Compra SET cantidad_recibida = cantidad_recibida + ? 
-                          WHERE id_compra = ? AND id_articulo = ?";
-            $stmt_upd_c = $conexion->prepare($sql_upd_c);
             $stmt_upd_c->bind_param("iii", $cant, $id_compra, $id_art);
             $stmt_upd_c->execute();
 
-            // C. Sumar al Inventario (Góndola 1 = Recepción)
-            $id_gondola_recibo = 1; 
-            $sql_inv = "INSERT INTO Inventario (id_articulo, id_gondola, cantidad, estado) 
-                        VALUES (?, ?, ?, 'activo') 
-                        ON DUPLICATE KEY UPDATE cantidad = cantidad + ?";
-            $stmt_inv = $conexion->prepare($sql_inv);
-            $stmt_inv->bind_param("iiii", $id_art, $id_gondola_recibo, $cant, $cant);
+            $stmt_inv->bind_param("iii", $id_art, $cant, $cant);
             $stmt_inv->execute();
+            
+            $id_gondola_recibo = 1;
+            $stmt_mov->bind_param("ii", $id_compra, $id_gondola_recibo);
+            $stmt_mov->execute();
         }
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Stock actualizado correctamente.']);
+        echo json_encode(['success' => true, 'message' => '¡Recepción guardada con éxito! Inventario actualizado.']);
 
     } catch (Exception $e) {
         $conexion->rollback();
-        echo json_encode(['success' => false, 'message' => 'Error en DB: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }

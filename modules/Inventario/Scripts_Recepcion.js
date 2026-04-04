@@ -186,11 +186,13 @@ function seleccionarCompra(id) {
 }
 
 function confirmarRecepcion() {
-    const numConduze = document.getElementById('num_conduze_recep').value.trim();
+    const inputConduze = document.getElementById('num_conduze_recep');
+    const numConduze = inputConduze.value.trim();
     
+    // Validación básica en cliente
     if (!numConduze) {
-        alert("¡Atención! Debe ingresar el número de conduce entregado por el proveedor.");
-        document.getElementById('num_conduze_recep').focus();
+        alert("⚠️ Por favor, ingrese el número de conduce.");
+        inputConduze.focus();
         return;
     }
 
@@ -199,7 +201,7 @@ function confirmarRecepcion() {
         const cant = parseInt(tr.querySelector('.input-recibir').value) || 0;
         if (cant > 0) {
             items.push({
-                id_articulo: tr.dataset.id,
+                id_articulo: tr.getAttribute('data-id'),
                 cantidad: cant,
                 id_almacen: tr.querySelector('.sel-almacen').value
             });
@@ -207,11 +209,11 @@ function confirmarRecepcion() {
     });
 
     if (items.length === 0) {
-        alert("No ha ingresado cantidades válidas para recibir.");
+        alert("Debe ingresar al menos una cantidad para recibir.");
         return;
     }
 
-    if (!confirm("¿Desea confirmar la entrada de estos artículos al inventario?")) return;
+    if (!confirm("¿Desea confirmar la entrada de mercancía?")) return;
 
     const payload = {
         id_compra: compraActiva.id_compra,
@@ -227,16 +229,16 @@ function confirmarRecepcion() {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            // Notificación de éxito (puedes usar SweetAlert aquí si tienes)
-            alert("✅ Recepción guardada correctamente. El inventario ha sido actualizado.");
-            location.reload();
+            alert("✅ " + res.message);
+            location.reload(); // Recarga para actualizar tablas y badges
         } else {
-            alert("❌ Error: " + res.message);
+            // Aquí se mostrará el mensaje amigable de "Conduce ya registrado"
+            alert("❌ " + res.message);
         }
     })
     .catch(err => {
-        console.error("Error en el envío:", err);
-        alert("Ocurrió un error al conectar con el servidor.");
+        console.error("Error:", err);
+        alert("Ocurrió un error en la comunicación con el servidor.");
     });
 }
 

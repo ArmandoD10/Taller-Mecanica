@@ -94,7 +94,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                 <div class="modulo-content">
                     <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MArticulo.php">Artículos y Repuestos</a>
-                    <a href="/Taller/Taller-Mecanica/view/Inventario/MMarcasAsociadas.php">Marcas Asociadas</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MMarcaProducto.php">Marcas Asociadas</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MAlmacen.php">Almacenes</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Compra.php">Orden de Compra</a>

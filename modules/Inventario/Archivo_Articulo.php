@@ -47,21 +47,22 @@ function guardar_articulo($conexion) {
     $id_prov = $_POST['id_proveedor'];
     $id_marca = $_POST['id_marca_producto'];
     $estado = $_POST['estado'] ?? 'activo';
+    $estado_articulo = $_POST['estado_articulo'] ?? 'nuevo'; // NUEVO CAMPO
     $usuario = $_SESSION['id_usuario'] ?? 1;
     $f_cad = !empty($_POST['fecha_caducidad']) ? $_POST['fecha_caducidad'] : null;
 
     $conexion->begin_transaction();
     try {
         if (empty($id)) {
-            $sql = "INSERT INTO Repuesto_Articulo (nombre, descripcion, num_serie, precio_compra, precio_venta, id_proveedor, id_marca_producto, estado, fecha_caducidad, usuario_creacion, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+            $sql = "INSERT INTO Repuesto_Articulo (nombre, descripcion, num_serie, precio_compra, precio_venta, id_proveedor, id_marca_producto, estado, estado_articulo, fecha_caducidad, usuario_creacion, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("sssddiissi", $nombre, $descripcion, $serie, $costo, $venta, $id_prov, $id_marca, $estado, $f_cad, $usuario);
+            $stmt->bind_param("sssddiisssi", $nombre, $descripcion, $serie, $costo, $venta, $id_prov, $id_marca, $estado, $estado_articulo, $f_cad, $usuario);
             $stmt->execute();
             $id_final = $conexion->insert_id;
         } else {
-            $sql = "UPDATE Repuesto_Articulo SET nombre=?, descripcion=?, num_serie=?, precio_compra=?, precio_venta=?, id_proveedor=?, id_marca_producto=?, estado=?, fecha_caducidad=? WHERE id_articulo=?";
+            $sql = "UPDATE Repuesto_Articulo SET nombre=?, descripcion=?, num_serie=?, precio_compra=?, precio_venta=?, id_proveedor=?, id_marca_producto=?, estado=?, estado_articulo=?, fecha_caducidad=? WHERE id_articulo=?";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("sssddiissi", $nombre, $descripcion, $serie, $costo, $venta, $id_prov, $id_marca, $estado, $f_cad, $id);
+            $stmt->bind_param("sssddiisssi", $nombre, $descripcion, $serie, $costo, $venta, $id_prov, $id_marca, $estado, $estado_articulo, $f_cad, $id);
             $stmt->execute();
             $id_final = $id;
         }

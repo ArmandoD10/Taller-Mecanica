@@ -296,3 +296,11 @@ input:checked + .slider:before { transform: translateX(26px); }
     from { transform: scale(0.7); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
+
+/* Estilos coherentes con tu módulo de artículos */
+ .card-recepcion { border-radius: 12px; border: 1px solid #eee; }
+    .table-hover tbody tr { cursor: pointer; transition: all 0.2s; }
+    .table-hover tbody tr:hover { background-color: #f0f7ff !important; }
+    .badge-status { font-size: 0.75rem; padding: 0.4em 0.7em; }
+    .btn-recibir { padding: 0.2rem 0.8rem; font-size: 0.85rem; }
+    #area_recepcion { border-top: 4px solid #198754; } /* Verde para diferenciar del azul */

@@ -57,6 +57,32 @@ document.addEventListener("DOMContentLoaded", () => {
             .catch(err => console.error("Error al guardar:", err));
         }
     }
+
+
+    const filtroBusqueda = document.getElementById('filtroBusqueda');
+
+if (filtroBusqueda) {
+    filtroBusqueda.addEventListener('input', function() {
+        const busqueda = this.value.toLowerCase().trim();
+        const columnas = document.querySelectorAll('#contenedorCards .col');
+
+        columnas.forEach(col => {
+            const card = col.querySelector('.card-articulo');
+            if (!card) return;
+
+            // Leemos el nombre y el ID directamente del atributo que creamos
+            const nombre = card.querySelector('h6').textContent.toLowerCase();
+            const id = card.getAttribute('data-id'); // Aquí está el código del producto
+
+            // Si el nombre contiene la búsqueda O el ID es exactamente igual
+            if (nombre.includes(busqueda) || id === busqueda || id.startsWith(busqueda)) {
+                col.style.display = ""; // Mostrar
+            } else {
+                col.style.display = "none"; // Ocultar
+            }
+        });
+    });
+}
 });
 
 // --- FUNCIONES CORE ---
@@ -119,19 +145,19 @@ function cargarCacheBusqueda() {
 }
 
 function listarArticulos() {
-    fetch('../../modules/Inventario/Archivo_Articulo.php?action=listar')
+    fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Articulo.php?action=listar')
     .then(res => res.json())
     .then(response => {
         if (!contenedorCards) return;
         contenedorCards.innerHTML = '';
+
         response.data.forEach(art => {
             const img = art.imagen || '/Taller/Taller-Mecanica/img/default-part.webp';
-            // Lógica para el color del estado
-            const estadoColor = art.estado === 'activo' ? 'bg-success' : 'bg-danger';
-            
+            const precioVenta = parseFloat(art.precio_venta).toLocaleString('en-US', { minimumFractionDigits: 2 });
+
             const card = `
                 <div class="col">
-                    <div class="card card-articulo h-100 shadow-sm position-relative">
+                    <div class="card card-articulo h-100 shadow-sm position-relative" data-id="${art.id_articulo}">
                         <button class="btn btn-sm btn-light shadow-sm position-absolute" 
                                 style="top: 10px; right: 10px; z-index: 10;" 
                                 onclick="editarArticulo(${art.id_articulo})">
@@ -146,8 +172,8 @@ function listarArticulos() {
                                 <h6 class="mb-0 text-dark fw-bold text-truncate">${art.nombre}</h6>
                                 <p class="mb-1 small text-muted text-truncate">${art.nombre_proveedor || 'Sin proveedor'}</p>
                                 <div class="d-flex align-items-center gap-2">
-                                    <span class="text-precio">$${parseFloat(art.precio_venta).toFixed(2)}</span>
-                                    <span class="badge ${estadoColor}" style="font-size:0.6rem">
+                                    <span class="text-precio">$${precioVenta}</span>
+                                    <span class="badge ${art.estado === 'activo' ? 'bg-success' : 'bg-danger'}" style="font-size:0.6rem">
                                         ${art.estado.toUpperCase()}
                                     </span>
                                 </div>
@@ -173,28 +199,28 @@ function nuevoArticulo() {
 
 
 function editarArticulo(id) {
-    // IMPORTANTE: Asegúrate de que esta ruta sea IDÉNTICA a la que usas en listarArticulos
-    fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Articulo.php?action=obtener&id=' + id)
-    .then(res => {
-        // Si el servidor responde con 404 o 500, esto atrapará el error antes de intentar leer el JSON
-        if (!res.ok) throw new Error('No se encontró el archivo en la ruta especificada');
-        return res.json();
-    })
+    const url = '/Taller/Taller-Mecanica/modules/Inventario/Archivo_Articulo.php?action=obtener&id=' + id;
+
+    fetch(url)
+    .then(res => res.json())
     .then(res => {
         if (res.success) {
             const art = res.data;
 
-            // Llenado de campos básicos
             document.getElementById('id_articulo').value = art.id_articulo;
             document.getElementById('nombre').value = art.nombre;
-            document.getElementById('descripcion').value = art.descripcion || '';
             document.getElementById('num_serie').value = art.num_serie;
-            document.getElementById('precio_compra').value = art.precio_compra; // Este es el que te faltaba
+            document.getElementById('descripcion').value = art.descripcion || '';
+            
+            // ASIGNACIÓN CORRECTA: precio_compra (DB) -> precio_costo (HTML ID)
+            document.getElementById('precio_compra').value = art.precio_compra;
             document.getElementById('precio_venta').value = art.precio_venta;
+
             document.getElementById('estado').value = art.estado;
+            document.getElementById('estado_articulo').value = art.estado_articulo; 
             document.getElementById('fecha_caducidad').value = art.fecha_caducidad || '';
 
-            // Sincronizar Buscadores Inteligentes con el caché
+            // Buscadores Inteligentes
             const marca = cacheMarcas.find(m => m.id_marca_producto == art.id_marca_producto);
             document.getElementById('id_marca_producto').value = art.id_marca_producto;
             document.getElementById('txt_buscar_marca').value = marca ? marca.nombre : "";
@@ -203,65 +229,96 @@ function editarArticulo(id) {
             document.getElementById('id_proveedor').value = art.id_proveedor;
             document.getElementById('txt_buscar_proveedor').value = prov ? prov.nombre_comercial : "";
 
-            // Imagen
-            document.getElementById('img_preview').src = art.imagen ? art.imagen : '/Taller/Taller-Mecanica/img/default-part.webp';
-            
-            // Título y mostrar modal
-            document.getElementById('tituloModal').innerHTML = `<i class="fas fa-edit me-2"></i>Editando: ${art.nombre}`;
+            document.getElementById('img_preview').src = art.imagen || '/Taller/Taller-Mecanica/img/default-part.webp';
+            document.getElementById('tituloModal').innerHTML = `<i class="fas fa-edit me-2"></i>Modificar Artículo #${art.id_articulo}`;
+
             modalArticulo.show();
         }
     })
-    .catch(err => {
-        console.error("Error detallado:", err);
-        alert("Error de conexión. Por favor, revisa la consola (F12) para ver la ruta exacta que está fallando.");
-    });
+    .catch(err => alert("Error al conectar con el servidor: " + err.message));
 }
 
+
 function verDetalleArticulo(id) {
-    // Usamos la ruta relativa que ya confirmamos que funciona
-    fetch(`../../modules/Inventario/Archivo_Articulo.php?action=obtener&id=${id}`)
-    .then(res => {
-        if (!res.ok) throw new Error('No se pudo conectar con el servidor (404)');
-        return res.json();
-    })
+    fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Articulo.php?action=obtener&id=' + id)
+    .then(res => res.json())
     .then(res => {
         if (res.success) {
             const art = res.data;
-
-            // 1. Buscamos el nombre de la marca en el caché
             const marca = cacheMarcas.find(m => m.id_marca_producto == art.id_marca_producto);
 
-            // 2. Llenamos los elementos del Modal de Detalle
+            // Formato de precio para el detalle
+            const precioDetalle = parseFloat(art.precio_venta).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
             document.getElementById('det_nombre').textContent = art.nombre;
-            document.getElementById('det_serie').textContent = "No. Serie: " + (art.num_serie || 'N/A');
-            document.getElementById('det_precio').textContent = "$" + parseFloat(art.precio_venta).toFixed(2);
+            document.getElementById('det_serie').textContent = "Serie/Parte: " + (art.num_serie || 'N/A');
+            document.getElementById('det_precio').textContent = "$" + precioDetalle;
             document.getElementById('det_marca').textContent = marca ? marca.nombre : "Sin Marca";
-            document.getElementById('det_descripcion').textContent = art.descripcion || "Sin descripción disponible.";
-            document.getElementById('det_fecha').textContent = art.fecha_caducidad || "No definida";
+            document.getElementById('det_descripcion').textContent = art.descripcion || "Sin descripción.";
+            document.getElementById('det_fecha').textContent = art.fecha_caducidad || "N/A";
+            document.getElementById('det_imagen').src = art.imagen || '/Taller/Taller-Mecanica/img/default-part.webp';
             
-            // 3. Lógica de colores para el Estado
-            const badgeEstado = document.getElementById('det_estado');
-            badgeEstado.textContent = art.estado.toUpperCase();
-            
-            if (art.estado.toLowerCase() === 'activo') {
-                badgeEstado.className = "badge bg-success fs-6"; // Verde
-            } else {
-                badgeEstado.className = "badge bg-danger fs-6";  // Rojo
-            }
+            // MOSTRAR ID Y ESTADOS
+            document.getElementById('det_id_visual').textContent = art.id_articulo;
 
-            // 4. Carga de Imagen
-            const imgDetalle = document.getElementById('det_imagen');
-            imgDetalle.src = art.imagen ? art.imagen : '/Taller/Taller-Mecanica/img/default-part.webp';
+            const badgeAdmin = document.getElementById('det_estado_admin');
+            badgeAdmin.textContent = art.estado.toUpperCase();
+            badgeAdmin.className = `badge ${art.estado === 'activo' ? 'bg-success' : 'bg-danger'}`;
 
-            // 5. Abrir el Modal de Detalle
+            const badgeFisico = document.getElementById('det_estado_fisico');
+            badgeFisico.textContent = art.estado_articulo.toUpperCase();
+            const colores = { 'nuevo': 'bg-info', 'usado': 'bg-warning text-dark', 'reparado': 'bg-secondary' };
+            badgeFisico.className = `badge ${colores[art.estado_articulo] || 'bg-dark'} ms-2 text-uppercase`;
+
             const modalDet = new bootstrap.Modal(document.getElementById('modalDetalleArticulo'));
             modalDet.show();
-        } else {
-            alert("Error: " + res.message);
         }
     })
-    .catch(err => {
-        console.error("Error al ver detalle:", err);
-        alert("Error al conectar con el servidor. Verifique que la ruta del archivo PHP sea correcta.");
-    });
+    .catch(err => console.error("Error al cargar detalle:", err));
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    
+    const inputField = document.getElementById('nombre');
+
+    // Verificamos que el input exista para evitar errores en consola
+    if (inputField) {
+        inputField.addEventListener('input', (e) => {
+            let value = e.target.value;
+
+            // 1. Filtro de caracteres especiales (Solo letras, números y espacios)
+            value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+
+            // 2. Primera letra siempre Mayúscula
+            if (value.length > 0) {
+                value = value.charAt(0).toUpperCase() + value.slice(1);
+            }
+
+            // 3. Actualizamos el valor del input
+            e.target.value = value;
+        });
+    }
+
+    const inputField2 = document.getElementById('descripcion');
+
+    // Verificamos que el input exista para evitar errores en consola
+    if (inputField2) {
+        inputField2.addEventListener('input', (e) => {
+            let value = e.target.value;
+
+            // 1. Filtro de caracteres especiales (Solo letras, números y espacios)
+            value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+
+            // 2. Primera letra siempre Mayúscula
+            if (value.length > 0) {
+                value = value.charAt(0).toUpperCase() + value.slice(1);
+            }
+
+            // 3. Actualizamos el valor del input
+            e.target.value = value;
+        });
+    }
+});

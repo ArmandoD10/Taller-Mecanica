@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     const inputNombre = document.getElementById('nombre_persona');
     const inputApellido = document.getElementById('apellido_p');
+    const inputnombrec = document.getElementById('nombre_comercial');
 
     function formatearNombres(e) {
         let val = e.target.value;
@@ -40,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     inputNombre.addEventListener('input', formatearNombres);
     inputApellido.addEventListener('input', formatearNombres);
+    inputnombrec.addEventListener('input', formatearNombres);
 
     // ==========================================
     // MÁSCARAS Y AUTOCOMPLETADO

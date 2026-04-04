@@ -4,68 +4,16 @@ require("../../header.php");
 ?>
 
 <style>
-    /* Elevación de niveles para el modal sobre el sidebar */
     .modal { z-index: 105000 !important; }
     .modal-backdrop { z-index: 104900 !important; }
-    
-    /* Scroll interno para el cuerpo del modal */
-    #modalArticulo .modal-body {
-        max-height: 70vh; 
-        overflow-y: auto; 
-    }
-
-    /* Estilos de las Cards de Inventario */
-    .card-articulo {
-        transition: all 0.3s ease;
-        cursor: pointer;
-        border: 1px solid #eee;
-        border-radius: 12px;
-    }
-
-    .card-articulo:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-        border-color: var(--bs-primary);
-    }
-
-    .img-articulo-container {
-        width: 70px;
-        height: 70px;
-        flex-shrink: 0;
-    }
-
-    .img-articulo-lista {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-    }
-
-    /* Contenedor de carga de imagen en el Formulario */
-    .drop-zone-image {
-        width: 100%;
-        height: 200px;
-        border: 2px dashed #0d6efd;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #f8f9fa;
-        overflow: hidden;
-    }
-
-    #img_preview {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-    }
-
-    .text-precio {
-        color: #198754;
-        font-weight: 700;
-        font-size: 1.1rem;
-    }
+    #modalArticulo .modal-body { max-height: 70vh; overflow-y: auto; }
+    .card-articulo { transition: all 0.3s ease; cursor: pointer; border: 1px solid #eee; border-radius: 12px; }
+    .card-articulo:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; border-color: #0d6efd; }
+    .img-articulo-container { width: 70px; height: 70px; flex-shrink: 0; }
+    .img-articulo-lista { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
+    .drop-zone-image { width: 100%; height: 200px; border: 2px dashed #0d6efd; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; overflow: hidden; }
+    #img_preview { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .text-precio { color: #198754; font-weight: 700; font-size: 1.1rem; }
 </style>
 
 <main class="contenido">
@@ -73,10 +21,10 @@ require("../../header.php");
         <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 mb-4 gap-3">
             <div>
                 <h2 class="mb-0"><i class="fas fa-boxes me-2 text-primary"></i>Gestión de Repuestos</h2>
-                <p class="text-muted">Catálogo visual de artículos en existencia</p>
+                <p class="text-muted">Inventario con descripción y precios de venta</p>
             </div>
             <div class="d-flex gap-2">
-                <input type="text" id="filtroBusqueda" class="form-control" placeholder="Buscar por nombre o serie..." style="width: 250px;">
+                <input type="text" id="filtroBusqueda" class="form-control" placeholder="Buscar artículo..." style="width: 250px;">
                 <button class="btn btn-primary" onclick="nuevoArticulo()">
                     <i class="fas fa-plus me-2"></i>Nuevo Artículo
                 </button>
@@ -105,25 +53,29 @@ require("../../header.php");
                                     <div class="card-body">
                                         <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">1. Información Principal</h6>
                                         <div class="row g-3">
-                                            <div class="col-md-8">
+                                            <div class="col-md-7">
                                                 <label class="form-label fw-bold">Nombre del Producto</label>
-                                                <input type="text" class="form-control" name="nombre" id="nombre" required placeholder="Ej: Disco de Freno Delantero">
+                                                <input type="text" class="form-control" name="nombre" id="nombre" required>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-5">
                                                 <label class="form-label fw-bold">No. Serie / Parte</label>
                                                 <input type="text" class="form-control" name="num_serie" id="num_serie" required>
                                             </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-bold">Marca</label>
-                                                <select class="form-select" name="id_marca_producto" id="id_marca_producto" required>
-                                                    <option value="">Seleccione marca...</option>
-                                                </select>
+                                            <div class="col-md-12">
+                                                <label class="form-label fw-bold">Descripción / Notas</label>
+                                                <textarea class="form-control" name="descripcion" id="descripcion" rows="2"></textarea>
                                             </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-bold">Proveedor</label>
-                                                <select class="form-select" name="id_proveedor" id="id_proveedor" required>
-                                                    <option value="">Seleccione proveedor...</option>
-                                                </select>
+                                            <div class="col-md-6 position-relative">
+                                                    <label class="fw-bold">Marca <span class="text-danger">*</span></label>
+                                                    <input type="text" class="form-control border-dark" id="txt_buscar_marca" placeholder="Escriba para buscar marca..." autocomplete="off">
+                                                    <input type="hidden" name="id_marca_producto" id="id_marca_producto">
+                                                    <ul id="lista_marcas" class="list-group position-absolute w-100 shadow-lg d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></ul>
+                                                </div>
+                                            <div class="col-md-6 position-relative">
+                                                <label class="fw-bold">Proveedor Principal<span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control border-dark" id="txt_buscar_proveedor" placeholder="Escriba nombre del proveedor..." autocomplete="off">
+                                                <input type="hidden" name="id_proveedor" id="id_proveedor">
+                                                <ul id="lista_proveedores" class="list-group position-absolute w-100 shadow-lg d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></ul>
                                             </div>
                                         </div>
                                     </div>
@@ -131,14 +83,15 @@ require("../../header.php");
 
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-body">
-                                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">2. Costos y Logística</h6>
+                                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">2. Costos y Precios</h6>
                                         <div class="row g-3">
                                             <div class="col-md-4">
                                                 <label class="form-label fw-bold">Precio Costo</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">$</span>
-                                                    <input type="number" step="0.01" class="form-control" name="precio_costo" id="precio_costo">
-                                                </div>
+                                                <input type="number" step="0.01" class="form-control" name="precio_compra" id="precio_compra">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold">Precio Venta</label>
+                                                <input type="number" step="0.01" class="form-control border-success" name="precio_venta" id="precio_venta">
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label fw-bold">Estado</label>
@@ -147,7 +100,7 @@ require("../../header.php");
                                                     <option value="inactivo">Inactivo</option>
                                                 </select>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <label class="form-label fw-bold">Vencimiento</label>
                                                 <input type="date" class="form-control" name="fecha_caducidad" id="fecha_caducidad">
                                             </div>
@@ -159,28 +112,72 @@ require("../../header.php");
                             <div class="col-lg-4">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-body text-center">
-                                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">3. Imagen Referencial</h6>
+                                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">3. Multimedia</h6>
                                         <div class="drop-zone-image mb-3">
-                                            <img id="img_preview" src="/Taller/img/default-part.png" alt="Vista previa">
+                                            <img id="img_preview" src="/Taller/Taller-Mecanica/img/default-part.webp" alt="Vista previa">
                                         </div>
                                         <input type="file" class="form-control" name="imagen_file" id="imagen_file" accept="image/*">
-                                        <p class="small text-muted mt-2">La imagen se guardará automáticamente vinculada al ID del producto.</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
                     <div class="modal-footer bg-white">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-success px-4">
-                            <i class="fas fa-save me-2"></i>Guardar Repuesto
-                        </button>
+                        <button type="submit" class="btn btn-success px-4"><i class="fas fa-save me-2"></i>Guardar</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalDetalleArticulo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>Detalle del Producto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-5 text-center">
+                        <div class="p-2 border rounded bg-light">
+                            <img id="det_imagen" src="" class="img-fluid rounded" style="max-height: 350px; object-fit: contain;">
+                        </div>
+                    </div>
+                    <div class="col-md-7">
+                        <h3 id="det_nombre" class="fw-bold text-primary mb-1"></h3>
+                        <p id="det_serie" class="text-muted small mb-3"></p>
+                        
+                        <div class="mb-3">
+                            <span class="badge bg-success fs-5" id="det_precio"></span>
+                            <span class="badge bg-outline-secondary text-dark border ms-2" id="det_marca"></span>
+                        </div>
+
+                        <h6 class="fw-bold border-bottom pb-1">Descripción:</h6>
+                        <p id="det_descripcion" class="text-secondary"></p>
+
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <small class="d-block text-muted">Fecha Vencimiento:</small>
+                                <strong id="det_fecha"></strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="d-block text-muted">Estado:</small>
+                                <strong id="det_estado"></strong>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 p-2 bg-warning bg-opacity-10 border border-warning rounded">
+                            <i class="fas fa-warehouse me-2"></i> <small>Información de Stock (Próximamente)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Inventario/Scripts_Articulo.js"></script>

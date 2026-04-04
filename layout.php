@@ -49,8 +49,8 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MPuesto.php">Puestos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">As. Departamento</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestEmpleado_Sucursal.php">As. Sucursal Empl</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">Departamento a Sucursal</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestEmpleado_Sucursal.php">Empleado por Sucursal</a>
                 </div>
             </div>
             <?php endif; ?>

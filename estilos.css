@@ -304,3 +304,6 @@ input:checked + .slider:before { transform: translateX(26px); }
     .badge-status { font-size: 0.75rem; padding: 0.4em 0.7em; }
     .btn-recibir { padding: 0.2rem 0.8rem; font-size: 0.85rem; }
     #area_recepcion { border-top: 4px solid #198754; } /* Verde para diferenciar del azul */
+
+
+    

@@ -58,8 +58,8 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MPuesto.php">Puestos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">As. Departamento</a>
-                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestEmpleado_Sucursal.php">As. Sucursal Empl</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">Departamento a Sucursal</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestEmpleado_Sucursal.php">Empleado por Sucursal</a>
                 </div>
             </div>
             <?php endif; ?>
@@ -108,6 +108,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MProveedor.php">Proveedores</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MCompra.php">Orden de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MPagoCompra.php">Pago de Compra</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MovimientoStock.php">Movimientos de Stock</a>
                     <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Transferencia.php">Transferencia de Stock</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/RecepcionCompra.php">Recepción de Compra</a>
@@ -200,10 +201,27 @@ $stats = [
             <div class="user-display">Bienvenido, <strong><?php echo $usuarioActivo; ?></strong></div>
         </header>
         <section class="stats-container">
-            <div class="card"><h3>Vehículos en Bahía</h3><p><?php echo $stats['vehiculos_bahia']; ?></p></div>
-            <div class="card"><h3>Presupuestos Pendientes</h3><p><?php echo $stats['presupuestos_pendientes']; ?></p></div>
-            <div class="card"><h3>Listos para Entrega</h3><p><?php echo $stats['listos_entrega']; ?></p></div>
-        </section>
+    <div class="card"><h3>Vehículos en Bahía</h3><p><?php echo $stats['vehiculos_bahia']; ?></p></div>
+    <div class="card"><h3>Presupuestos Pendientes</h3><p><?php echo $stats['presupuestos_pendientes']; ?></p></div>
+    <div class="card"><h3>Listos para Entrega</h3><p><?php echo $stats['listos_entrega']; ?></p></div>
+    
+    <?php if (in_array("Inventario", $modulos)) : ?>
+    <div class="card-acceso-rapido">
+    <a href="/Taller/Taller-Mecanica/view/Inventario/MArticulo.php?mode=readonly" class="acceso-link">
+        <div class="acceso-icon">
+            <i class="fas fa-search-location"></i>
+        </div>
+        <div class="acceso-text">
+            <h3>Consulta de Stock</h3>
+            <p>Disponibilidad Global</p>
+        </div>
+        <div class="acceso-arrow">
+            <i class="fas fa-chevron-right"></i>
+        </div>
+    </a>
+</div>
+    <?php endif; ?>
+</section>
     </main>
         <div class="config-flotante-container">
             <button class="btn-config-flotante" id="btnConfig">

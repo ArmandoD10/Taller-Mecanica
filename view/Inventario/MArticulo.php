@@ -3,6 +3,11 @@ require("../../layout.php");
 require("../../header.php");
 ?>
 
+<?php
+// Detectar si venimos desde el acceso rápido
+$readonly = (isset($_GET['mode']) && $_GET['mode'] === 'readonly');
+?>
+
 <style>
     .modal { z-index: 105000 !important; }
     .modal-backdrop { z-index: 104900 !important; }
@@ -19,17 +24,29 @@ require("../../header.php");
 <main class="contenido">
     <div class="container-fluid px-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 mb-4 gap-3">
-            <div>
-                <h2 class="mb-0"><i class="fas fa-boxes me-2 text-primary"></i>Gestión de Repuestos</h2>
-                <p class="text-muted">Inventario con descripción y precios de venta</p>
-            </div>
-            <div class="d-flex gap-2">
-                <input type="text" id="filtroBusqueda" class="form-control" placeholder="Buscar artículo..." style="width: 250px;">
-                <button class="btn btn-primary" onclick="nuevoArticulo()">
-                    <i class="fas fa-plus me-2"></i>Nuevo Artículo
-                </button>
-            </div>
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="mb-0"><i class="fas fa-boxes me-2 text-primary"></i>Gestión de Repuestos</h2>
+            <span class="badge bg-white text-primary border border-primary-subtle rounded-pill px-3 py-2 shadow-sm" style="font-size: 0.85rem;">
+                <i class="fas fa-map-marker-alt me-1 text-danger"></i> 
+                <span id="txt_sucursal_actual" class="fw-bold">Cargando sucursal...</span>
+            </span>
         </div>
+        <p class="text-muted mb-2 mt-2">Catálogo de productos y existencias en tiempo real</p>
+    </div>
+    
+    <div class="d-flex gap-2 align-items-center">
+        <div class="input-group" style="width: 300px;">
+            <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="filtroBusqueda" class="form-control border-start-0" placeholder="Buscar por nombre o ID...">
+        </div>
+        <?php if (!$readonly) : ?>
+        <button class="btn btn-primary shadow-sm fw-bold" onclick="nuevoArticulo()">
+            <i class="fas fa-plus me-2"></i>Nuevo Artículo
+        </button>
+        <?php endif; ?>
+    </div>
+</div>
 
         <div id="contenedorCards" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3 mb-5">
             </div>
@@ -186,12 +203,31 @@ require("../../header.php");
                             </div>
                             <div class="row mt-2 text-center">
                                 <div class="col-6 border-end">
-                                    <small class="text-muted d-block">General</small>
-                                    <h5 class="mb-0">--</h5>
+                                    <small class="text-muted d-block text-uppercase" style="font-size: 0.65rem;">Empresa (Total)</small>
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <h5 class="mb-0 fw-bold" id="det_stock_general">--</h5>
+                                        <button class="btn btn-sm btn-outline-primary border-0 p-1" onclick="mostrarDesglose()" title="Ver ubicaciones">
+                                            <i class="fas fa-map-marked-alt"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-6">
-                                    <small class="text-muted d-block">Sucursal</small>
-                                    <h5 class="mb-0">--</h5>
+                                    <small class="text-muted d-block text-uppercase" style="font-size: 0.65rem;">Mi Sucursal</small>
+                                    <h5 class="mb-0 fw-bold text-primary" id="det_stock_sucursal">--</h5>
+                                </div>
+                            </div>
+
+                            <div class="modal fade" id="modalDesgloseStock" tabindex="-1" style="z-index: 106000;">
+                                <div class="modal-dialog modal-dialog-centered modal-sm"> <div class="modal-content border-0 shadow-lg">
+                                        <div class="modal-header bg-primary text-white py-2">
+                                            <h6 class="modal-title small fw-bold">Disponibilidad por Sucursal</h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body p-0">
+                                            <ul id="lista_desglose_sucursales" class="list-group list-group-flush">
+                                                </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

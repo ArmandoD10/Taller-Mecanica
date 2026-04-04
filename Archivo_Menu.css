@@ -152,3 +152,65 @@ header { display: flex; justify-content: space-between; align-items: center; mar
 }
 
 .mini-icono { width: 16px; height: 16px; filter: grayscale(1); }
+
+.card-acceso-rapido {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 1px solid #eef2f7;
+    overflow: hidden;
+    flex: 1;
+    min-width: 250px;
+}
+
+.card-acceso-rapido:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(13, 110, 253, 0.15);
+    border-color: #0d6efd;
+}
+
+.acceso-link {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    text-decoration: none;
+    gap: 15px;
+}
+
+.acceso-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.acceso-text h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2d3436;
+    font-weight: 600;
+}
+
+.acceso-text p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #636e72;
+}
+
+.acceso-arrow {
+    margin-left: auto;
+    color: #0d6efd;
+    opacity: 0.5;
+    transition: transform 0.3s ease;
+}
+
+.card-acceso-rapido:hover .acceso-arrow {
+    transform: translateX(5px);
+    opacity: 1;
+}

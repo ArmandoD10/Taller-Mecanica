@@ -49,7 +49,7 @@ function listar($conexion) {
 function cargar_dependencias($conexion) {
     $data = [];
     
-    // Solo cargamos proveedores que tengan órdenes de compra activas
+    // Solo cargamos proveedores que tengan órdenes de compra activas en el sistema
     $sql_prov = "SELECT DISTINCT p.id_proveedor, p.nombre_comercial, p.RNC 
                  FROM proveedor p
                  JOIN compra c ON p.id_proveedor = c.id_proveedor
@@ -68,7 +68,7 @@ function cargar_dependencias($conexion) {
 function buscar_ordenes_pendientes($conexion) {
     $id_proveedor = (int)$_GET['id_proveedor'];
     
-    // Esta consulta es magia pura: Busca órdenes activas y calcula cuánto se ha pagado sumando la tabla pago_compra
+    // Busca órdenes activas y calcula cuánto se ha pagado sumando la tabla pago_compra
     $sql = "SELECT c.id_compra, c.fecha_creacion, c.monto as total_orden,
                    IFNULL((SELECT SUM(monto_pagado) FROM pago_compra WHERE id_compra = c.id_compra AND estado = 'activo'), 0) as total_pagado
             FROM compra c
@@ -104,10 +104,12 @@ function guardar($conexion) {
     try {
         $conexion->begin_transaction();
 
-        // Verificamos que el monto no exceda el balance pendiente por seguridad en el backend
+        // Verificamos que el monto no exceda el balance pendiente
         $sql_check = "SELECT c.monto as total_orden,
                              IFNULL((SELECT SUM(monto_pagado) FROM pago_compra WHERE id_compra = c.id_compra AND estado = 'activo'), 0) as total_pagado
-                      FROM compra c WHERE c.id_compra = ?";
+                      FROM compra c 
+                      WHERE c.id_compra = ?";
+                      
         $stmt_check = $conexion->prepare($sql_check);
         $stmt_check->bind_param("i", $id_compra);
         $stmt_check->execute();
@@ -115,7 +117,7 @@ function guardar($conexion) {
         
         $balance_pendiente = $balance_info['total_orden'] - $balance_info['total_pagado'];
         
-        // Damos un margen de error de 1 centavo por redondeos decimales
+        // Damos un margen de error de 1 centavo por si hay redondeos decimales en la base de datos
         if ($monto_pagado > ($balance_pendiente + 0.01)) {
             throw new Exception("El monto introducido supera el balance pendiente de la orden.");
         }
@@ -123,6 +125,7 @@ function guardar($conexion) {
         // Insertamos el pago
         $sql = "INSERT INTO pago_compra (id_compra, monto_pagado, fecha_pago, id_metodo, id_moneda, referencia_pago, estado, usuario_creacion) 
                 VALUES (?, ?, ?, ?, ?, ?, 'activo', ?)";
+                
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param("idsiisi", $id_compra, $monto_pagado, $fecha_actual, $id_metodo, $id_moneda, $referencia_pago, $usuario);
         $stmt->execute();
@@ -136,6 +139,7 @@ function guardar($conexion) {
         
     } catch (Exception $e) {
         $conexion->rollback(); 
+        
         echo json_encode([
             'success' => false, 
             'message' => 'Error: ' . $e->getMessage()
@@ -145,21 +149,50 @@ function guardar($conexion) {
 
 function anular_pago($conexion) {
     $id = (int)$_POST['id_pago_compra'];
+    $id_usuario = $_SESSION['id_usuario'] ?? 0;
     
-    // Eliminado lógico
-    $sql = "UPDATE pago_compra SET estado = 'eliminado' WHERE id_pago_compra = ?";
-    $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("i", $id);
-    
-    if ($stmt->execute()) {
+    try {
+        $conexion->begin_transaction();
+        
+        // 1. VALIDACIÓN DE SEGURIDAD: COMPROBAR ROL DE ADMINISTRADOR
+        $sql_admin = "SELECT n.nombre 
+                      FROM usuario u 
+                      JOIN nivel n ON u.id_nivel = n.id_nivel 
+                      WHERE u.id_usuario = ?";
+        $stmt_admin = $conexion->prepare($sql_admin);
+        $stmt_admin->bind_param("i", $id_usuario);
+        $stmt_admin->execute();
+        $resultado_rol = $stmt_admin->get_result()->fetch_assoc();
+        $nombre_rol = $resultado_rol['nombre'] ?? '';
+        
+        // Comprobamos si la palabra "Administrador" o "Admin" está en el rol
+        if (stripos($nombre_rol, 'Admin') === false) {
+            throw new Exception("ACCESO DENEGADO: Solo un usuario con nivel de Administrador puede anular pagos.");
+        }
+        
+        // 2. ANULACIÓN LÓGICA
+        // Al pasar a estado eliminado, la suma de total_pagado ignorará este registro, 
+        // restaurando automáticamente el balance pendiente de la orden de compra.
+        $sql = "UPDATE pago_compra SET estado = 'eliminado' WHERE id_pago_compra = ?";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("i", $id);
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Error al ejecutar la actualización en la base de datos.");
+        }
+        
+        $conexion->commit();
+        
         echo json_encode([
             'success' => true, 
-            'message' => 'Pago anulado. El balance de la orden de compra ha sido restaurado.'
+            'message' => 'Pago anulado correctamente por el Administrador. El balance de la orden de compra ha sido restaurado.'
         ]);
-    } else {
+        
+    } catch (Exception $e) {
+        $conexion->rollback();
         echo json_encode([
             'success' => false, 
-            'message' => 'Error al anular el pago.'
+            'message' => $e->getMessage()
         ]);
     }
 }

@@ -1,80 +1,77 @@
-let cacheOrdenesPendientes = []; // Guardamos en memoria las órdenes para calcular balances rápido
+let cacheOrdenesPendientes = []; 
+const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 document.addEventListener("DOMContentLoaded", () => {
     listar();
     cargarDependencias();
 
     // ==========================================
-    // CASCADA: AL CAMBIAR DE PROVEEDOR, BUSCAR SUS ÓRDENES PENDIENTES
+    // BUSCADOR DINÁMICO (SELECT2)
     // ==========================================
-    const selectProveedor = document.getElementById("id_proveedor");
-    const selectOrden = document.getElementById("id_compra");
-    const cajaBalance = document.getElementById("cajaBalance");
-    const inputMonto = document.getElementById("monto_pagado");
+    // Le indicamos al buscador dinámico que debe desplegarse por encima del modalPago
+    $('#id_proveedor').select2({
+        theme: 'bootstrap-5',
+        dropdownParent: $('#modalPago'),
+        placeholder: "Seleccione o escriba el nombre/RNC..."
+    });
 
-    selectProveedor.addEventListener('change', function() {
+    // ==========================================
+    // CASCADA: AL CAMBIAR DE PROVEEDOR (Evento jQuery por Select2)
+    // ==========================================
+    $('#id_proveedor').on('change', function() {
         const id_prov = this.value;
+        const seccionOrdenes = document.getElementById("seccion_ordenes");
+        const formPago = document.getElementById("formPago");
+        const tbodyOrdenes = document.getElementById("cuerpoOrdenesPendientes");
         
-        // Limpiar y bloquear select de ordenes
-        selectOrden.innerHTML = '<option value="">Seleccione orden...</option>';
-        selectOrden.disabled = true;
-        cajaBalance.classList.add('d-none');
-        inputMonto.value = "";
-        inputMonto.max = "";
+        // Ocultar elementos hasta que lleguen los datos de la base de datos
+        seccionOrdenes.classList.add('d-none');
+        formPago.classList.add('d-none');
+        tbodyOrdenes.innerHTML = '<tr><td colspan="4"><i class="fas fa-spinner fa-spin me-2"></i>Buscando órdenes pendientes...</td></tr>';
         
-        if (!id_prov) return;
+        if (!id_prov) {
+            return;
+        }
 
-        // Fetch de las órdenes con balance para este proveedor
         fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=buscar_ordenes&id_proveedor=${id_prov}`)
         .then(res => res.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
                 cacheOrdenesPendientes = data.data;
-                selectOrden.disabled = false;
+                tbodyOrdenes.innerHTML = "";
                 
                 data.data.forEach(o => {
                     let balance = o.total_orden - o.total_pagado;
-                    // Format Date
                     let fecha = o.fecha_creacion.substring(0, 10);
-                    selectOrden.innerHTML += `<option value="${o.id_compra}">OC-${o.id_compra.toString().padStart(4, '0')} (Deuda: $${balance.toFixed(2)}) - ${fecha}</option>`;
+                    let numOrden = `OC-${o.id_compra.toString().padStart(4, '0')}`;
+                    
+                    tbodyOrdenes.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-primary fs-5">${numOrden}</td>
+                            <td>${fecha}</td>
+                            <td class="fw-bold text-danger fs-5">${formatter.format(balance)}</td>
+                            <td>
+                                <button class="btn btn-dark btn-sm me-1" onclick="verDetallesOrden(${o.id_compra}, '${numOrden}')" title="Ver Artículos de esta Orden">
+                                    <i class="fas fa-eye"></i> Detalle
+                                </button>
+                                <button class="btn btn-success btn-sm fw-bold" onclick="iniciarPago(${o.id_compra}, '${numOrden}')">
+                                    <i class="fas fa-dollar-sign me-1"></i> Pagar
+                                </button>
+                            </td>
+                        </tr>
+                    `;
                 });
+                
+                seccionOrdenes.classList.remove('d-none');
+                
             } else {
-                selectOrden.innerHTML = '<option value="">El proveedor no tiene deudas pendientes.</option>';
+                tbodyOrdenes.innerHTML = '<tr><td colspan="4" class="text-muted">Este proveedor no tiene facturas pendientes de pago registradas.</td></tr>';
+                seccionOrdenes.classList.remove('d-none');
             }
         })
-        .catch(error => console.error("Error al buscar órdenes:", error));
-    });
-
-    // ==========================================
-    // AL SELECCIONAR UNA ORDEN: MOSTRAR BALANCE Y LIMITAR EL MONTO
-    // ==========================================
-    selectOrden.addEventListener('change', function() {
-        const id_compra = this.value;
-        
-        if (!id_compra) {
-            cajaBalance.classList.add('d-none');
-            inputMonto.value = "";
-            return;
-        }
-
-        const orden = cacheOrdenesPendientes.find(o => o.id_compra == id_compra);
-        
-        if (orden) {
-            let balance = orden.total_orden - orden.total_pagado;
-            
-            // Formateador de moneda para la vista
-            const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-            
-            document.getElementById("lbl_total_orden").innerText = formatter.format(orden.total_orden);
-            document.getElementById("lbl_total_pagado").innerText = formatter.format(orden.total_pagado);
-            document.getElementById("lbl_balance_pendiente").innerText = formatter.format(balance);
-            
-            // Pre-llenamos el monto a pagar con el balance total (el usuario puede modificarlo si es abono)
-            inputMonto.value = balance.toFixed(2);
-            inputMonto.max = balance.toFixed(2); // No dejamos que pague de más
-            
-            cajaBalance.classList.remove('d-none');
-        }
+        .catch(error => {
+            console.error("Error al buscar órdenes:", error);
+        });
     });
 
     // ==========================================
@@ -84,8 +81,8 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         
         const btnGuardar = document.getElementById("btnGuardar");
-        btnGuardar.disabled = true; // Evitar doble click
-        btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando...';
+        btnGuardar.disabled = true; 
+        btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando Pago...';
 
         fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=guardar", {
             method: "POST", 
@@ -94,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(res => res.json())
         .then(data => {
             btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Registrar Pago';
+            btnGuardar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Procesar Pago';
             
             if (data.success) { 
                 cerrarModalUI('modalPago'); 
@@ -105,24 +102,95 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         })
         .catch(error => {
-            console.error("Error al registrar pago:", error);
-            alert("Error de conexión con el servidor.");
+            console.error("Error al registrar el pago:", error);
             btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Registrar Pago';
+            btnGuardar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Procesar Pago';
         });
     });
 
-    // Eventos para cerrar modal
-    document.querySelectorAll('[data-bs-dismiss="modal"], .btn-close').forEach(btn => {
+    // ==========================================
+    // EVENTO PARA CERRAR EL MODAL PRINCIPAL
+    // ==========================================
+    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
         btn.addEventListener('click', (e) => { 
             e.preventDefault(); 
-            cerrarModalUI('modalPago');
+            cerrarModalUI('modalPago'); 
         });
     });
 });
 
 // ==========================================
-// CRUD LISTADO
+// DESPLEGAR FORMULARIO DE PAGO PARA UNA ORDEN
+// ==========================================
+function iniciarPago(id_compra, num_orden) {
+    const orden = cacheOrdenesPendientes.find(o => o.id_compra == id_compra);
+    
+    if (!orden) {
+        return;
+    }
+    
+    let balance = orden.total_orden - orden.total_pagado;
+    
+    document.getElementById("lbl_orden_seleccionada").innerText = num_orden;
+    document.getElementById("id_compra_pagar").value = id_compra;
+    
+    document.getElementById("lbl_total_orden").innerText = formatter.format(orden.total_orden);
+    document.getElementById("lbl_total_pagado").innerText = formatter.format(orden.total_pagado);
+    document.getElementById("lbl_balance_pendiente").innerText = formatter.format(balance);
+    
+    const inputMonto = document.getElementById("monto_pagado");
+    inputMonto.value = balance.toFixed(2);
+    inputMonto.max = balance.toFixed(2); 
+    
+    // Limpiamos los selectores por si se había elegido otra orden antes
+    document.getElementById("id_moneda").value = "";
+    document.getElementById("id_metodo").value = "";
+    document.getElementById("referencia_pago").value = "";
+
+    document.getElementById("formPago").classList.remove('d-none');
+    
+    // Hacemos un scroll suave para que el usuario vea el formulario de pago
+    document.getElementById("formPago").scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+// ==========================================
+// VER DETALLES DE LA ORDEN EN EL SUB-MODAL
+// ==========================================
+function verDetallesOrden(id_compra, num_orden) {
+    document.getElementById("lbl_submodal_orden").innerText = num_orden;
+    const tbody = document.getElementById("cuerpoTablaArticulos");
+    
+    tbody.innerHTML = '<tr><td colspan="4"><i class="fas fa-spinner fa-spin"></i> Cargando artículos...</td></tr>';
+    
+    abrirModalUI('modalDetallesCompra');
+
+    // Usamos el archivo de Compra que ya tiene programada la extracción de los detalles
+    fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Compra.php?action=obtener&id_compra=${id_compra}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.success && data.data.detalles_articulos) {
+            tbody.innerHTML = "";
+            
+            data.data.detalles_articulos.forEach(art => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-start fw-bold">${art.nombre} <br> <small class="text-muted">${art.num_serie}</small></td>
+                        <td>${formatter.format(art.precio)}</td>
+                        <td class="fw-bold fs-5">${art.cantidad}</td>
+                        <td class="fw-bold text-success">${formatter.format(art.subtotal)}</td>
+                    </tr>
+                `;
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Error al cargar los detalles:", error);
+        tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Error al cargar los detalles.</td></tr>';
+    });
+}
+
+// ==========================================
+// CRUD LISTADO PRINCIPAL DE PAGOS
 // ==========================================
 function listar() {
     fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=listar")
@@ -132,10 +200,9 @@ function listar() {
         tbody.innerHTML = "";
 
         if (data.success && data.data.length > 0) {
-            const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-
             data.data.forEach(p => {
                 let badgeEstado = p.estado === "activo" ? "bg-success" : "bg-danger";
+                
                 let btnAnular = p.estado === "activo" 
                     ? `<button class="btn btn-danger btn-sm" onclick="anular(${p.id_pago_compra})" title="Anular Pago"><i class="fas fa-ban"></i></button>`
                     : `<button class="btn btn-secondary btn-sm" disabled><i class="fas fa-ban"></i></button>`;
@@ -158,7 +225,9 @@ function listar() {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No hay pagos registrados.</td></tr>`;
         }
     })
-    .catch(error => console.error("Error al listar pagos:", error));
+    .catch(error => {
+        console.error("Error al listar pagos:", error);
+    });
 }
 
 function cargarDependencias() {
@@ -170,54 +239,61 @@ function cargarDependencias() {
             const selectMetodo = document.getElementById("id_metodo");
             const selectMoneda = document.getElementById("id_moneda");
             
-            selectProv.innerHTML = '<option value="">Seleccione proveedor...</option>';
+            selectProv.innerHTML = '<option value="">Seleccione o escriba el proveedor...</option>';
             selectMetodo.innerHTML = '<option value="">Seleccione método...</option>';
             selectMoneda.innerHTML = '<option value="">Seleccione moneda...</option>';
             
-            data.data.proveedores.forEach(p => {
-                selectProv.innerHTML += `<option value="${p.id_proveedor}">${p.nombre_comercial} (RNC: ${p.RNC})</option>`;
+            data.data.proveedores.forEach(p => { 
+                selectProv.innerHTML += `<option value="${p.id_proveedor}">${p.nombre_comercial} (RNC: ${p.RNC})</option>`; 
             });
             
-            data.data.metodos.forEach(m => {
-                selectMetodo.innerHTML += `<option value="${m.id_metodo}">${m.nombre}</option>`;
+            data.data.metodos.forEach(m => { 
+                selectMetodo.innerHTML += `<option value="${m.id_metodo}">${m.nombre}</option>`; 
             });
             
-            data.data.monedas.forEach(mo => {
-                selectMoneda.innerHTML += `<option value="${mo.id_moneda}">${mo.codigo_ISO} - ${mo.nombre}</option>`;
+            data.data.monedas.forEach(mo => { 
+                selectMoneda.innerHTML += `<option value="${mo.id_moneda}">${mo.codigo_ISO} - ${mo.nombre}</option>`; 
             });
         }
     })
-    .catch(error => console.error("Error al cargar dependencias:", error));
+    .catch(error => {
+        console.error("Error al cargar dependencias:", error);
+    });
 }
 
 function nuevoPago() {
     document.getElementById("formPago").reset();
-    document.getElementById("cajaBalance").classList.add('d-none');
+    document.getElementById("formPago").classList.add('d-none');
+    document.getElementById("seccion_ordenes").classList.add('d-none');
     
-    // Reseteamos el select de órdenes
-    document.getElementById("id_compra").innerHTML = '<option value="">Primero seleccione proveedor...</option>';
-    document.getElementById("id_compra").disabled = true;
+    // Reseteamos el buscador dinámico de Select2
+    $('#id_proveedor').val(null).trigger('change');
     
     abrirModalUI('modalPago');
 }
 
 function anular(id_pago) {
-    if (confirm("¿Está seguro que desea ANULAR este pago? El dinero volverá a aparecer como deuda pendiente en la Orden de Compra.")) {
+    if (confirm("ATENCIÓN: Solo los administradores pueden realizar esta acción.\n\n¿Está seguro que desea ANULAR este pago? El dinero volverá a aparecer como deuda pendiente en la Orden de Compra.")) {
         const f = new FormData(); 
         f.append("id_pago_compra", id_pago);
         
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=anular", {
+        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=anular", { 
             method: "POST", 
-            body: f
+            body: f 
         })
         .then(res => res.json())
-        .then(data => {
-            alert(data.message);
+        .then(data => { 
             if(data.success) {
-                listar();
+                alert(data.message); 
+                listar(); 
+            } else {
+                // Si el PHP devuelve error de roles
+                alert("❌ " + data.message);
             }
         })
-        .catch(error => console.error("Error al anular pago:", error));
+        .catch(error => {
+            console.error("Error al anular el pago:", error);
+        });
     }
 }
 
@@ -226,25 +302,61 @@ function anular(id_pago) {
 // ==========================================
 function abrirModalUI(idModal) {
     const modalElement = document.getElementById(idModal);
+    
     try {
-        if (typeof $ !== 'undefined' && $.fn.modal) { $('#' + idModal).modal('show'); return; }
+        if (typeof $ !== 'undefined' && $.fn.modal) { 
+            $('#' + idModal).modal('show'); 
+            return; 
+        }
+        
         if (typeof bootstrap !== 'undefined') {
-            let mod = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
-            mod.show(); return;
-        } throw new Error("");
+            let mod = bootstrap.Modal.getInstance(modalElement);
+            if (!mod) {
+                mod = new bootstrap.Modal(modalElement);
+            }
+            mod.show(); 
+            return;
+        } 
+        
+        throw new Error("Forzar apertura manual");
+        
     } catch (e) {
-        modalElement.classList.add('show'); modalElement.style.display = 'block'; document.body.classList.add('modal-open');
-        if (!document.getElementById('fondo-oscuro-modal')) {
-            const b = document.createElement('div'); b.className = 'modal-backdrop fade show'; b.id = 'fondo-oscuro-modal';
-            document.body.appendChild(b);
+        modalElement.classList.add('show'); 
+        modalElement.style.display = 'block';
+        
+        // Solo agregamos el fondo oscuro general si es el modal principal
+        if (idModal === 'modalPago') { 
+            document.body.classList.add('modal-open');
+            if (!document.getElementById('fondo-oscuro-modal')) {
+                const b = document.createElement('div'); 
+                b.className = 'modal-backdrop fade show'; 
+                b.id = 'fondo-oscuro-modal';
+                document.body.appendChild(b);
+            }
         }
     }
 }
 
 function cerrarModalUI(idModal) {
     const modalElement = document.getElementById(idModal);
-    if (!modalElement) return;
-    modalElement.classList.remove('show'); modalElement.style.display = 'none'; document.body.classList.remove('modal-open');
-    const b = document.getElementById('fondo-oscuro-modal'); if (b) b.remove();
-    if (typeof $ !== 'undefined' && $.fn.modal) { $('#' + idModal).modal('hide'); }
+    
+    if (!modalElement) {
+        return;
+    }
+    
+    modalElement.classList.remove('show'); 
+    modalElement.style.display = 'none'; 
+    
+    // Solo quitamos el fondo oscuro general si estamos cerrando el modal principal
+    if (idModal === 'modalPago') { 
+        document.body.classList.remove('modal-open');
+        const b = document.getElementById('fondo-oscuro-modal'); 
+        if (b) {
+            b.remove();
+        }
+    }
+    
+    if (typeof $ !== 'undefined' && $.fn.modal) { 
+        $('#' + idModal).modal('hide'); 
+    }
 }

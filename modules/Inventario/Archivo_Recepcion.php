@@ -28,7 +28,6 @@ switch ($action) {
 // ==========================================
 
 function buscar_compra($conexion) {
-    // Eliminamos el filtrado obligatorio. Ahora carga todas las activas con pendientes.
     $sql = "SELECT DISTINCT c.id_compra, p.nombre_comercial as proveedor, 
                    DATE_FORMAT(c.fecha_creacion, '%d/%m/%Y %H:%i') as fecha,
                    (SELECT COUNT(*) FROM Detalle_Compra WHERE id_compra = c.id_compra) as total_items
@@ -46,7 +45,6 @@ function buscar_compra($conexion) {
 function obtener_detalle($conexion) {
     $id = (int)($_GET['id'] ?? 0);
     
-    // 1. Cabecera de la compra
     $sql_m = "SELECT c.id_compra, p.nombre_comercial as proveedor, c.monto 
               FROM Compra c 
               INNER JOIN Proveedor p ON c.id_proveedor = p.id_proveedor 
@@ -61,8 +59,6 @@ function obtener_detalle($conexion) {
         return;
     }
 
-    // 2. Artículos con Faltantes + Imagen + Precio + Subtotal
-    // Nota: Calculamos el subtotal directamente en el SQL para mayor precisión
     $sql_d = "SELECT dc.id_articulo, ra.nombre, ra.imagen, 
                      dc.cantidad_pedida, dc.cantidad_recibida, 
                      ra.precio_compra,
@@ -103,8 +99,6 @@ function guardar_recepcion($conexion) {
     $num_conduze_input = trim((string)$data['num_conduze']);
     $usuario = $_SESSION['id_usuario'] ?? 1;
 
-    // --- NUEVA VALIDACIÓN DE CONDUCE DUPLICADO ---
-    // Verificamos si ya existe una recepción con este número de conduce
     $sql_check = "SELECT id_recepcion FROM Recepcion_Compra WHERE num_conduze = ? LIMIT 1";
     $stmt_check = $conexion->prepare($sql_check);
     $stmt_check->bind_param("s", $num_conduze_input);
@@ -116,31 +110,49 @@ function guardar_recepcion($conexion) {
         ]);
         return;
     }
-    // ---------------------------------------------
 
     try {
         $conexion->begin_transaction();
 
-        // Obtener proveedor y preparar la cabecera
-        $res_p = $conexion->query("SELECT id_proveedor FROM Compra WHERE id_compra = $id_compra");
+        // 1. Obtener datos de la cabecera original (para heredar proveedor y moneda)
+        $res_p = $conexion->query("SELECT id_proveedor, id_moneda FROM Compra WHERE id_compra = $id_compra");
         $prov = $res_p->fetch_assoc();
         $id_prov = (int)$prov['id_proveedor'];
+        $id_moneda = (int)$prov['id_moneda'];
         $id_alm_header = (int)$data['items'][0]['id_almacen'];
 
-        // 1. Maestro
+        // 2. Calcular el valor real en dinero de los artículos que se están recibiendo
+        $monto_total_recibido = 0;
+        foreach ($data['items'] as $item) {
+            $id_art = (int)$item['id_articulo'];
+            $cant = (int)$item['cantidad'];
+            
+            // Buscar el precio al que se compró en esa orden específica
+            $sql_precio = "SELECT precio FROM Detalle_Compra WHERE id_compra = ? AND id_articulo = ?";
+            $stmt_precio = $conexion->prepare($sql_precio);
+            $stmt_precio->bind_param("ii", $id_compra, $id_art);
+            $stmt_precio->execute();
+            $res_precio = $stmt_precio->get_result()->fetch_assoc();
+            
+            if ($res_precio) {
+                $monto_total_recibido += ($res_precio['precio'] * $cant);
+            }
+        }
+
+        // 3. Insertar Cabecera de Recepción con el monto calculado y la moneda correcta
         $sql_ins = "INSERT INTO Recepcion_Compra (id_proveedor, id_compra, num_conduze, id_almacen, monto_total, id_moneda, usuario_recepcion, estado) 
-                    VALUES (?, ?, ?, ?, 0.00, 3, ?, 'activo')";
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'activo')";
         $stmt_ins = $conexion->prepare($sql_ins);
-        $stmt_ins->bind_param("iisis", $id_prov, $id_compra, $num_conduze_input, $id_alm_header, $usuario);
+        $stmt_ins->bind_param("iisidii", $id_prov, $id_compra, $num_conduze_input, $id_alm_header, $monto_total_recibido, $id_moneda, $usuario);
         $stmt_ins->execute();
 
-        // 2. Preparar Statements para el bucle
+        // 4. Preparar Statements para el bucle
         $stmt_det = $conexion->prepare("INSERT INTO Detalle_Recepcion (id_proveedor, num_conduze, id_articulo, cantidad, fecha_entrega) VALUES (?, ?, ?, ?, NOW())");
         $stmt_upd_c = $conexion->prepare("UPDATE Detalle_Compra SET cantidad_recibida = cantidad_recibida + ? WHERE id_compra = ? AND id_articulo = ?");
         $stmt_inv = $conexion->prepare("INSERT INTO Inventario (id_articulo, id_gondola, cantidad, estado) VALUES (?, 1, ?, 'activo') ON DUPLICATE KEY UPDATE cantidad = cantidad + ?");
         $stmt_mov = $conexion->prepare("INSERT INTO Movimiento_Inventario_Almacen (id_compra, id_gondola, id_tipo_movimiento, fecha_movimiento, estado) VALUES (?, ?, 1, NOW(), 'activo')");
 
-        // 3. Ejecutar bucle
+        // 5. Ejecutar bucle
         foreach ($data['items'] as $item) {
             $id_art = (int)$item['id_articulo'];
             $cant  = (int)$item['cantidad'];
@@ -167,3 +179,4 @@ function guardar_recepcion($conexion) {
         echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }
+?>

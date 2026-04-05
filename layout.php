@@ -103,9 +103,9 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/Transferencia.php">Transferencia de Stock</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/RecepcionCompra.php">Recepción de Compra</a>
-                    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialCompra.php">Historial de Compra</a>
-                    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialPago.php">Historial de Pagos</a>
-                    <a href="/Taller/Taller-Mecanica/view/Inventario/HistorialRecepcion.php">Historial de Recepción</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialCompra.php">Historial de Compra</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialPago.php">Historial de Pagos</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialRecepcion.php">Historial de Recepción</a>
                 </div>
             </div>
             <?php endif; ?>

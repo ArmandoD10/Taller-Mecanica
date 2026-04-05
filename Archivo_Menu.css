@@ -214,3 +214,98 @@ header { display: flex; justify-content: space-between; align-items: center; mar
     transform: translateX(5px);
     opacity: 1;
 }
+
+.d-none { display: none !important; }
+.me-2 { margin-right: 0.5rem; }
+
+/* Contenedor principal del menú de notificaciones */
+#menu-notificaciones {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    width: 350px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px); /* Efecto cristal */
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.05);
+    z-index: 9999;
+    overflow: hidden;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Encabezado del mini-cuadro */
+.notif-header {
+    padding: 15px;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notif-header h5 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Cada item de la lista */
+.notif-item {
+    padding: 15px;
+    border-bottom: 1px solid #f8f8f8;
+    display: flex;
+    gap: 12px;
+    transition: background 0.3s;
+}
+
+.notif-item:hover {
+    background: #fcfcfc;
+}
+
+.notif-icon {
+    width: 35px;
+    height: 35px;
+    background: #eef2ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4f46e5;
+}
+
+.notif-content p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #555;
+}
+
+.notif-content b {
+    color: #222;
+}
+
+.notif-time {
+    display: block;
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* Enlace inferior */
+.notif-footer {
+    display: block;
+    text-align: center;
+    padding: 12px;
+    background: #f9fafb;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4f46e5;
+    text-decoration: none;
+}

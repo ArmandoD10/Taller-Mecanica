@@ -16,6 +16,7 @@ if ($username === '' || $password === '') {
     exit;
 }
 
+// 1. BUSCAR USUARIO
 $sql = "SELECT id_usuario, username, password_hash, id_nivel
         FROM usuario 
         WHERE username = ? 
@@ -25,19 +26,46 @@ $sql = "SELECT id_usuario, username, password_hash, id_nivel
 $stmt = $conexion->prepare($sql);
 $stmt->bind_param("s", $username);
 $stmt->execute();
-
 $resultado = $stmt->get_result();
 
 if ($resultado->num_rows === 1) {
     $usuario = $resultado->fetch_assoc();
 
+    // 2. VALIDAR CONTRASEÑA
     if ($password === $usuario['password_hash']) {
 
+        // --- DATOS BÁSICOS DE SESIÓN ---
         $_SESSION['id_usuario'] = $usuario['id_usuario'];
         $_SESSION['user'] = $usuario['username'];
         $_SESSION['id_nivel'] = $usuario['id_nivel'];
 
-        // 🔥 OBTENER MÓDULOS (CORREGIDO A TU MODELO)
+        // 🔥 3. NUEVO: VINCULAR USUARIO -> EMPLEADO -> SUCURSAL
+        // Esta consulta busca la sucursal ACTIVA donde trabaja el usuario logueado
+        $sqlSucursal = "SELECT s.id_sucursal, s.nombre 
+                        FROM sucursal s
+                        INNER JOIN empleado_sucursal es ON s.id_sucursal = es.id_sucursal
+                        INNER JOIN empleado_usuario eu ON es.id_empleado = eu.id_empleado
+                        WHERE eu.id_usuario = ? 
+                        AND es.estado = 'activo' 
+                        AND es.fecha_fin IS NULL 
+                        LIMIT 1";
+
+        $stmtSuc = $conexion->prepare($sqlSucursal);
+        $stmtSuc->bind_param("i", $usuario['id_usuario']);
+        $stmtSuc->execute();
+        $resSuc = $stmtSuc->get_result()->fetch_assoc();
+
+        if ($resSuc) {
+            // Guardamos los datos de la sucursal en la sesión
+            $_SESSION['id_sucursal'] = $resSuc['id_sucursal'];
+            $_SESSION['nombre_sucursal'] = $resSuc['nombre'];
+        } else {
+            // Si el usuario no tiene sucursal asignada
+            $_SESSION['id_sucursal'] = 0;
+            $_SESSION['nombre_sucursal'] = "Sin Sucursal";
+        }
+
+        // 🔥 4. OBTENER MÓDULOS DE PERMISO
         $sqlPermisos = "SELECT m.nombre
                         FROM permiso_nivel pn
                         JOIN modulo m ON pn.id_modulo = m.id_modulo
@@ -47,27 +75,23 @@ if ($resultado->num_rows === 1) {
         $stmtPermisos = $conexion->prepare($sqlPermisos);
         $stmtPermisos->bind_param("i", $usuario['id_nivel']);
         $stmtPermisos->execute();
-
         $resultPermisos = $stmtPermisos->get_result();
 
         $modulos = [];
-
         while($fila = $resultPermisos->fetch_assoc()){
             $modulos[] = $fila['nombre'];
         }
-
-        // 🔥 GUARDAR EN SESIÓN
         $_SESSION['modulos'] = $modulos;
 
-        // 🔴 LOG
-        registrarEvento($usuario['id_usuario'], "Login");
+        // 🔴 REGISTRAR AUDITORÍA
+        registrarEvento($usuario['id_usuario'], "Login Exitoso en sucursal: " . $_SESSION['nombre_sucursal']);
 
-        // 🔥 REDIRECCIÓN (AL FINAL)
+        // 🔥 REDIRECCIÓN AL MENÚ PRINCIPAL
         header("Location: ../Menu.php");
         exit;
     }
 }
 
-// ❌ Login incorrecto
+// ❌ LOGIN INCORRECTO
 header("Location: ../index.php?error=Usuario o contraseña incorrectos");
 exit;

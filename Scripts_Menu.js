@@ -94,3 +94,67 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Manejo del menú de notificaciones
+const btnNotif = document.getElementById('btnNotificaciones');
+const menuNotif = document.getElementById('menu-notificaciones');
+
+if(btnNotif) {
+    btnNotif.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuNotif.classList.toggle('d-none');
+    });
+}
+
+// Cerrar si hace clic fuera
+document.addEventListener('click', () => {
+    if(menuNotif) menuNotif.classList.add('d-none');
+});
+
+menuNotif.addEventListener('click', (e) => e.stopPropagation());
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    verificarNotificaciones();
+    // Revisar cada 30 segundos automáticamente
+    setInterval(verificarNotificaciones, 30000);
+});
+
+function verificarNotificaciones() {
+    fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Notificaciones.php')
+    .then(res => res.json())
+    .then(res => {
+        const contador = document.getElementById('contador-notificaciones');
+        const contenedor = document.getElementById('contenedor-items-notificacion');
+
+        if (res.total > 0) {
+            contador.textContent = res.total;
+            contador.classList.remove('d-none');
+            
+            let html = '';
+            res.data.forEach(n => {
+                // Formatear la fecha
+                const fecha = new Date(n.fecha_solicitud);
+                const fechaLegible = fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                // Dentro de tu función verificarNotificaciones() en el JS:
+                html += `
+                <div class="notif-item">
+                    <div class="notif-icon">
+                        <i class="fas fa-shipping-fast"></i>
+                    </div>
+                    <div class="notif-content">
+                        <p>Nueva solicitud de <b>${n.producto}</b></p>
+                        <p class="small text-muted">Sucursal: ${n.sucursal_destino} (Cant: ${n.cantidad})</p>
+                        <span class="notif-time">${fechaLegible}</span>
+                    </div>
+                </div>`;
+            });
+            contenedor.innerHTML = html;
+        } else {
+            contador.classList.add('d-none');
+            contenedor.innerHTML = '<li class="p-3 text-center text-muted small">No hay pedidos pendientes</li>';
+        }
+    })
+    .catch(err => console.error("Error en notificaciones:", err));
+}

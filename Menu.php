@@ -196,10 +196,34 @@ $stats = [
     </aside>
 
     <main>
-        <header>
-            <h1>Resumen Operativo - <?php echo date("d/m/Y"); ?></h1>
-            <div class="user-display">Bienvenido, <strong><?php echo $usuarioActivo; ?></strong></div>
-        </header>
+        <header style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Resumen Operativo - <?php echo date("d/m/Y"); ?></h1>
+    
+    <div class="user-area" style="display: flex; align-items: center; gap: 20px;">
+        
+        <div class="notification-dropdown" style="position: relative;">
+            <button type="button" id="btnNotificaciones" style="background: none; border: none; cursor: pointer; position: relative;">
+                <i class="fas fa-bell" style="font-size: 1.5rem; color: #333;"></i>
+                <span id="contador-notificaciones" class="d-none" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; font-weight: bold;">
+                    0
+                </span>
+            </button>
+            
+            <div id="menu-notificaciones" class="d-none" style="position: absolute; top: 40px; right: 0; width: 300px; background: white; border-radius: 8px; shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; border: 1px solid #ddd; overflow: hidden;">
+                <div style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; font-size: 0.9rem;">
+                    <i class="fas fa-truck-moving me-2"></i> Solicitudes de Stock
+                </div>
+                <div id="contenedor-items-notificacion" style="max-height: 300px; overflow-y: auto;">
+                    <p style="padding: 20px; text-align: center; color: #888; font-size: 0.8rem; margin: 0;">Cargando pedidos...</p>
+                </div>
+                <a href="/Taller/Taller-Mecanica/view/Inventario/Transferencia.php" style="display: block; text-align: center; padding: 10px; font-size: 0.8rem; color: #3498db; text-decoration: none; border-top: 1px solid #eee; background: #fff;">Ver todo el panel</a>
+            </div>
+        </div>
+        <div class="user-display">
+            Bienvenido, <strong><?php echo $usuarioActivo; ?></strong>
+        </div>
+    </div>
+</header>
         <section class="stats-container">
     <div class="card"><h3>Vehículos en Bahía</h3><p><?php echo $stats['vehiculos_bahia']; ?></p></div>
     <div class="card"><h3>Presupuestos Pendientes</h3><p><?php echo $stats['presupuestos_pendientes']; ?></p></div>

@@ -22,6 +22,7 @@ require("../../header.php");
                                 <th>Nombre del Servicio</th>
                                 <th>Descripción</th>
                                 <th>Tiempo Est.</th>
+                                <th>Precio Estimado</th>
                                 <th>Estado</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
@@ -60,6 +61,10 @@ require("../../header.php");
                                 <label class="form-label fw-bold">Tiempo Estimado <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control border-dark text-center fw-bold" id="tiempo_estimado" name="tiempo_estimado" placeholder="HH:MM" maxlength="5" required autocomplete="off">
                                 <small class="text-muted">Horas : Minutos (Ej: 01:30)</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Precio Sugerido ($) <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" class="form-control border-dark fw-bold text-success" id="precio_estimado" name="precio_estimado" placeholder="0.00" required>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold">Estado <span class="text-danger">*</span></label>

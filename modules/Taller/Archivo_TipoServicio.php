@@ -24,10 +24,10 @@ switch ($action) {
 }
 
 function listar($conexion) {
-    $sql = "SELECT id_tipo_servicio, nombre, descripcion, tiempo_estimado, estado 
-            FROM tipo_servicio 
-            WHERE estado != 'eliminado' 
-            ORDER BY id_tipo_servicio DESC";
+    $sql = "SELECT id_tipo_servicio, nombre, descripcion, tiempo_estimado, precio, estado 
+        FROM tipo_servicio 
+        WHERE estado != 'eliminado' 
+        ORDER BY id_tipo_servicio DESC";
             
     $res = $conexion->query($sql);
     $data = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
@@ -38,30 +38,27 @@ function guardar($conexion) {
     $id = $_POST['id_tipo_servicio'] ?? '';
     $nombre = $_POST['nombre'] ?? '';
     $descripcion = $_POST['descripcion'] ?? '';
-    $tiempo_estimado = $_POST['tiempo_estimado'] ?? '00:30';
+    $tiempo_estimado = $_POST['tiempo_estimado'] ?? '01:00';
+    $precio = $_POST['precio_estimado'] ?? 0; // Nuevo
     $estado = $_POST['estado'] ?? 'activo';
     $usuario = $_SESSION['id_usuario'] ?? 1;
 
-    // Aseguramos el formato correcto para MySQL (HH:MM:SS)
-    if (strlen($tiempo_estimado) == 5) { 
-        $tiempo_estimado .= ':00'; 
-    }
+    if (strlen($tiempo_estimado) == 5) { $tiempo_estimado .= ':00'; }
 
     try {
         if ($id == '') {
-            $sql = "INSERT INTO tipo_servicio (nombre, descripcion, tiempo_estimado, estado, usuario_creacion) VALUES (?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO tipo_servicio (nombre, descripcion, tiempo_estimado, precio, estado, usuario_creacion) VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("ssssi", $nombre, $descripcion, $tiempo_estimado, $estado, $usuario);
+            $stmt->bind_param("sssdsi", $nombre, $descripcion, $tiempo_estimado, $precio, $estado, $usuario);
         } else {
-            $sql = "UPDATE tipo_servicio SET nombre = ?, descripcion = ?, tiempo_estimado = ?, estado = ? WHERE id_tipo_servicio = ?";
+            $sql = "UPDATE tipo_servicio SET nombre = ?, descripcion = ?, tiempo_estimado = ?, precio= ?, estado = ? WHERE id_tipo_servicio = ?";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("ssssi", $nombre, $descripcion, $tiempo_estimado, $estado, $id);
+            $stmt->bind_param("sssdsi", $nombre, $descripcion, $tiempo_estimado, $precio, $estado, $id);
         }
-
         $stmt->execute();
-        echo json_encode(['success' => true, 'message' => 'Servicio guardado correctamente.']);
+        echo json_encode(['success' => true, 'message' => 'Servicio Guardado exitosamente.']);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 

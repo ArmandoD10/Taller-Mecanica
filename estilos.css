@@ -306,4 +306,15 @@ input:checked + .slider:before { transform: translateX(26px); }
     #area_recepcion { border-top: 4px solid #198754; } /* Verde para diferenciar del azul */
 
 
-    
+/* Forzar que el modal y su fondo oscuro estén al frente */
+.modal {
+    z-index: 1060 !important;
+}
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+
+/* Si tu sidebar tiene un z-index muy alto, bájalo un poco (ejemplo) */
+.sidebar {
+    z-index: 1000 !important;
+} 

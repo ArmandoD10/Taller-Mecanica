@@ -80,15 +80,11 @@ function listar() {
                     <td class="fw-bold text-primary">SRV-${srv.id_tipo_servicio.toString().padStart(3, '0')}</td>
                     <td class="fw-bold">${srv.nombre}</td>
                     <td>${desc}</td>
-                    <td><span class="badge bg-info text-dark fs-6"><i class="far fa-clock me-1"></i>${tiempo}</span></td>
-                    <td class="${badgeEstado}">${srv.estado.toUpperCase()}</td>
+                    <td><span class="badge bg-info text-dark"><i class="far fa-clock me-1"></i>${tiempo}</span></td>
+                    <td class="fw-bold text-success">$${parseFloat(srv.precio).toFixed(2)}</td> <td class="${badgeEstado}">${srv.estado.toUpperCase()}</td>
                     <td class="text-center">
-                        <button class="btn btn-warning btn-sm text-white" onclick="editar(${srv.id_tipo_servicio})" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="eliminar(${srv.id_tipo_servicio})" title="Eliminar">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <button class="btn btn-warning btn-sm" onclick="editar(${srv.id_tipo_servicio})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="eliminar(${srv.id_tipo_servicio})"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -104,6 +100,7 @@ function nuevoServicio() {
     document.getElementById("formServicio").reset();
     document.getElementById("id_tipo_servicio").value = "";
     document.getElementById("tiempo_estimado").value = "01:00"; 
+    document.getElementById("precio_estimado").value = "0.00";
     document.getElementById("estado").value = "activo";
     document.getElementById("tituloModal").innerHTML = '<i class="fas fa-plus me-2"></i>Nuevo Servicio';
     
@@ -117,15 +114,14 @@ function editar(id) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            document.getElementById("id_tipo_servicio").value = data.data.id_tipo_servicio;
-            document.getElementById("nombre").value = data.data.nombre;
-            document.getElementById("descripcion").value = data.data.descripcion || "";
-            document.getElementById("tiempo_estimado").value = data.data.tiempo_estimado ? data.data.tiempo_estimado.substring(0, 5) : "01:00";
-            document.getElementById("estado").value = data.data.estado;
-            
+            const s = data.data;
+            document.getElementById("id_tipo_servicio").value = s.id_tipo_servicio;
+            document.getElementById("nombre").value = s.nombre;
+            document.getElementById("descripcion").value = s.descripcion || "";
+            document.getElementById("tiempo_estimado").value = s.tiempo_estimado ? s.tiempo_estimado.substring(0, 5) : "01:00";
+            document.getElementById("precio_estimado").value = s.precio; // Cargar precio
+            document.getElementById("estado").value = s.estado;
             abrirModalUI();
-        } else {
-            alert("Error al cargar los datos.");
         }
     });
 }

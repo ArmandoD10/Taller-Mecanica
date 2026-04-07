@@ -27,9 +27,9 @@ switch ($action) {
 }
 
 function cargar_clientes($conexion) {
-    // Traemos solo clientes activos. Diferenciamos si es empresa o persona física para el nombre.
     $sql = "SELECT 
                 c.id_cliente, 
+                p.tipo_persona,
                 IF(p.tipo_persona = 'Juridica', p.nombre, CONCAT(p.nombre, ' ', p.apellido_p)) AS nombre_cliente,
                 p.cedula
             FROM Cliente c
@@ -79,81 +79,96 @@ function guardar($conexion) {
     $usuario_creacion = $_SESSION['id_usuario'] ?? 1;
 
     $id_cliente = $_POST['id_cliente'] ?? '';
-    $monto_credito = $_POST['monto_credito'] ?? 0;
+    $monto_credito = (float)($_POST['monto_credito'] ?? 0);
     $fecha_vencimiento = $_POST['fecha_vencimiento'] ?? '';
     $referencia = $_POST['referencia_datacredito'] ?? '';
-    $estado_credito = 'Activo'; // Por defecto al crear
-    $saldo_pendiente = 0.00; // Inicia en 0, se consume al facturar
+    $admin_password = $_POST['admin_password'] ?? '';
+    
+    $estado_credito = 'Activo'; 
+    $saldo_pendiente = 0.00; 
 
     if (empty($id_cliente) || empty($monto_credito) || empty($fecha_vencimiento)) {
         echo json_encode(['success' => false, 'message' => 'Cliente, monto y fecha de vencimiento son obligatorios.']);
         exit;
     }
 
-    // --- BLOQUE DE VALIDACIONES DE POLÍTICA DE CRÉDITO ---
+    $sqlCli = "SELECT p.tipo_persona FROM Cliente c JOIN Persona p ON c.id_persona = p.id_persona WHERE c.id_cliente = $id_cliente";
+    $tipo_persona = $conexion->query($sqlCli)->fetch_assoc()['tipo_persona'] ?? 'Fisica';
 
-    // 1. Buscamos el crédito activo más reciente del cliente
-    $sql_check = "SELECT monto_credito, saldo_pendiente 
-                  FROM Credito 
-                  WHERE id_cliente = $id_cliente 
-                  AND estado_credito = 'Activo' 
-                  AND estado = 'activo' 
-                  ORDER BY id_credito DESC LIMIT 1";
-    
-    $res_check = $conexion->query($sql_check);
-
-    if ($res_check && $res_check->num_rows > 0) {
-        $data = $res_check->fetch_assoc();
-        $monto_actual = (float)$data['monto_credito'];
-        $saldo_actual = (float)$data['saldo_pendiente'];
-
-        // --- REGLA 1: Evitar Créditos "Vacíos" e Inactivos ---
-        if ($saldo_actual == 0) {
-            echo json_encode([
-                'success' => false, 
-                'message' => "Denegado: El cliente ya tiene una línea de crédito activa que NO ha empezado a utilizar. No se puede asignar una nueva hasta que consuma la actual."
-            ]);
+    // 1. VALIDAR BYPASS PARA PERSONAS FÍSICAS
+    if ($tipo_persona === 'Fisica' && $referencia === 'BYPASS-ADMIN') {
+        if (empty($admin_password)) {
+            echo json_encode(['success' => false, 'message' => 'Para aprobar manualmente a una persona física, debe ingresar la clave de administrador.']);
             exit;
         }
-
-        // --- REGLA 2: Límite de Endeudamiento (75%) ---
-        $porcentaje_uso = ($saldo_actual / $monto_actual) * 100;
-
-        if ($porcentaje_uso >= 75) {
-            echo json_encode([
-                'success' => false, 
-                'message' => "Denegado: El cliente ha consumido el " . number_format($porcentaje_uso, 2) . "% de su crédito disponible. Ha superado el límite de riesgo permitido (75%)."
-            ]);
+        $sqlPass = "SELECT password_hash FROM usuario WHERE id_usuario = $usuario_creacion";
+        $hash = $conexion->query($sqlPass)->fetch_assoc()['password_hash'] ?? '';
+        if (!password_verify($admin_password, $hash) && $admin_password !== $hash) {
+            echo json_encode(['success' => false, 'message' => 'Clave de administrador incorrecta. Aprobación denegada.']);
             exit;
         }
+    } else if ($tipo_persona === 'Fisica' && empty($referencia)) {
+        echo json_encode(['success' => false, 'message' => 'Una persona física requiere consulta de DataCrédito o Aprobación Manual.']);
+        exit;
     }
-    // --- FIN DE VALIDACIONES ---
+
+    $sql_check = "SELECT id_credito, saldo_pendiente, monto_credito FROM Credito WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
+    $res_check = $conexion->query($sql_check);
 
     try {
         $conexion->begin_transaction();
 
-        // 1. Insertar el Crédito
-        $sql = "INSERT INTO Credito (id_cliente, monto_credito, saldo_pendiente, fecha_aprobacion, fecha_vencimiento, estado_credito, referencia_datacredito, usuario_creacion, estado)
-                VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'activo')";
-        $stmt = $conexion->prepare($sql);
-        
-        // 🔥 CORRECCIÓN APLICADA: 'iddsssi' (i=int, d=decimal, d=decimal, s=string/date, s=string, s=string, i=int)
-        $stmt->bind_param("iddsssi", $id_cliente, $monto_credito, $saldo_pendiente, $fecha_vencimiento, $estado_credito, $referencia, $usuario_creacion);
-        
-        $stmt->execute();
+        if ($res_check && $res_check->num_rows > 0) {
+            // == EXISTE UN CRÉDITO: LO ACTUALIZAMOS ==
+            $row = $res_check->fetch_assoc();
+            $id_credito_existente = $row['id_credito'];
+            $saldo_actual = (float)$row['saldo_pendiente'];
+            $monto_actual_bd = (float)$row['monto_credito'];
 
-        // 2. Actualizar el límite de crédito en el perfil del Cliente
-        $sqlCli = "UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?";
-        $stmtCli = $conexion->prepare($sqlCli);
-        $stmtCli->bind_param("di", $monto_credito, $id_cliente);
-        $stmtCli->execute();
+            if ($monto_credito < $saldo_actual) {
+                throw new Exception("El nuevo límite ($monto_credito) no puede ser menor a la deuda actual del cliente ($saldo_actual).");
+            }
+
+            // 2. VALIDAR AUMENTO DE LÍMITE (Cualquier persona)
+            if ($monto_credito > $monto_actual_bd) {
+                if (empty($admin_password)) {
+                    throw new Exception("Para autorizar un aumento en el límite de crédito (De RD$ $monto_actual_bd a RD$ $monto_credito) se requiere Clave de Administrador.");
+                }
+                $sqlPass = "SELECT password_hash FROM usuario WHERE id_usuario = $usuario_creacion";
+                $hash = $conexion->query($sqlPass)->fetch_assoc()['password_hash'] ?? '';
+                if (!password_verify($admin_password, $hash) && $admin_password !== $hash) {
+                    throw new Exception("Clave de administrador incorrecta. Aumento de límite denegado.");
+                }
+            }
+
+            $sqlUpdate = "UPDATE Credito SET monto_credito = ?, fecha_vencimiento = ?, referencia_datacredito = IF(? != '', ?, referencia_datacredito) WHERE id_credito = ?";
+            $stmtU = $conexion->prepare($sqlUpdate);
+            $stmtU->bind_param("dsssi", $monto_credito, $fecha_vencimiento, $referencia, $referencia, $id_credito_existente);
+            $stmtU->execute();
+            
+            $msg = 'El límite de crédito ha sido actualizado y unificado correctamente.';
+        } else {
+            // == CRÉDITO TOTALMENTE NUEVO ==
+            $sqlI = "INSERT INTO Credito (id_cliente, monto_credito, saldo_pendiente, fecha_aprobacion, fecha_vencimiento, estado_credito, referencia_datacredito, usuario_creacion, estado)
+                     VALUES (?, ?, 0.00, NOW(), ?, 'Activo', ?, ?, 'activo')";
+            $stmtI = $conexion->prepare($sqlI);
+            $stmtI->bind_param("idssi", $id_cliente, $monto_credito, $fecha_vencimiento, $referencia, $usuario_creacion);
+            $stmtI->execute();
+            
+            $msg = 'Línea de crédito aprobada y asignada al cliente correctamente.';
+        }
+
+        $sqlLimit = "UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?";
+        $stmtL = $conexion->prepare($sqlLimit);
+        $stmtL->bind_param("di", $monto_credito, $id_cliente);
+        $stmtL->execute();
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Línea de crédito aprobada y asignada al cliente correctamente.']);
+        echo json_encode(['success' => true, 'message' => $msg]);
 
     } catch (Exception $e) {
         $conexion->rollback();
-        echo json_encode(['success' => false, 'message' => 'Error al guardar: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }
 
@@ -161,14 +176,30 @@ function actualizar($conexion) {
     try {
         $conexion->begin_transaction();
 
+        $usuario_creacion = $_SESSION['id_usuario'] ?? 1;
         $id_credito = $_POST['id_credito'];
         $id_cliente = $_POST['id_cliente'];
-        $monto_credito = $_POST['monto_credito'];
+        $monto_credito = (float)$_POST['monto_credito'];
         $fecha_vencimiento = $_POST['fecha_vencimiento'];
         $referencia = $_POST['referencia_datacredito'] ?? '';
-        $estado_credito = $_POST['estado_credito']; // Activo, Pagado, Vencido, Cancelado
+        $estado_credito = $_POST['estado_credito']; 
+        $admin_password = $_POST['admin_password'] ?? '';
 
-        // 1. Actualizar el Crédito
+        // VALIDAR AUMENTO DE LÍMITE DESDE EL BOTÓN "EDITAR"
+        $sqlActual = "SELECT monto_credito FROM Credito WHERE id_credito = $id_credito";
+        $monto_actual_bd = (float)($conexion->query($sqlActual)->fetch_assoc()['monto_credito'] ?? 0);
+
+        if ($monto_credito > $monto_actual_bd) {
+            if (empty($admin_password)) {
+                throw new Exception("Para autorizar un aumento en el límite de crédito (De RD$ $monto_actual_bd a RD$ $monto_credito) se requiere Clave de Administrador.");
+            }
+            $sqlPass = "SELECT password_hash FROM usuario WHERE id_usuario = $usuario_creacion";
+            $hash = $conexion->query($sqlPass)->fetch_assoc()['password_hash'] ?? '';
+            if (!password_verify($admin_password, $hash) && $admin_password !== $hash) {
+                throw new Exception("Clave de administrador incorrecta. Aumento de límite denegado.");
+            }
+        }
+
         $sql = "UPDATE Credito 
                 SET monto_credito=?, fecha_vencimiento=?, estado_credito=?, referencia_datacredito=? 
                 WHERE id_credito=?";
@@ -176,7 +207,6 @@ function actualizar($conexion) {
         $stmt->bind_param("dsssi", $monto_credito, $fecha_vencimiento, $estado_credito, $referencia, $id_credito);
         $stmt->execute();
 
-        // 2. Sincronizar el límite de crédito del cliente si el crédito sigue Activo
         $sqlCli = "UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?";
         $stmtCli = $conexion->prepare($sqlCli);
         $stmtCli->bind_param("di", $monto_credito, $id_cliente);
@@ -191,11 +221,9 @@ function actualizar($conexion) {
     }
 }
 
-// Nueva función:
 function cargar_consultas_api($conexion) {
     $id_cliente = $_GET['id_cliente'] ?? 0;
     
-    // Unimos la consulta con el maestro de crédito para obtener el SCORE
     $sql = "SELECT 
                 c.fecha_consulta, 
                 c.referencia_consulta, 

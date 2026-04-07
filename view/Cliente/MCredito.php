@@ -21,28 +21,40 @@ require("../../header.php");
                         <div class="row">
                             <div class="col-12 mb-3 position-relative">
                                 <label class="form-label fw-bold">Buscar Cliente Beneficiario</label>
-                                <input type="text" class="form-control" id="buscador_cliente" placeholder="Escriba el nombre o cédula..." autocomplete="off" required>
+                                <div class="d-flex justify-content-between">
+                                    <input type="text" class="form-control" id="buscador_cliente" placeholder="Escriba el nombre o cédula..." autocomplete="off" required>
+                                </div>
+                                <small id="lbl_tipo_cliente" class="text-muted d-block mt-1"></small>
                                 <input type="hidden" id="id_cliente" name="id_cliente" required>
-                                <ul class="list-group position-absolute w-100 d-none shadow-sm" id="lista_clientes" style="z-index: 1000; max-height: 200px; overflow-y: auto; top: 100%;"></ul>
+                                <ul class="list-group position-absolute w-100 d-none shadow-sm" id="lista_clientes" style="z-index: 1000; max-height: 200px; overflow-y: auto; top: 75%;"></ul>
                             </div>
-
-                            <!-- <div id="contenedor_consultas_api" class="col-12 mb-3 d-none">
-                                <label class="form-label fw-bold text-success small"><i class="fas fa-history me-1"></i> Consultas DataCrédito Recientes</label>
-                                <div id="lista_consultas_api" class="list-group shadow-sm" style="max-height: 150px; overflow-y: auto;">
-                                    </div>
-                            </div> -->
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold">Monto Aprobado (RD$)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" step="0.01" class="form-control bg-light" id="monto_credito" name="monto_credito" placeholder="0.00" required readonly required>
+                                    <input type="number" step="0.01" class="form-control bg-light" id="monto_credito" name="monto_credito" placeholder="0.00" readonly required>
                                 </div>
                             </div>
 
                             <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Ref. DataCrédito (Opcional)</label>
-                                <input type="text" class="form-control bg-light" id="referencia_datacredito" name="referencia_datacredito" placeholder="Ej. DC-99823" readonly required>
+                                <label class="form-label fw-bold">Ref. DataCrédito</label>
+                                <input type="text" class="form-control bg-light" id="referencia_datacredito" name="referencia_datacredito" placeholder="Ej. DC-99823" readonly>
+                            </div>
+
+                            <div class="col-12 mt-2 d-none" id="sec_bypass">
+                                <div class="form-check form-switch border p-2 rounded bg-white border-danger shadow-sm">
+                                    <input class="form-check-input ms-1" type="checkbox" id="chk_bypass">
+                                    <label class="form-check-label fw-bold text-danger ms-2" for="chk_bypass">Aprobación Manual (Bypass DataCrédito)</label>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-3 d-none" id="div_autorizacion_admin">
+                                <label class="form-label fw-bold text-danger" id="lbl_motivo_autorizacion"><i class="fas fa-shield-alt me-1"></i> Autorización de Administrador</label>
+                                <div class="input-group shadow-sm">
+                                    <span class="input-group-text bg-danger text-white border-danger"><i class="fas fa-key"></i></span>
+                                    <input type="password" class="form-control border-danger" id="admin_password" name="admin_password" placeholder="Ingrese su Clave de Acceso para autorizar">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -71,7 +83,7 @@ require("../../header.php");
                             </div>
                             
                             <div class="col-12 text-muted small mt-2">
-                                <i class="fas fa-info-circle me-1"></i> El saldo pendiente iniciará en RD$ 0.00 y se consumirá automáticamente al facturar a crédito.
+                                <i class="fas fa-info-circle me-1"></i> Si el cliente ya posee un crédito ACTIVO, el sistema unificará y actualizará el límite existente en lugar de crear una cuenta nueva. Los aumentos de límite requieren clave de Administrador.
                             </div>
                         </div>
                     </div>
@@ -88,8 +100,7 @@ require("../../header.php");
                             <p class="text-muted small mb-0">Seleccione una consulta válida para cargar automáticamente el monto y la referencia.</p>
                         </div>
                         <div class="card-body">
-                            <div id="lista_consultas_api" class="row g-3">
-                                </div>
+                            <div id="lista_consultas_api" class="row g-3"></div>
                         </div>
                     </div>
                 </div>

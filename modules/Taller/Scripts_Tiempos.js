@@ -8,7 +8,32 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarDependencias();
 
     // ==========================================
-    // 1. BUSCADOR DINÁMICO DE MECÁNICOS
+    // MOSTRAR TARIFA SUGERIDA EN EL LABEL
+    // ==========================================
+    const selTipoServicio = document.getElementById("id_tipo_servicio");
+    const lblPrecioSugerido = document.getElementById("lbl_precio_sugerido");
+
+    if(selTipoServicio) {
+        selTipoServicio.addEventListener("change", function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if(selectedOption) {
+                const precioSugerido = selectedOption.getAttribute("data-precio");
+                if(precioSugerido && parseFloat(precioSugerido) >= 0) {
+                    if(lblPrecioSugerido) {
+                        // Muestra el precio en verde
+                        lblPrecioSugerido.innerHTML = `Sugerido por servicio: <span class="fw-bold text-success">RD$ ${parseFloat(precioSugerido).toFixed(2)}</span>`;
+                    }
+                } else {
+                    if(lblPrecioSugerido) {
+                        lblPrecioSugerido.innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">N/A</span>`;
+                    }
+                }
+            }
+        });
+    }
+
+    // ==========================================
+    // 1. BUSCADORES DINÁMICOS
     // ==========================================
     const txtMecanico = document.getElementById('txt_buscar_empleado');
     const listaMecanico = document.getElementById('lista_empleado');
@@ -38,9 +63,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // ==========================================
-    // 2. BUSCADOR DINÁMICO DE MAQUINARIA
-    // ==========================================
     const txtMaquinaria = document.getElementById('txt_buscar_maquinaria');
     const listaMaquinaria = document.getElementById('lista_maquinaria');
     const hiddenMaquinariaTemp = document.getElementById('id_maquinaria_temp');
@@ -55,7 +77,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (filtrados.length > 0) {
                 listaMaquinaria.classList.remove('d-none');
                 filtrados.forEach(m => {
-                    // AHORA USA EL BOOLEANO "en_uso" QUE CALCULA EL PHP
                     const bloqueada = (m.en_uso == 1);
                     const icono = bloqueada ? '🔴' : '🟢';
                     
@@ -87,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ==========================================
-    // 3. GUARDAR / EDITAR ASIGNACIÓN
+    // 2. GUARDAR / EDITAR ASIGNACIÓN
     // ==========================================
     const formAsig = document.getElementById("formAsignacion");
     if(formAsig) {
@@ -95,6 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             if(document.getElementById('id_orden').value === "") { alert("Seleccione una Orden."); return; }
             if(document.getElementById('id_bahia').value === "") { alert("Seleccione una Bahía."); return; }
+            if(document.getElementById('id_precio').value === "") { alert("Seleccione una Tarifa a aplicar."); return; }
             if(mecanicosSeleccionados.length === 0) { alert("Asigne al menos un mecánico."); return; }
             
             const formData = new FormData(this);
@@ -129,7 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ==========================================
-    // 4. FINALIZAR TIEMPO
+    // 3. FINALIZAR TIEMPO
     // ==========================================
     const formTiempos = document.getElementById("formTiempos");
     if(formTiempos) {
@@ -219,6 +241,15 @@ function cargarDependencias() {
                 selBahia.innerHTML += `<option value="${b.id_bahia}" ${bloqueada}>${icono} ${b.descripcion}</option>`; 
             });
 
+            // CARGAR TARIFAS
+            const selPrecio = document.getElementById("id_precio");
+            selPrecio.innerHTML = '<option value="">Seleccione tarifa...</option>';
+            if(data.data.precios) {
+                data.data.precios.forEach(p => { 
+                    selPrecio.innerHTML += `<option value="${p.id_precio}">Tarifa: RD$ ${p.monto}</option>`; 
+                });
+            }
+
             cacheMecanicos = data.data.mecanicos;
             cacheMaquinaria = data.data.maquinaria;
         }
@@ -229,12 +260,13 @@ function cargarDependencias() {
 function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
     const selServicio = document.getElementById("id_tipo_servicio");
     if(!id_orden) { 
-        selServicio.innerHTML = '<option value="">Seleccione primero una orden...</option>';
+        selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden...</option>';
         selServicio.disabled = true; 
+        document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span>`;
         return; 
     }
 
-    selServicio.innerHTML = '<option value="">Cargando servicios...</option>';
+    selServicio.innerHTML = '<option value="" data-precio="">Cargando servicios...</option>';
     selServicio.disabled = true;
 
     fetch(`../../modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}`)
@@ -242,18 +274,21 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
     .then(data => {
         selServicio.innerHTML = '';
         if (data.success && data.data.length > 0) {
-            selServicio.innerHTML = '<option value="">Seleccione servicio de la lista...</option>';
+            selServicio.innerHTML = '<option value="" data-precio="">Seleccione servicio de la lista...</option>';
             data.data.forEach(s => {
-                selServicio.innerHTML += `<option value="${s.id_tipo_servicio}">${s.nombre_servicio}</option>`;
+                selServicio.innerHTML += `<option value="${s.id_tipo_servicio}" data-precio="${s.precio}">${s.nombre_servicio}</option>`;
             });
             selServicio.disabled = false;
             
             if(id_servicio_preseleccionado) {
                 selServicio.value = id_servicio_preseleccionado;
+                // Disparamos el evento para que pinte el label del precio sugerido
+                selServicio.dispatchEvent(new Event('change'));
             }
         } else {
-            selServicio.innerHTML = '<option value="">La orden no tiene servicios activos</option>';
+            selServicio.innerHTML = '<option value="" data-precio="">La orden no tiene servicios activos</option>';
             selServicio.disabled = true;
+            document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">N/A</span>`;
         }
     })
     .catch(err => console.error("Error servicios orden:", err));
@@ -322,7 +357,7 @@ function removerMaquinaria(id) {
 }
 
 function iniciarTrabajo(id) {
-    if (confirm("¿Desea iniciar el cronómetro para este trabajo?")) {
+    if (confirm("¿Desea iniciar el cronómetro para este trabajo? Se ocupará la Bahía y Maquinaria asignada.")) {
         const f = new FormData();
         f.append("id_asignacion", id);
         fetch("../../modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
@@ -350,14 +385,17 @@ function nuevaAsignacion() {
     document.getElementById("id_asignacion").value = "";
     document.getElementById("id_orden").disabled = false;
     
+    // Limpiamos el label del precio sugerido
+    document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span>`;
+    
     mecanicosSeleccionados = [];
     document.getElementById('contenedor_mecanicos').innerHTML = '<p class="text-muted small m-0" id="msg_sin_mecanicos">No hay mecánicos asignados.</p>';
     
     maquinariaSeleccionada = [];
-    document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna (Trabajo manual).</p>';
+    document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna asignada.</p>';
     
     const selServicio = document.getElementById("id_tipo_servicio");
-    selServicio.innerHTML = '<option value="">Seleccione primero una orden...</option>';
+    selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden...</option>';
     selServicio.disabled = true;
 
     const now = new Date();
@@ -383,6 +421,7 @@ function editarAsignacion(id) {
             cargarServiciosPorOrden(d.id_orden, d.id_tipo_servicio);
             
             document.getElementById("id_bahia").value = d.id_bahia || '';
+            document.getElementById("id_precio").value = d.id_precio || ''; 
             document.getElementById("fecha_asignacion").value = d.fecha_asignacion;
             document.getElementById("hora_asignacion").value = d.hora_asignacion.substring(0, 5);
             
@@ -394,9 +433,9 @@ function editarAsignacion(id) {
                 if(mec) agregarMecanicoVisual(mec.id_empleado, mec.nombre_completo);
             });
 
-            // Cargar Maquinaria Múltiple
+            // Cargar Maquinaria
             maquinariaSeleccionada = [];
-            document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria" style="display:none;">Ninguna (Trabajo manual).</p>';
+            document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria" style="display:none;">Ninguna asignada.</p>';
             if(d.maquinarias) {
                 d.maquinarias.forEach(idMaq => {
                     const maq = cacheMaquinaria.find(m => m.id_maquinaria == idMaq);

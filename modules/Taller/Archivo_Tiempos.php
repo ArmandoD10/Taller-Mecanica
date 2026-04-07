@@ -38,25 +38,29 @@ function cargar_dependencias($conexion) {
     $data = [];
     $data['ordenes'] = $conexion->query("SELECT DISTINCT o.id_orden, o.descripcion FROM orden o INNER JOIN orden_servicio os ON o.id_orden = os.id_orden WHERE o.estado != 'eliminado' AND (o.estado_orden != 'Entregado' OR o.estado_orden IS NULL)")->fetch_all(MYSQLI_ASSOC);
     
-    // VERIFICACIÓN INTELIGENTE DE BAHÍAS
     $sqlBahias = "SELECT b.id_bahia, b.descripcion, 
                  (CASE WHEN EXISTS (SELECT 1 FROM taller t JOIN asignacion_orden ao ON t.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE t.id_bahia = b.id_bahia AND ap.estado_asignacion IN ('Pendiente', 'En Curso')) THEN 1 ELSE 0 END) as en_uso
                  FROM bahia b WHERE b.estado = 'activo'";
     $data['bahias'] = $conexion->query($sqlBahias)->fetch_all(MYSQLI_ASSOC);
     
-    // VERIFICACIÓN INTELIGENTE DE MAQUINARIA
     $sqlMaq = "SELECT m.id_maquinaria, m.nombre, 
                (CASE WHEN EXISTS (SELECT 1 FROM detalle_orden do JOIN asignacion_orden ao ON do.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE do.id_maquinaria = m.id_maquinaria AND ap.estado_asignacion IN ('Pendiente', 'En Curso')) THEN 1 ELSE 0 END) as en_uso
                FROM maquinaria m WHERE m.estado = 'activo'";
     $data['maquinaria'] = $conexion->query($sqlMaq)->fetch_all(MYSQLI_ASSOC);
     
     $data['mecanicos'] = $conexion->query("SELECT e.id_empleado, CONCAT(p.nombre, ' ', p.apellido_p) AS nombre_completo FROM empleado e JOIN persona p ON e.id_persona = p.id_persona WHERE e.estado = 'activo'")->fetch_all(MYSQLI_ASSOC);
+    
+    $data['precios'] = $conexion->query("SELECT id_precio, monto FROM precio WHERE estado = 'activo'")->fetch_all(MYSQLI_ASSOC);
+    
     echo json_encode(['success' => true, 'data' => $data]);
 }
 
 function cargar_servicios_orden($conexion) {
     $id = (int)$_GET['id_orden'];
-    $sql = "SELECT os.id_tipo_servicio, ts.nombre AS nombre_servicio FROM orden_servicio os JOIN tipo_servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio WHERE os.id_orden = $id AND os.estado = 'activo'";
+    $sql = "SELECT os.id_tipo_servicio, ts.nombre AS nombre_servicio, ts.precio 
+            FROM orden_servicio os 
+            JOIN tipo_servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio 
+            WHERE os.id_orden = $id AND os.estado = 'activo'";
     echo json_encode(['success' => true, 'data' => $conexion->query($sql)->fetch_all(MYSQLI_ASSOC)]);
 }
 
@@ -65,7 +69,7 @@ function obtener_asignacion($conexion) {
     $sql = "SELECT ap.id_asignacion, ao.id_orden, ap.id_tipo_servicio, 
                    DATE(ap.fecha_asignacion) AS fecha_asignacion, 
                    TIME(ap.hora_asignacion) AS hora_asignacion, 
-                   t.id_bahia 
+                   t.id_bahia, t.id_precio
             FROM asignacion_personal ap
             JOIN asignacion_orden ao ON ap.id_asignacion = ao.id_asignacion
             LEFT JOIN taller t ON t.id_orden = ao.id_orden
@@ -96,6 +100,8 @@ function guardar_asignacion($conexion) {
     $id_orden = $_POST['id_orden'] ?? '';
     $id_tipo_serv = $_POST['id_tipo_servicio'] ?? '';
     $id_bahia = $_POST['id_bahia'] ?? '';
+    $id_precio = $_POST['id_precio'] ?? ''; 
+    
     $fecha_prog = $_POST['fecha_asignacion'] ?? date('Y-m-d');
     $hora_prog = $_POST['hora_asignacion'] ?? date('H:i:s');
     $usuario = $_SESSION['id_usuario'] ?? 1;
@@ -118,6 +124,7 @@ function guardar_asignacion($conexion) {
     if(empty($id_orden)) $campos_faltantes[] = "Orden";
     if(empty($id_tipo_serv)) $campos_faltantes[] = "Servicio";
     if(empty($id_bahia)) $campos_faltantes[] = "Bahía de Trabajo";
+    if(empty($id_precio)) $campos_faltantes[] = "Tarifa de Ingreso";
     if(empty($mecanicos)) $campos_faltantes[] = "Mecánicos";
 
     if(count($campos_faltantes) > 0) {
@@ -126,14 +133,12 @@ function guardar_asignacion($conexion) {
 
     $excludeAsig = !empty($id_asignacion) ? "AND ap.id_asignacion != $id_asignacion" : "";
 
-    // --- 1. VALIDACIÓN ESTRICTA DE BAHÍA ---
     $sqlCheckBahia = "SELECT ap.id_asignacion FROM taller t JOIN asignacion_orden ao ON t.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE t.id_bahia = $id_bahia AND ap.estado_asignacion IN ('Pendiente', 'En Curso') $excludeAsig";
     $resB = $conexion->query($sqlCheckBahia);
     if ($resB && $resB->num_rows > 0) {
         echo json_encode(['success' => false, 'message' => "La Bahía seleccionada ya está reservada o en uso por otro trabajo."]); return;
     }
 
-    // --- 2. VALIDACIÓN ESTRICTA DE MAQUINARIA ---
     if(!empty($maquinarias)) {
         foreach($maquinarias as $id_maq) {
             $sqlCheckMaq = "SELECT m.nombre FROM detalle_orden do JOIN maquinaria m ON do.id_maquinaria = m.id_maquinaria JOIN asignacion_orden ao ON do.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE do.id_maquinaria = $id_maq AND ap.estado_asignacion IN ('Pendiente', 'En Curso') $excludeAsig";
@@ -145,7 +150,6 @@ function guardar_asignacion($conexion) {
         }
     }
 
-    // --- 3. VALIDACIÓN DE MECÁNICOS ---
     foreach ($mecanicos as $id_emp) {
         $sqlHorario = "SELECT d.hora_ini, d.hora_fin, CONCAT(per.nombre, ' ', per.apellido_p) as nombre FROM empleado e JOIN puesto p ON e.id_puesto = p.id_puesto JOIN departamento d ON p.id_departamento = d.id_departamento JOIN persona per ON e.id_persona = per.id_persona WHERE e.id_empleado = $id_emp";
         $resH = $conexion->query($sqlHorario)->fetch_assoc();
@@ -165,7 +169,7 @@ function guardar_asignacion($conexion) {
         $fp = $fecha_prog.' '.$hora_prog;
 
         if (empty($id_asignacion)) {
-            // MODO INSERT (NUEVO)
+            // INSERT
             $sqlA = "INSERT INTO asignacion_personal (id_tipo_servicio, fecha_asignacion, hora_asignacion, estado_asignacion, estado, usuario_creacion) VALUES (?, ?, ?, 'Pendiente', 'activo', ?)";
             $stmtA = $conexion->prepare($sqlA); 
             $stmtA->bind_param("issi", $id_tipo_serv, $fp, $hora_prog, $usuario);
@@ -173,8 +177,7 @@ function guardar_asignacion($conexion) {
 
             $conexion->query("INSERT INTO asignacion_orden (id_orden, id_asignacion, estado) VALUES ($id_orden, $id_asig, 'activo')");
 
-            // SE ELIMINÓ id_precio POR COMPLETO
-            $conexion->query("INSERT INTO taller (id_orden, id_bahia, estado, usuario_creacion) VALUES ($id_orden, $id_bahia, 'activo', $usuario)");
+            $conexion->query("INSERT INTO taller (id_orden, id_bahia, id_precio, estado, usuario_creacion) VALUES ($id_orden, $id_bahia, $id_precio, 'activo', $usuario)");
             
             if(!empty($maquinarias)) {
                 $stmtMaq = $conexion->prepare("INSERT INTO detalle_orden (id_orden, id_maquinaria, tiempo_estimado) VALUES (?, ?, '01:00:00')");
@@ -182,14 +185,14 @@ function guardar_asignacion($conexion) {
             }
             $msg = 'Asignación creada exitosamente.';
         } else {
-            // MODO UPDATE (EDICIÓN)
+            // UPDATE
             $id_asig = $id_asignacion;
             $sqlU = "UPDATE asignacion_personal SET id_tipo_servicio=?, fecha_asignacion=?, hora_asignacion=? WHERE id_asignacion=?";
             $stmtU = $conexion->prepare($sqlU);
             $stmtU->bind_param("issi", $id_tipo_serv, $fp, $hora_prog, $id_asig);
             $stmtU->execute();
 
-            $conexion->query("UPDATE taller SET id_bahia = $id_bahia WHERE id_orden = $id_orden");
+            $conexion->query("UPDATE taller SET id_bahia = $id_bahia, id_precio = $id_precio WHERE id_orden = $id_orden");
 
             $conexion->query("DELETE FROM detalle_orden WHERE id_orden = $id_orden");
             if(!empty($maquinarias)) {
@@ -217,18 +220,74 @@ function iniciar_tiempo($conexion) {
     try {
         $conexion->query("INSERT INTO registro_tiempos (id_asignacion, hora_inicio, estado, usuario_creacion) VALUES ($id, NOW(), 'activo', $usuario)");
         $conexion->query("UPDATE asignacion_personal SET estado_asignacion = 'En Curso' WHERE id_asignacion = $id");
+        
+        $sqlBahia = "SELECT t.id_bahia FROM asignacion_orden ao JOIN taller t ON ao.id_orden = t.id_orden WHERE ao.id_asignacion = $id LIMIT 1";
+        $resBahia = $conexion->query($sqlBahia)->fetch_assoc();
+        if($resBahia && $resBahia['id_bahia']) $conexion->query("UPDATE bahia SET estado_bahia = 'Ocupada' WHERE id_bahia = {$resBahia['id_bahia']}");
+
+        $sqlMaq = "SELECT do.id_maquinaria FROM asignacion_orden ao JOIN detalle_orden do ON ao.id_orden = do.id_orden WHERE ao.id_asignacion = $id AND do.id_maquinaria IS NOT NULL";
+        $resMaq = $conexion->query($sqlMaq);
+        while($row = $resMaq->fetch_assoc()) {
+            $conexion->query("UPDATE maquinaria SET estado_maquina = 'Ocupada' WHERE id_maquinaria = {$row['id_maquinaria']}");
+        }
+
         $conexion->commit(); echo json_encode(['success' => true]);
     } catch (Exception $e) { $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]); }
 }
 
 function finalizar_tiempo($conexion) {
-    $id = $_POST['id_asignacion_tiempo']; $notas = $_POST['notas_hallazgos'];
+    $id_asignacion = $_POST['id_asignacion_tiempo']; 
+    $notas = $_POST['notas_hallazgos'];
+    
     $conexion->begin_transaction();
     try {
         $stmt = $conexion->prepare("UPDATE registro_tiempos SET hora_fin = NOW(), notas_hallazgos = ? WHERE id_asignacion = ? AND hora_fin IS NULL");
-        $stmt->bind_param("si", $notas, $id); $stmt->execute();
-        $conexion->query("UPDATE asignacion_personal SET estado_asignacion = 'Completado' WHERE id_asignacion = $id");
-        $conexion->commit(); echo json_encode(['success' => true, 'message' => 'Finalizado y recursos liberados.']);
-    } catch (Exception $e) { $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]); }
+        $stmt->bind_param("si", $notas, $id_asignacion); 
+        $stmt->execute();
+        
+        $conexion->query("UPDATE asignacion_personal SET estado_asignacion = 'Completado' WHERE id_asignacion = $id_asignacion");
+        
+        $sqlInfo = "SELECT ao.id_orden, t.id_bahia FROM asignacion_orden ao LEFT JOIN taller t ON ao.id_orden = t.id_orden WHERE ao.id_asignacion = $id_asignacion LIMIT 1";
+        $resInfo = $conexion->query($sqlInfo)->fetch_assoc();
+        $id_orden = $resInfo['id_orden'];
+        
+        if($resInfo['id_bahia']) $conexion->query("UPDATE bahia SET estado_bahia = 'Disponible' WHERE id_bahia = {$resInfo['id_bahia']}");
+
+        $sqlMaq = "SELECT do.id_maquinaria FROM detalle_orden do WHERE do.id_orden = $id_orden AND do.id_maquinaria IS NOT NULL";
+        $resMaq = $conexion->query($sqlMaq);
+        while($row = $resMaq->fetch_assoc()) {
+            $conexion->query("UPDATE maquinaria SET estado_maquina = 'Activo' WHERE id_maquinaria = {$row['id_maquinaria']}");
+        }
+
+        // =========================================================
+        // MAGIA: SUMATORIA AUTOMÁTICA DE PRECIOS Y PASE A ENTREGAS
+        // =========================================================
+        $sqlCheck = "SELECT COUNT(*) as pendientes FROM asignacion_orden ao JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE ao.id_orden = $id_orden AND ap.estado_asignacion != 'Completado'";
+        $resCheck = $conexion->query($sqlCheck)->fetch_assoc();
+
+        if ($resCheck['pendientes'] == 0) {
+            $estado_actual = $conexion->query("SELECT estado_orden FROM orden WHERE id_orden = $id_orden")->fetch_assoc()['estado_orden'];
+            
+            // 1. Calculamos la sumatoria de las tarifas aplicadas en este taller
+            $sqlSum = "SELECT SUM(p.monto) as total_monto FROM taller t JOIN precio p ON t.id_precio = p.id_precio WHERE t.id_orden = $id_orden AND t.estado = 'activo'";
+            $resSum = $conexion->query($sqlSum)->fetch_assoc();
+            $monto_total = $resSum['total_monto'] ? (float)$resSum['total_monto'] : 0.00;
+
+            // 2. Actualizamos la orden con el estado "Listo" y el Gran Total
+            $stmtUpd = $conexion->prepare("UPDATE orden SET estado_orden = 'Listo', monto_total = ? WHERE id_orden = ?");
+            $stmtUpd->bind_param("di", $monto_total, $id_orden);
+            $stmtUpd->execute();
+            
+            // 3. Dejamos el rastro en auditoría
+            $usuario = $_SESSION['id_usuario'] ?? 1;
+            $conexion->query("INSERT INTO historial_estado_orden (id_orden, estado_anterior, estado_nuevo, estado, usuario_creacion) VALUES ($id_orden, '$estado_actual', 'Listo', 'activo', $usuario)");
+        }
+
+        $conexion->commit(); 
+        echo json_encode(['success' => true, 'message' => 'Finalizado. Las dependencias fueron liberadas.']);
+    } catch (Exception $e) { 
+        $conexion->rollback(); 
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]); 
+    }
 }
 ?>

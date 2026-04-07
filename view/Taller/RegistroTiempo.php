@@ -61,16 +61,23 @@ require("../../header.php");
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label class="fw-bold">Bahía de Trabajo <span class="text-danger">*</span></label>
                                 <select class="form-select border-dark" name="id_bahia" id="id_bahia" required>
                                     <option value="">Cargando bahías...</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3 position-relative">
-                                <label class="fw-bold">Maquinaria a utilizar <small class="text-muted">(Opcional)</small></label>
+                            <div class="col-md-4 mb-3">
+                                <label class="fw-bold">Tarifa a Aplicar <span class="text-danger">*</span></label>
+                                <select class="form-select border-dark" name="id_precio" id="id_precio" required>
+                                    <option value="">Cargando tarifas...</option>
+                                </select>
+                                <small class="text-muted d-block mt-1" id="lbl_precio_sugerido">Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span></small>
+                            </div>
+                            <div class="col-md-4 mb-3 position-relative">
+                                <label class="fw-bold">Maquinaria <small class="text-muted">(Opcional)</small></label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control border-dark" id="txt_buscar_maquinaria" placeholder="Buscar máquina..." autocomplete="off">
+                                    <input type="text" class="form-control border-dark" id="txt_buscar_maquinaria" placeholder="Buscar..." autocomplete="off">
                                     <button class="btn btn-outline-secondary" type="button" onclick="agregarMaquinariaLista()">
                                         <i class="fas fa-plus"></i>
                                     </button>
@@ -79,7 +86,7 @@ require("../../header.php");
                                 <ul class="list-group position-absolute w-100 d-none shadow" id="lista_maquinaria" style="z-index:1000; max-height: 150px; overflow-y: auto;"></ul>
                                 
                                 <div class="mt-2 p-2 border border-dark rounded bg-white" id="contenedor_maquinaria" style="min-height: 50px;">
-                                    <p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna (Trabajo manual).</p>
+                                    <p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna asignada.</p>
                                 </div>
                             </div>
                         </div>

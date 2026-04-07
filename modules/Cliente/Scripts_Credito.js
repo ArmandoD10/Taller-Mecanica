@@ -1,11 +1,36 @@
 let creditosRaw = [];
 let clientesDisponibles = []; 
 let modoEdicion = false;
-let montoActualCliente = 0; // Guardará el crédito actual del cliente para compararlo
+let montoActualCliente = 0; 
 
 document.addEventListener("DOMContentLoaded", () => {
     cargarTabla();
     cargarClientes();
+
+    document.getElementById("formEliminar").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        fetch("/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=eliminar", { method: "POST", body: formData })
+        .then(res => {
+            if (!res.ok) throw new Error("Error de red o servidor: " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                cerrarModalEliminar();
+                limpiarFormulario();
+                cargarTabla(); 
+            } else {
+                mostrarModalError(data.message);
+            }
+        })
+        .catch(err => {
+            console.error("Falla en la petición de eliminar:", err);
+            mostrarModalError("Ocurrió un error de conexión o sintaxis en el servidor.");
+        });
+    });
 });
 
 const formatoMoneda = new Intl.NumberFormat('es-DO', {
@@ -65,7 +90,7 @@ function aplicarDatosConsulta(consulta) {
     document.getElementById('monto_credito').classList.add('is-valid');
     document.getElementById('referencia_datacredito').classList.add('is-valid');
     
-    evaluarSeguridad(); // Evaluar si el monto dado supera el que ya tenía
+    evaluarSeguridad(); 
 
     setTimeout(() => {
         document.getElementById('monto_credito').classList.remove('is-valid');
@@ -80,6 +105,7 @@ function limpiarFormulario() {
     document.getElementById("monto_credito").value = "";
     document.getElementById("referencia_datacredito").value = "";
     document.getElementById("fecha_vencimiento").value = "";
+    document.getElementById("admin_username").value = "";
     document.getElementById("admin_password").value = "";
     document.getElementById("lbl_tipo_cliente").innerHTML = "";
     
@@ -92,7 +118,7 @@ function limpiarFormulario() {
 
     document.getElementById("btnGuardar").textContent = "Aprobar Crédito";
     modoEdicion = false;
-    montoActualCliente = 0; // Resetear monto base
+    montoActualCliente = 0; 
 
     document.getElementById('contenedor_consultas_api').classList.add('d-none');
     document.getElementById('lista_consultas_api').innerHTML = '';
@@ -100,7 +126,6 @@ function limpiarFormulario() {
     evaluarSeguridad();
 }
 
-// === LÓGICA DE SEGURIDAD DINÁMICA ===
 function evaluarSeguridad() {
     const divAuth = document.getElementById('div_autorizacion_admin');
     const lblMotivo = document.getElementById('lbl_motivo_autorizacion');
@@ -110,15 +135,20 @@ function evaluarSeguridad() {
     let requiereAdmin = false;
     let motivo = "";
 
-    // Condición 1: Activó el Bypass de DataCredito
+    // 1. Activó el Bypass de DataCredito
     if (chkBypass && chkBypass.checked) {
         requiereAdmin = true;
         motivo = "Aprobación Manual (Bypass DataCrédito)";
     } 
-    // Condición 2: Intentan AUMENTAR el límite de un crédito ya existente
-    else if (montoActualCliente > 0 && montoIngresado > montoActualCliente) {
+    // 2. MODO NUEVO, pero el cliente ya tiene crédito (Es una AMPLIACIÓN por suma)
+    else if (!modoEdicion && montoActualCliente > 0 && montoIngresado > 0) {
         requiereAdmin = true;
-        motivo = `Aumento de Límite Requerido (De RD$ ${montoActualCliente} a RD$ ${montoIngresado})`;
+        motivo = `Ampliación de Límite (+RD$ ${montoIngresado.toFixed(2)} se sumarán a su cuenta actual)`;
+    }
+    // 3. MODO EDICIÓN (Cualquier modificación exige Admin)
+    else if (modoEdicion) {
+        requiereAdmin = true;
+        motivo = "Modificación de Registro de Crédito";
     }
 
     if (requiereAdmin) {
@@ -126,11 +156,11 @@ function evaluarSeguridad() {
         lblMotivo.innerHTML = `<i class="fas fa-shield-alt me-1"></i> Autorización Requerida: ${motivo}`;
     } else {
         divAuth.classList.add('d-none');
+        document.getElementById('admin_username').value = '';
         document.getElementById('admin_password').value = '';
     }
 }
 
-// Escuchar cambios en el monto manual para disparar la seguridad
 document.getElementById('monto_credito').addEventListener('input', evaluarSeguridad);
 
 document.getElementById('chk_bypass').addEventListener('change', function() {
@@ -190,7 +220,7 @@ buscador.addEventListener('input', function() {
                 buscador.value = cli.nombre_cliente; 
                 listaClientes.classList.add('d-none'); 
 
-                // Buscar si ya tiene un crédito activo para saber su límite actual
+                // Verificamos si ya tiene crédito para saber si será una Suma/Ampliación
                 const creditosActivos = creditosRaw.filter(c => c.id_cliente == cli.id_cliente && c.estado_credito === 'Activo');
                 montoActualCliente = creditosActivos.length > 0 ? parseFloat(creditosActivos[0].monto_credito) : 0;
 
@@ -269,9 +299,12 @@ function renderizarTabla(lista) {
             <td class="text-danger fw-bold">${formatoMoneda.format(cr.saldo_pendiente)}</td>
             <td>${cr.fecha_vencimiento}</td>
             <td><span class="badge rounded-pill ${colorBadge}">${cr.estado_credito}</span></td>
-            <td>
-                <button type="button" class="btn btn-warning btn-sm" onclick="editarRegistro(${cr.id_credito})" title="Modificar Condiciones">
+            <td class="text-center">
+                <button type="button" class="btn btn-warning btn-sm me-1" onclick="editarRegistro(${cr.id_credito})" title="Modificar Condiciones">
                     <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="abrirModalEliminar(${cr.id_credito})" title="Eliminar Crédito">
+                    <i class="fas fa-trash"></i>
                 </button>
             </td>
         `;
@@ -286,6 +319,22 @@ document.getElementById('filtro').addEventListener('input', function(e) {
     });
     renderizarTabla(resultados);
 });
+
+// === ABRIR MODAL DE ELIMINAR ===
+window.abrirModalEliminar = function(id) {
+    document.getElementById("id_credito_eliminar").value = id;
+    document.getElementById("admin_username_eliminar").value = "";
+    document.getElementById("admin_password_eliminar").value = "";
+    
+    let modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
+    modal.show();
+};
+
+function cerrarModalEliminar() {
+    let modalEl = document.getElementById('modalEliminar');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if(modal) modal.hide();
+}
 
 window.editarRegistro = function(id) {
     const cr = creditosRaw.find(c => c.id_credito == id);
@@ -311,7 +360,7 @@ window.editarRegistro = function(id) {
 
     document.getElementById("btnGuardar").textContent = "Actualizar Crédito";
     modoEdicion = true;
-    montoActualCliente = parseFloat(cr.monto_credito); // Guardamos el monto base para vigilar si lo aumentan
+    montoActualCliente = parseFloat(cr.monto_credito); 
 
     evaluarSeguridad();
 
@@ -339,7 +388,10 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
         : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=guardar";
 
     fetch(url, { method: "POST", body: formData })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) throw new Error("Error de red o servidor: " + res.status);
+        return res.json();
+    })
     .then(data => {
         if (data.success) {
             alert(data.message);
@@ -348,6 +400,10 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
         } else {
             mostrarModalError(data.message);
         }
+    })
+    .catch(err => {
+        console.error("Falla en la petición de guardar/editar:", err);
+        mostrarModalError("Ocurrió un error de conexión en el servidor.");
     });
 });
 
@@ -374,3 +430,36 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+
+// ==========================================
+// FUNCIONES HÍBRIDAS PARA MODALES
+// ==========================================
+function abrirModalUI(id) {
+    const el = document.getElementById(id);
+    if(!el) return;
+    try {
+        if (typeof bootstrap !== 'undefined') {
+            let m = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+            m.show();
+        } else { throw new Error(); }
+    } catch (e) {
+        el.classList.add('show'); el.style.display = 'block';
+        el.setAttribute('aria-modal', 'true'); el.setAttribute('role', 'dialog');
+        document.body.classList.add('modal-open'); document.body.style.overflow = 'hidden';
+        
+        document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
+        const b = document.createElement('div'); b.id = 'm-bd-' + id; b.className = 'modal-backdrop fade show'; document.body.appendChild(b);
+    }
+}
+
+function cerrarModalUI(id) {
+    const el = document.getElementById(id);
+    if(!el) return;
+    try { if (typeof bootstrap !== 'undefined') { let m = bootstrap.Modal.getInstance(el); if (m) m.hide(); } } catch (e) {}
+    el.classList.remove('show'); el.style.display = 'none';
+    el.removeAttribute('aria-modal'); el.removeAttribute('role');
+    document.body.classList.remove('modal-open'); document.body.style.overflow = '';
+    
+    const b = document.getElementById('m-bd-' + id); if(b) b.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
+}

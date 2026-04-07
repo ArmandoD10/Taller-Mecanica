@@ -51,9 +51,13 @@ require("../../header.php");
 
                             <div class="col-12 mt-3 d-none" id="div_autorizacion_admin">
                                 <label class="form-label fw-bold text-danger" id="lbl_motivo_autorizacion"><i class="fas fa-shield-alt me-1"></i> Autorización de Administrador</label>
+                                <div class="input-group shadow-sm mb-2">
+                                    <span class="input-group-text bg-danger text-white border-danger"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control border-danger" id="admin_username" name="admin_username" placeholder="Usuario del Administrador">
+                                </div>
                                 <div class="input-group shadow-sm">
                                     <span class="input-group-text bg-danger text-white border-danger"><i class="fas fa-key"></i></span>
-                                    <input type="password" class="form-control border-danger" id="admin_password" name="admin_password" placeholder="Ingrese su Clave de Acceso para autorizar">
+                                    <input type="password" class="form-control border-danger" id="admin_password" name="admin_password" placeholder="Clave de Acceso">
                                 </div>
                             </div>
                         </div>
@@ -83,7 +87,7 @@ require("../../header.php");
                             </div>
                             
                             <div class="col-12 text-muted small mt-2">
-                                <i class="fas fa-info-circle me-1"></i> Si el cliente ya posee un crédito ACTIVO, el sistema unificará y actualizará el límite existente en lugar de crear una cuenta nueva. Los aumentos de límite requieren clave de Administrador.
+                                <i class="fas fa-info-circle me-1"></i> <strong>Ampliación de Límite:</strong> Si el cliente ya posee un crédito ACTIVO, el monto nuevo se <strong>sumará</strong> a su límite actual. Las ampliaciones o modificaciones siempre requieren clave de Administrador.
                             </div>
                         </div>
                     </div>
@@ -137,7 +141,7 @@ require("../../header.php");
                                 <th>Saldo Deudor</th>
                                 <th>Vencimiento</th>
                                 <th>Estado</th>
-                                <th>Acciones</th> 
+                                <th class="text-center">Acciones</th> 
                             </tr>
                         </thead>
                         <tbody id="cuerpo-tabla"></tbody>
@@ -145,6 +149,40 @@ require("../../header.php");
                 </div>
             </div>
         </form>
+    </div>
+
+    <div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-danger border-2">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Eliminar Crédito</h5>
+                    <button type="button" class="btn-close btn-close-white" onclick="cerrarModalEliminar()"></button>
+                </div>
+                <form id="formEliminar">
+                    <div class="modal-body bg-light">
+                        <input type="hidden" id="id_credito_eliminar" name="id_credito_eliminar">
+                        <p>Está a punto de eliminar la línea de crédito seleccionada. Esta acción requiere privilegios de Administrador.</p>
+                        
+                        <div class="alert alert-warning py-2 mb-3">
+                            <i class="fas fa-info-circle me-1"></i> No se puede eliminar un crédito si el cliente tiene un saldo pendiente por cobrar.
+                        </div>
+
+                        <div class="input-group shadow-sm mt-3 mb-2">
+                            <span class="input-group-text bg-danger text-white border-danger"><i class="fas fa-user"></i></span>
+                            <input type="text" class="form-control border-danger" id="admin_username_eliminar" name="admin_username_eliminar" placeholder="Usuario Administrador" required>
+                        </div>
+                        <div class="input-group shadow-sm">
+                            <span class="input-group-text bg-danger text-white border-danger"><i class="fas fa-key"></i></span>
+                            <input type="password" class="form-control border-danger" id="admin_password_eliminar" name="admin_password_eliminar" placeholder="Clave Administrador" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="cerrarModalEliminar()">Cancelar</button>
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-2"></i>Eliminar Crédito</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </main>
 

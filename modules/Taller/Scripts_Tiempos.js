@@ -1,5 +1,7 @@
 let cacheMecanicos = [];
+let cacheMaquinaria = [];
 let mecanicosSeleccionados = []; 
+let maquinariaSeleccionada = []; 
 
 document.addEventListener("DOMContentLoaded", () => {
     listar();
@@ -23,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 filtrados.forEach(m => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item list-group-item-action py-1';
+                    li.style.cursor = 'pointer';
                     li.textContent = m.nombre_completo;
                     li.onclick = () => {
                         txtMecanico.value = m.nombre_completo;
@@ -35,12 +38,56 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // ==========================================
+    // 2. BUSCADOR DINÁMICO DE MAQUINARIA
+    // ==========================================
+    const txtMaquinaria = document.getElementById('txt_buscar_maquinaria');
+    const listaMaquinaria = document.getElementById('lista_maquinaria');
+    const hiddenMaquinariaTemp = document.getElementById('id_maquinaria_temp');
+
+    if(txtMaquinaria) {
+        txtMaquinaria.addEventListener('input', function() {
+            const busca = this.value.toLowerCase().trim();
+            listaMaquinaria.innerHTML = '';
+            if (busca.length < 1) { listaMaquinaria.classList.add('d-none'); return; }
+            
+            const filtrados = cacheMaquinaria.filter(m => m.nombre.toLowerCase().includes(busca));
+            if (filtrados.length > 0) {
+                listaMaquinaria.classList.remove('d-none');
+                filtrados.forEach(m => {
+                    // AHORA USA EL BOOLEANO "en_uso" QUE CALCULA EL PHP
+                    const bloqueada = (m.en_uso == 1);
+                    const icono = bloqueada ? '🔴' : '🟢';
+                    
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item list-group-item-action py-1';
+                    
+                    if (bloqueada) {
+                        li.classList.add('text-muted');
+                        li.style.cursor = 'not-allowed';
+                        li.innerHTML = `${icono} ${m.nombre} (Asignada/En Uso)`;
+                    } else {
+                        li.style.cursor = 'pointer';
+                        li.innerHTML = `${icono} ${m.nombre}`;
+                        li.onclick = () => {
+                            txtMaquinaria.value = m.nombre;
+                            hiddenMaquinariaTemp.value = m.id_maquinaria;
+                            listaMaquinaria.classList.add('d-none');
+                        };
+                    }
+                    listaMaquinaria.appendChild(li);
+                });
+            } else { listaMaquinaria.classList.add('d-none'); }
+        });
+    }
+
     document.addEventListener('click', (e) => {
         if (txtMecanico && !txtMecanico.contains(e.target)) listaMecanico.classList.add('d-none');
+        if (txtMaquinaria && !txtMaquinaria.contains(e.target)) listaMaquinaria.classList.add('d-none');
     });
 
     // ==========================================
-    // 2. GUARDAR / EDITAR ASIGNACIÓN
+    // 3. GUARDAR / EDITAR ASIGNACIÓN
     // ==========================================
     const formAsig = document.getElementById("formAsignacion");
     if(formAsig) {
@@ -52,8 +99,6 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const formData = new FormData(this);
             
-            // SOLUCIÓN AL ERROR: Inyección manual de campos deshabilitados
-            // HTML no envía selects bloqueados, así que los forzamos aquí
             if (document.getElementById('id_orden').disabled) {
                 formData.append("id_orden", document.getElementById('id_orden').value);
             }
@@ -62,6 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             formData.append("mecanicos", JSON.stringify(mecanicosSeleccionados));
+            formData.append("maquinarias", JSON.stringify(maquinariaSeleccionada));
             
             fetch("../../modules/Taller/Archivo_Tiempos.php?action=guardar_asignacion", { 
                 method: "POST", 
@@ -72,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.success) { 
                     cerrarModalAsignacion(); 
                     listar(); 
-                    cargarDependencias(); // Recargar para actualizar estados visuales
+                    cargarDependencias(); 
                     alert(data.message); 
                 } else {
                     alert("ATENCIÓN:\n" + data.message);
@@ -83,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ==========================================
-    // 3. FINALIZAR TIEMPO
+    // 4. FINALIZAR TIEMPO
     // ==========================================
     const formTiempos = document.getElementById("formTiempos");
     if(formTiempos) {
@@ -96,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.success) { 
                     cerrarModalTiempos(); 
                     listar(); 
-                    cargarDependencias(); // Recargar para liberar Bahías/Maquinas visualmente
+                    cargarDependencias(); 
                     alert(data.message); 
                 } else { alert(data.message); }
             })
@@ -168,20 +214,13 @@ function cargarDependencias() {
             const selBahia = document.getElementById("id_bahia");
             selBahia.innerHTML = '<option value="">Seleccione Bahía...</option>';
             data.data.bahias.forEach(b => { 
-                let bloqueada = b.estado_bahia === 'Ocupada' ? 'disabled' : '';
-                let icono = b.estado_bahia === 'Ocupada' ? '🔴' : '🟢';
+                let bloqueada = b.en_uso == 1 ? 'disabled' : '';
+                let icono = b.en_uso == 1 ? '🔴' : '🟢';
                 selBahia.innerHTML += `<option value="${b.id_bahia}" ${bloqueada}>${icono} ${b.descripcion}</option>`; 
             });
 
-            const selMaq = document.getElementById("id_maquinaria");
-            selMaq.innerHTML = '<option value="">Ninguna / Manual</option>';
-            data.data.maquinaria.forEach(m => { 
-                let bloqueada = (m.estado_maquina === 'Ocupada' || m.estado_maquina === 'En Uso') ? 'disabled' : '';
-                let icono = bloqueada ? '🔴' : '🟢';
-                selMaq.innerHTML += `<option value="${m.id_maquinaria}" ${bloqueada}>${icono} ${m.nombre}</option>`; 
-            });
-
             cacheMecanicos = data.data.mecanicos;
+            cacheMaquinaria = data.data.maquinaria;
         }
     })
     .catch(err => console.error("Error cargarDependencias:", err));
@@ -209,7 +248,6 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
             });
             selServicio.disabled = false;
             
-            // Si estamos en modo Editar, autoseleccionamos el servicio que guardó antes
             if(id_servicio_preseleccionado) {
                 selServicio.value = id_servicio_preseleccionado;
             }
@@ -222,13 +260,13 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
 }
 
 // ==========================================
-// FUNCIONES DE MECÁNICOS
+// LISTAS DINÁMICAS (Mecánicos y Maquinaria)
 // ==========================================
 
 function agregarMecanicoLista() {
     const id = document.getElementById('id_empleado_temp').value;
     const nombre = document.getElementById('txt_buscar_empleado').value;
-    if (!id || !nombre) { alert("Busque y seleccione un mecánico de la lista."); return; }
+    if (!id || !nombre) { alert("Seleccione un mecánico de la lista."); return; }
     agregarMecanicoVisual(id, nombre);
     document.getElementById('id_empleado_temp').value = '';
     document.getElementById('txt_buscar_empleado').value = '';
@@ -237,7 +275,6 @@ function agregarMecanicoLista() {
 function agregarMecanicoVisual(id, nombre) {
     const idStr = String(id);
     if (mecanicosSeleccionados.includes(idStr)) return;
-    
     mecanicosSeleccionados.push(idStr);
     document.getElementById('msg_sin_mecanicos').style.display = 'none';
     
@@ -245,7 +282,6 @@ function agregarMecanicoVisual(id, nombre) {
     div.className = "badge bg-primary me-2 mb-2 p-2 fs-6";
     div.id = `badge_mec_${idStr}`;
     div.innerHTML = `${nombre} <i class="fas fa-times ms-2" style="cursor:pointer" onclick="removerMecanico('${idStr}')"></i>`;
-    
     document.getElementById('contenedor_mecanicos').appendChild(div);
 }
 
@@ -256,8 +292,37 @@ function removerMecanico(id) {
     if(mecanicosSeleccionados.length === 0) document.getElementById('msg_sin_mecanicos').style.display = 'block';
 }
 
+function agregarMaquinariaLista() {
+    const id = document.getElementById('id_maquinaria_temp').value;
+    const nombre = document.getElementById('txt_buscar_maquinaria').value;
+    if (!id || !nombre) { alert("Seleccione una maquinaria de la lista."); return; }
+    agregarMaquinariaVisual(id, nombre);
+    document.getElementById('id_maquinaria_temp').value = '';
+    document.getElementById('txt_buscar_maquinaria').value = '';
+}
+
+function agregarMaquinariaVisual(id, nombre) {
+    const idStr = String(id);
+    if (maquinariaSeleccionada.includes(idStr)) return;
+    maquinariaSeleccionada.push(idStr);
+    document.getElementById('msg_sin_maquinaria').style.display = 'none';
+    
+    const div = document.createElement('span');
+    div.className = "badge bg-info text-dark border border-dark me-2 mb-2 p-2 fs-6";
+    div.id = `badge_maq_${idStr}`;
+    div.innerHTML = `${nombre} <i class="fas fa-times ms-2 text-danger" style="cursor:pointer" onclick="removerMaquinaria('${idStr}')"></i>`;
+    document.getElementById('contenedor_maquinaria').appendChild(div);
+}
+
+function removerMaquinaria(id) {
+    const idStr = String(id);
+    maquinariaSeleccionada = maquinariaSeleccionada.filter(i => i !== idStr);
+    document.getElementById(`badge_maq_${idStr}`).remove();
+    if(maquinariaSeleccionada.length === 0) document.getElementById('msg_sin_maquinaria').style.display = 'block';
+}
+
 function iniciarTrabajo(id) {
-    if (confirm("¿Desea iniciar el cronómetro para este trabajo? Se ocupará la Bahía y Maquinaria asignada.")) {
+    if (confirm("¿Desea iniciar el cronómetro para este trabajo?")) {
         const f = new FormData();
         f.append("id_asignacion", id);
         fetch("../../modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
@@ -288,6 +353,9 @@ function nuevaAsignacion() {
     mecanicosSeleccionados = [];
     document.getElementById('contenedor_mecanicos').innerHTML = '<p class="text-muted small m-0" id="msg_sin_mecanicos">No hay mecánicos asignados.</p>';
     
+    maquinariaSeleccionada = [];
+    document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna (Trabajo manual).</p>';
+    
     const selServicio = document.getElementById("id_tipo_servicio");
     selServicio.innerHTML = '<option value="">Seleccione primero una orden...</option>';
     selServicio.disabled = true;
@@ -315,17 +383,26 @@ function editarAsignacion(id) {
             cargarServiciosPorOrden(d.id_orden, d.id_tipo_servicio);
             
             document.getElementById("id_bahia").value = d.id_bahia || '';
-            document.getElementById("id_maquinaria").value = d.id_maquinaria || '';
             document.getElementById("fecha_asignacion").value = d.fecha_asignacion;
             document.getElementById("hora_asignacion").value = d.hora_asignacion.substring(0, 5);
             
+            // Cargar Mecánicos
             mecanicosSeleccionados = [];
             document.getElementById('contenedor_mecanicos').innerHTML = '<p class="text-muted small m-0" id="msg_sin_mecanicos" style="display:none;">No hay mecánicos asignados.</p>';
-            
             d.mecanicos.forEach(idEmp => {
                 const mec = cacheMecanicos.find(m => m.id_empleado == idEmp);
                 if(mec) agregarMecanicoVisual(mec.id_empleado, mec.nombre_completo);
             });
+
+            // Cargar Maquinaria Múltiple
+            maquinariaSeleccionada = [];
+            document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria" style="display:none;">Ninguna (Trabajo manual).</p>';
+            if(d.maquinarias) {
+                d.maquinarias.forEach(idMaq => {
+                    const maq = cacheMaquinaria.find(m => m.id_maquinaria == idMaq);
+                    if(maq) agregarMaquinariaVisual(maq.id_maquinaria, maq.nombre);
+                });
+            }
 
             abrirModalUI('modalAsignacion');
         } else {

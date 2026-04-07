@@ -12,16 +12,15 @@ switch ($action) {
     case 'procesar_entrega':
         procesar_entrega($conexion);
         break;
+    case 'obtener_acta':
+        obtener_acta($conexion);
+        break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida en módulo de entregas']);
         break;
 }
 
 function listar_entregas($conexion) {
-    // Esta consulta es potente: Viaja desde Orden -> Inspeccion -> Vehiculo -> Cliente -> Persona
-    // También cruza con Factura Central para ver el estado de pago y con Marca para el vehículo.
-    // Solo muestra órdenes que están en fases finales o entregadas hoy.
-    
     $sql = "SELECT 
                 o.id_orden, 
                 o.descripcion, 
@@ -65,7 +64,7 @@ function listar_entregas($conexion) {
 
 function procesar_entrega($conexion) {
     $id_orden = $_POST['id_orden_entrega'] ?? '';
-    $estado_anterior = $_POST['estado_anterior'] ?? 'Listo'; // Por defecto Listo
+    $estado_anterior = $_POST['estado_anterior'] ?? 'Listo'; 
     $usuario = $_SESSION['id_usuario'] ?? 1;
 
     if (empty($id_orden)) {
@@ -73,18 +72,15 @@ function procesar_entrega($conexion) {
         return;
     }
 
-    // Iniciar transacción de base de datos
     $conexion->begin_transaction();
 
     try {
-        // 1. Validar estado actual de la orden (por seguridad si alguien más la alteró)
         $resCheck = $conexion->query("SELECT estado_orden FROM orden WHERE id_orden = $id_orden");
         if($resCheck && $resCheck->num_rows > 0) {
             $rowCheck = $resCheck->fetch_assoc();
             if($rowCheck['estado_orden'] === 'Entregado') {
                 throw new Exception("Esta orden ya había sido marcada como Entregada anteriormente.");
             }
-            // Si el estado real de la BD es distinto al que llegó del frontend, actualizamos la variable
             if($rowCheck['estado_orden'] != '') {
                 $estado_anterior = $rowCheck['estado_orden'];
             }
@@ -92,26 +88,60 @@ function procesar_entrega($conexion) {
             throw new Exception("La orden no existe o fue eliminada.");
         }
 
-        // 2. Actualizar el estado en la tabla ORDEN
         $sqlUpdate = "UPDATE orden SET estado_orden = 'Entregado' WHERE id_orden = ?";
         $stmtUpdate = $conexion->prepare($sqlUpdate);
         $stmtUpdate->bind_param("i", $id_orden);
         $stmtUpdate->execute();
 
-        // 3. Registrar la auditoría en HISTORIAL_ESTADO_ORDEN
         $sqlHistorial = "INSERT INTO historial_estado_orden (id_orden, estado_anterior, estado_nuevo, estado, usuario_creacion) 
                          VALUES (?, ?, 'Entregado', 'activo', ?)";
         $stmtHistorial = $conexion->prepare($sqlHistorial);
         $stmtHistorial->bind_param("isi", $id_orden, $estado_anterior, $usuario);
         $stmtHistorial->execute();
 
-        // Confirmar transacción
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'El rastro de auditoría ha sido guardado en el historial.']);
+        echo json_encode(['success' => true, 'message' => 'El rastro de auditoría ha sido guardado.']);
 
     } catch (Exception $e) {
         $conexion->rollback();
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function obtener_acta($conexion) {
+    $id_orden = (int)($_GET['id_orden'] ?? 0);
+    
+    if($id_orden === 0) {
+        echo json_encode(['success' => false, 'message' => 'ID de orden no válido.']);
+        return;
+    }
+
+    $sql = "SELECT 
+                o.id_orden, 
+                DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_ingreso,
+                CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
+                CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, ''), ' ', IFNULL(per.apellido_m, '')) AS cliente,
+                v.placa, 
+                v.vin_chasis,
+                CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' (', IFNULL(v.anio, 'N/A'), ')') AS vehiculo,
+                DATE_FORMAT(heo.fecha_cambio, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
+                IFNULL(u.username, 'Administrador (Sistema)') AS entregado_por
+            FROM orden o
+            JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
+            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN marca mar ON v.id_marca = mar.id_marca
+            JOIN cliente c ON v.id_cliente = c.id_cliente
+            JOIN persona per ON c.id_persona = per.id_persona
+            LEFT JOIN historial_estado_orden heo ON o.id_orden = heo.id_orden AND heo.estado_nuevo = 'Entregado'
+            LEFT JOIN usuario u ON heo.usuario_creacion = u.id_usuario
+            WHERE o.id_orden = $id_orden LIMIT 1";
+            
+    $res = $conexion->query($sql);
+    
+    if($res && $res->num_rows > 0) {
+        echo json_encode(['success' => true, 'data' => $res->fetch_assoc()]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'No se pudo generar el acta de entrega de esta orden.']);
     }
 }
 ?>

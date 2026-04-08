@@ -1,4 +1,4 @@
-console.log("Scripts_Entrega.js: Módulo de entregas cargado.");
+console.log("Scripts_Entrega.js: Módulo de entregas y calidad cargado.");
 
 document.addEventListener("DOMContentLoaded", () => {
     listar();
@@ -10,27 +10,45 @@ document.addEventListener("DOMContentLoaded", () => {
     if(formEntrega) {
         formEntrega.addEventListener("submit", function(e) {
             e.preventDefault();
-            
             const formData = new FormData(this);
             const id_orden_procesada = document.getElementById("id_orden_entrega").value;
             
-            fetch("../../modules/Taller/Archivo_Entrega.php?action=procesar_entrega", { 
-                method: "POST", 
-                body: formData 
-            })
+            fetch("../../modules/Taller/Archivo_Entrega.php?action=procesar_entrega", { method: "POST", body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.success) { 
                     cerrarModalEntrega(); 
                     listar(); 
-                    
-                    // MAGIA: Abrir el comprobante automáticamente tras entregar
                     mostrarComprobanteInmediato(id_orden_procesada);
                 } else {
                     alert("ERROR AL PROCESAR ENTREGA:\n" + data.message);
                 }
             })
             .catch(err => console.error("Error en petición de entrega:", err));
+        });
+    }
+
+    // ==========================================
+    // PROCESAR CONTROL DE CALIDAD
+    // ==========================================
+    const formCalidad = document.getElementById("formCalidad");
+    if(formCalidad) {
+        formCalidad.addEventListener("submit", function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch("../../modules/Taller/Archivo_Entrega.php?action=procesar_calidad", { method: "POST", body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) { 
+                    alert(data.message);
+                    cerrarModalCalidad(); 
+                    listar(); 
+                } else {
+                    alert("ACCESO DENEGADO:\n" + data.message);
+                }
+            })
+            .catch(err => console.error("Error en petición de calidad:", err));
         });
     }
 });
@@ -63,15 +81,16 @@ function listar() {
 
                 let badgeOrden = "";
                 let btnAccion = "";
+                
                 if (o.estado_orden === 'Listo') {
                     badgeOrden = `<span class="badge bg-primary fs-6">Listo para Entrega</span>`;
-                    btnAccion = `<button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="prepararEntrega(${o.id_orden}, '${o.cliente}', '${o.vehiculo}', '${o.monto_total_fmt}', '${o.estado_pago}', '${o.estado_orden}')"><i class="fas fa-key me-1"></i> Entregar</button>`;
+                    btnAccion = `<button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="prepararEntrega(${o.id_orden}, '${o.cliente}', '${o.vehiculo}', '${o.monto_total_fmt}', '${o.estado_pago}')"><i class="fas fa-key me-1"></i> Entregar</button>`;
                 } else if (o.estado_orden === 'Control Calidad') {
                     badgeOrden = `<span class="badge bg-info text-dark fw-bold">En Control de Calidad</span>`;
-                    btnAccion = `<button class="btn btn-sm btn-outline-secondary" disabled><i class="fas fa-tools me-1"></i> En Revisión</button>`;
+                    // BOTÓN DE EVALUAR CALIDAD HABILITADO
+                    btnAccion = `<button class="btn btn-sm btn-info fw-bold shadow-sm text-dark" onclick="abrirModalCalidad(${o.id_orden}, '${o.vehiculo}')"><i class="fas fa-clipboard-check me-1"></i> Evaluar</button>`;
                 } else if (o.estado_orden === 'Entregado') {
                     badgeOrden = `<span class="badge bg-dark">Entregado</span>`;
-                    // Si ya está entregado hoy, permitimos reimprimir el acta
                     btnAccion = `<button class="btn btn-sm btn-outline-dark" onclick="mostrarComprobanteInmediato(${o.id_orden})" title="Reimprimir Acta"><i class="fas fa-print"></i> Acta</button>`;
                 }
 
@@ -99,11 +118,26 @@ function listar() {
 }
 
 // ==========================================
+// PREPARACIÓN DE MODAL CONTROL CALIDAD
+// ==========================================
+function abrirModalCalidad(id_orden, vehiculo) {
+    document.getElementById("id_orden_calidad").value = id_orden;
+    document.getElementById("lbl_calidad_orden").innerText = "ORDEN: ORD-" + id_orden;
+    document.getElementById("lbl_calidad_vehiculo").innerText = "Vehículo: " + vehiculo;
+    
+    document.getElementById("formCalidad").reset();
+    abrirModalUI('modalCalidad');
+}
+
+function cerrarModalCalidad() {
+    cerrarModalUI('modalCalidad');
+}
+
+// ==========================================
 // PREPARACIÓN DE MODAL DE ENTREGA
 // ==========================================
-function prepararEntrega(id_orden, cliente, vehiculo, monto, estado_pago, estado_orden) {
+function prepararEntrega(id_orden, cliente, vehiculo, monto, estado_pago) {
     document.getElementById("id_orden_entrega").value = id_orden;
-    document.getElementById("estado_anterior").value = estado_orden; 
     
     document.getElementById("lbl_orden").innerText = "ORD-" + id_orden;
     document.getElementById("lbl_cliente").innerText = cliente;
@@ -124,7 +158,7 @@ function prepararEntrega(id_orden, cliente, vehiculo, monto, estado_pago, estado
 }
 
 // ==========================================
-// CARGAR Y MOSTRAR ACTA DE ENTREGA (NUEVO)
+// CARGAR Y MOSTRAR ACTA DE ENTREGA
 // ==========================================
 function mostrarComprobanteInmediato(id_orden) {
     fetch(`../../modules/Taller/Archivo_Entrega.php?action=obtener_acta&id_orden=${id_orden}`)
@@ -153,9 +187,6 @@ function mostrarComprobanteInmediato(id_orden) {
     .catch(err => console.error("Error al cargar acta:", err));
 }
 
-// ==========================================
-// UTILIDADES: MODAL E IMPRESIÓN
-// ==========================================
 function imprimirComprobante() {
     const contenido = document.getElementById('areaImpresionEntrega').innerHTML;
     const ventana = window.open('', '_blank', 'width=800,height=600');
@@ -210,9 +241,7 @@ function abrirModalUI(id) {
         el.setAttribute('aria-modal', 'true'); el.setAttribute('role', 'dialog');
         document.body.classList.add('modal-open'); document.body.style.overflow = 'hidden';
         
-        // Removemos backdrops viejos para que no se superpongan modales
         document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
-        
         const b = document.createElement('div'); b.id = 'm-bd-entrega-' + id; b.className = 'modal-backdrop fade show'; document.body.appendChild(b);
     }
 }

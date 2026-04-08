@@ -64,6 +64,55 @@ require("../../header.php");
         </div>
     </div>
 
+    <div class="modal fade" id="modalCalidad" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-info border-2">
+                <div class="modal-header bg-info text-dark">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Auditoría de Control de Calidad</h5>
+                    <button type="button" class="btn-close" onclick="cerrarModalCalidad()"></button>
+                </div>
+                <form id="formCalidad">
+                    <div class="modal-body bg-light">
+                        <input type="hidden" id="id_orden_calidad" name="id_orden_calidad">
+                        
+                        <div class="mb-3 text-center">
+                            <h4 class="text-primary fw-bold" id="lbl_calidad_orden"></h4>
+                            <p class="text-muted mb-0" id="lbl_calidad_vehiculo"></p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Veredicto de la Revisión <span class="text-danger">*</span></label>
+                            <select class="form-select border-info border-2" name="decision_calidad" id="decision_calidad" required>
+                                <option value="">Seleccione el resultado...</option>
+                                <option value="Aprobado" class="text-success fw-bold">✅ APROBADO: Vehículo Listo para Entrega</option>
+                                <option value="Rechazado" class="text-danger fw-bold">❌ RECHAZADO: Devolver a los Mecánicos (Reparación)</option>
+                            </select>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mt-3">
+                            <div class="card-body bg-white rounded">
+                                <label class="form-label fw-bold text-dark"><i class="fas fa-shield-alt text-info me-1"></i> Firma del Supervisor / Admin <span class="text-danger">*</span></label>
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control" id="admin_user_calidad" name="admin_username" placeholder="Usuario" required>
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-key"></i></span>
+                                    <input type="password" class="form-control" id="admin_pass_calidad" name="admin_password" placeholder="Contraseña" required>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" onclick="cerrarModalCalidad()">Cancelar</button>
+                        <button type="submit" class="btn btn-info text-dark fw-bold"><i class="fas fa-save me-2"></i>Guardar Veredicto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalEntrega" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-success border-2">
@@ -74,7 +123,6 @@ require("../../header.php");
                 <form id="formEntrega">
                     <div class="modal-body bg-light">
                         <input type="hidden" id="id_orden_entrega" name="id_orden_entrega">
-                        <input type="hidden" id="estado_anterior" name="estado_anterior">
                         
                         <div class="alert alert-warning d-none" id="alerta_pago">
                             <i class="fas fa-exclamation-triangle me-2"></i><strong>Atención:</strong> Esta orden figura como <span id="txt_alerta_pago" class="fw-bold"></span>. Confirme con facturación antes de entregar las llaves.

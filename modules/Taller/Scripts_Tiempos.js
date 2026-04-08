@@ -1,3 +1,4 @@
+let cacheOrdenes = [];
 let cacheMecanicos = [];
 let cacheMaquinaria = [];
 let mecanicosSeleccionados = []; 
@@ -19,22 +20,86 @@ document.addEventListener("DOMContentLoaded", () => {
             if(selectedOption) {
                 const precioSugerido = selectedOption.getAttribute("data-precio");
                 if(precioSugerido && parseFloat(precioSugerido) >= 0) {
-                    if(lblPrecioSugerido) {
-                        // Muestra el precio en verde
-                        lblPrecioSugerido.innerHTML = `Sugerido por servicio: <span class="fw-bold text-success">RD$ ${parseFloat(precioSugerido).toFixed(2)}</span>`;
-                    }
+                    if(lblPrecioSugerido) lblPrecioSugerido.innerHTML = `Sugerido por servicio: <span class="fw-bold text-success">RD$ ${parseFloat(precioSugerido).toFixed(2)}</span>`;
                 } else {
-                    if(lblPrecioSugerido) {
-                        lblPrecioSugerido.innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">N/A</span>`;
-                    }
+                    if(lblPrecioSugerido) lblPrecioSugerido.innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">N/A</span>`;
                 }
             }
         });
     }
 
     // ==========================================
-    // 1. BUSCADORES DINÁMICOS
+    // 1. BUSCADORES DINÁMICOS (HÍBRIDOS)
     // ==========================================
+    
+    // --- BUSCADOR DE ÓRDENES ---
+    const txtOrden = document.getElementById('txt_buscar_orden');
+    const listaOrdenes = document.getElementById('lista_ordenes');
+    const hiddenOrden = document.getElementById('id_orden');
+
+    if(txtOrden) {
+        txtOrden.addEventListener('input', function() {
+            const busca = this.value.toLowerCase().trim();
+            listaOrdenes.innerHTML = '';
+            
+            if (busca.length < 1) { 
+                listaOrdenes.classList.add('d-none'); 
+                document.getElementById('info_orden_seleccionada').classList.add('d-none');
+                hiddenOrden.value = ""; 
+                cargarServiciosPorOrden(""); 
+                return; 
+            }
+            
+            const filtrados = cacheOrdenes.filter(o => 
+                `ord-${o.id_orden}`.includes(busca) || 
+                (o.descripcion && o.descripcion.toLowerCase().includes(busca)) ||
+                (o.cliente && o.cliente.toLowerCase().includes(busca)) ||
+                (o.vehiculo && o.vehiculo.toLowerCase().includes(busca))
+            );
+
+            if (filtrados.length > 0) {
+                listaOrdenes.classList.remove('d-none');
+                filtrados.forEach(o => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item list-group-item-action py-2';
+                    li.style.cursor = 'pointer';
+                    // Mostrar también cliente y vehículo en el selector
+                    li.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-primary">ORD-${o.id_orden}</span>
+                            <small class="text-muted">${o.descripcion || 'Sin descripción'}</small>
+                        </div>
+                        <div class="small mt-1">
+                            <i class="fas fa-user text-secondary"></i> ${o.cliente} | 
+                            <i class="fas fa-car text-secondary"></i> ${o.vehiculo}
+                        </div>
+                    `;
+                    li.onclick = () => {
+                        txtOrden.value = `ORD-${o.id_orden} - ${o.descripcion || ''}`;
+                        hiddenOrden.value = o.id_orden;
+                        listaOrdenes.classList.add('d-none');
+                        
+                        // Mostrar la tarjeta informativa de cliente/vehículo
+                        document.getElementById('info_orden_seleccionada').classList.remove('d-none');
+                        document.getElementById('lbl_orden_cliente').innerText = o.cliente;
+                        document.getElementById('lbl_orden_vehiculo').innerText = o.vehiculo;
+
+                        // Cargar los servicios de esta orden
+                        cargarServiciosPorOrden(o.id_orden);
+                    };
+                    listaOrdenes.appendChild(li);
+                });
+            } else {
+                listaOrdenes.classList.remove('d-none');
+                listaOrdenes.innerHTML = `<li class="list-group-item text-muted">No hay órdenes pendientes...</li>`;
+                hiddenOrden.value = "";
+                document.getElementById('info_orden_seleccionada').classList.add('d-none');
+                cargarServiciosPorOrden("");
+            }
+        });
+    }
+
+    // --- BUSCADOR DE MECÁNICOS ---
     const txtMecanico = document.getElementById('txt_buscar_empleado');
     const listaMecanico = document.getElementById('lista_empleado');
     const hiddenMecanicoTemp = document.getElementById('id_empleado_temp');
@@ -63,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // --- BUSCADOR DE MAQUINARIA ---
     const txtMaquinaria = document.getElementById('txt_buscar_maquinaria');
     const listaMaquinaria = document.getElementById('lista_maquinaria');
     const hiddenMaquinariaTemp = document.getElementById('id_maquinaria_temp');
@@ -102,7 +168,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Ocultar listas al hacer click afuera
     document.addEventListener('click', (e) => {
+        if (txtOrden && !txtOrden.contains(e.target)) listaOrdenes.classList.add('d-none');
         if (txtMecanico && !txtMecanico.contains(e.target)) listaMecanico.classList.add('d-none');
         if (txtMaquinaria && !txtMaquinaria.contains(e.target)) listaMaquinaria.classList.add('d-none');
     });
@@ -114,16 +182,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if(formAsig) {
         formAsig.addEventListener("submit", function(e) {
             e.preventDefault();
-            if(document.getElementById('id_orden').value === "") { alert("Seleccione una Orden."); return; }
+            if(document.getElementById('id_orden').value === "") { alert("Seleccione una Orden válida usando el buscador."); return; }
             if(document.getElementById('id_bahia').value === "") { alert("Seleccione una Bahía."); return; }
             if(document.getElementById('id_precio').value === "") { alert("Seleccione una Tarifa a aplicar."); return; }
             if(mecanicosSeleccionados.length === 0) { alert("Asigne al menos un mecánico."); return; }
             
             const formData = new FormData(this);
             
-            if (document.getElementById('id_orden').disabled) {
-                formData.append("id_orden", document.getElementById('id_orden').value);
-            }
             if (document.getElementById('id_tipo_servicio').disabled) {
                 formData.append("id_tipo_servicio", document.getElementById('id_tipo_servicio').value);
             }
@@ -131,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("mecanicos", JSON.stringify(mecanicosSeleccionados));
             formData.append("maquinarias", JSON.stringify(maquinariaSeleccionada));
             
-            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=guardar_asignacion", { 
+            fetch("../../modules/Taller/Archivo_Tiempos.php?action=guardar_asignacion", { 
                 method: "POST", 
                 body: formData 
             })
@@ -158,7 +223,7 @@ document.addEventListener("DOMContentLoaded", () => {
         formTiempos.addEventListener("submit", function(e) {
             e.preventDefault();
             const formData = new FormData(this);
-            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=finalizar_tiempo", { method: "POST", body: formData })
+            fetch("../../modules/Taller/Archivo_Tiempos.php?action=finalizar_tiempo", { method: "POST", body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.success) { 
@@ -178,7 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ==========================================
 
 function listar() {
-    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=listar")
+    fetch("../../modules/Taller/Archivo_Tiempos.php?action=listar")
     .then(res => res.json()).then(data => {
         const tbody = document.getElementById("cuerpoTablaAsignaciones");
         if(!tbody) return;
@@ -226,12 +291,10 @@ function listar() {
 }
 
 function cargarDependencias() {
-    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=cargar_dependencias")
+    fetch("../../modules/Taller/Archivo_Tiempos.php?action=cargar_dependencias")
     .then(res => res.json()).then(data => {
         if (data.success) {
-            const selOrden = document.getElementById("id_orden");
-            selOrden.innerHTML = '<option value="">Seleccione una orden...</option>';
-            data.data.ordenes.forEach(o => { selOrden.innerHTML += `<option value="${o.id_orden}">ORD-${o.id_orden} - ${o.descripcion || ''}</option>`; });
+            cacheOrdenes = data.data.ordenes;
 
             const selBahia = document.getElementById("id_bahia");
             selBahia.innerHTML = '<option value="">Seleccione Bahía...</option>';
@@ -241,7 +304,6 @@ function cargarDependencias() {
                 selBahia.innerHTML += `<option value="${b.id_bahia}" ${bloqueada}>${icono} ${b.descripcion}</option>`; 
             });
 
-            // CARGAR TARIFAS
             const selPrecio = document.getElementById("id_precio");
             selPrecio.innerHTML = '<option value="">Seleccione tarifa...</option>';
             if(data.data.precios) {
@@ -260,7 +322,7 @@ function cargarDependencias() {
 function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
     const selServicio = document.getElementById("id_tipo_servicio");
     if(!id_orden) { 
-        selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden...</option>';
+        selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden válida...</option>';
         selServicio.disabled = true; 
         document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span>`;
         return; 
@@ -269,7 +331,7 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
     selServicio.innerHTML = '<option value="" data-precio="">Cargando servicios...</option>';
     selServicio.disabled = true;
 
-    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}`)
+    fetch(`../../modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}`)
     .then(res => res.json())
     .then(data => {
         selServicio.innerHTML = '';
@@ -282,11 +344,10 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
             
             if(id_servicio_preseleccionado) {
                 selServicio.value = id_servicio_preseleccionado;
-                // Disparamos el evento para que pinte el label del precio sugerido
                 selServicio.dispatchEvent(new Event('change'));
             }
         } else {
-            selServicio.innerHTML = '<option value="" data-precio="">La orden no tiene servicios activos</option>';
+            selServicio.innerHTML = '<option value="" data-precio="">Todos los servicios completados</option>';
             selServicio.disabled = true;
             document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">N/A</span>`;
         }
@@ -360,7 +421,7 @@ function iniciarTrabajo(id) {
     if (confirm("¿Desea iniciar el cronómetro para este trabajo? Se ocupará la Bahía y Maquinaria asignada.")) {
         const f = new FormData();
         f.append("id_asignacion", id);
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
+        fetch("../../modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
         .then(res => res.json())
         .then(data => { 
             if(data.success) {
@@ -383,9 +444,15 @@ function nuevaAsignacion() {
     
     document.getElementById("formAsignacion").reset();
     document.getElementById("id_asignacion").value = "";
-    document.getElementById("id_orden").disabled = false;
     
-    // Limpiamos el label del precio sugerido
+    // Resetear el buscador híbrido y tarjeta
+    document.getElementById("id_orden").value = "";
+    document.getElementById("txt_buscar_orden").value = "";
+    document.getElementById("txt_buscar_orden").disabled = false;
+    document.getElementById('info_orden_seleccionada').classList.add('d-none');
+    document.getElementById('lbl_orden_cliente').innerText = "---";
+    document.getElementById('lbl_orden_vehiculo').innerText = "---";
+    
     document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span>`;
     
     mecanicosSeleccionados = [];
@@ -395,7 +462,7 @@ function nuevaAsignacion() {
     document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna asignada.</p>';
     
     const selServicio = document.getElementById("id_tipo_servicio");
-    selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden...</option>';
+    selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden válida...</option>';
     selServicio.disabled = true;
 
     const now = new Date();
@@ -409,15 +476,26 @@ function editarAsignacion(id) {
     document.getElementById("tituloModalAsignacion").innerHTML = "Editar Asignación Pendiente";
     document.getElementById("btnGuardarAsig").innerHTML = '<i class="fas fa-sync me-2"></i>Actualizar Cambios';
     
-    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=obtener_asignacion&id=${id}`)
+    fetch(`../../modules/Taller/Archivo_Tiempos.php?action=obtener_asignacion&id=${id}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {
             const d = data.data;
             document.getElementById("id_asignacion").value = d.id_asignacion;
-            document.getElementById("id_orden").value = d.id_orden;
-            document.getElementById("id_orden").disabled = true; 
             
+            // Setear valores en el buscador híbrido y bloquearlo
+            document.getElementById("id_orden").value = d.id_orden;
+            document.getElementById("txt_buscar_orden").value = `ORD-${d.id_orden} (Bloqueado por Edición)`;
+            document.getElementById("txt_buscar_orden").disabled = true; 
+            
+            // Llenar tarjeta de cliente y vehículo si la orden está en caché
+            const ordCache = cacheOrdenes.find(o => o.id_orden == d.id_orden);
+            if(ordCache) {
+                document.getElementById('info_orden_seleccionada').classList.remove('d-none');
+                document.getElementById('lbl_orden_cliente').innerText = ordCache.cliente;
+                document.getElementById('lbl_orden_vehiculo').innerText = ordCache.vehiculo;
+            }
+
             cargarServiciosPorOrden(d.id_orden, d.id_tipo_servicio);
             
             document.getElementById("id_bahia").value = d.id_bahia || '';

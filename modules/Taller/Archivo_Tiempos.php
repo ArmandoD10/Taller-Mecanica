@@ -37,16 +37,25 @@ function listar($conexion) {
 function cargar_dependencias($conexion) {
     $data = [];
     
-    // Buscar órdenes que NO tengan el estado 'Entregado' en su historial más reciente
-    $sqlOrdenes = "SELECT o.id_orden, o.descripcion 
+    // =========================================================================================
+    // AÑADIDO: Extracción de datos del Cliente y Vehículo para mostrarlos en el Frontend
+    // =========================================================================================
+    $sqlOrdenes = "SELECT DISTINCT o.id_orden, o.descripcion,
+                    (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
+                     WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) as ultimo_estado,
+                    CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, '')) AS cliente,
+                    CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' [', v.placa, ']') AS vehiculo
                    FROM Orden o 
                    INNER JOIN Orden_Servicio os ON o.id_orden = os.id_orden 
+                   JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
+                   JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+                   JOIN Marca mar ON v.id_marca = mar.id_marca
+                   JOIN Cliente c ON v.id_cliente = c.id_cliente
+                   JOIN Persona per ON c.id_persona = per.id_persona
                    WHERE o.estado != 'eliminado' 
-                   AND NOT EXISTS (
-                       SELECT 1 FROM Orden_Estado oe 
-                       JOIN Estado e ON oe.id_estado = e.id_estado 
-                       WHERE oe.id_orden = o.id_orden AND e.nombre = 'Entregado'
-                   )";
+                   HAVING IFNULL(ultimo_estado, '') NOT IN ('Control Calidad', 'Listo', 'Entregado')
+                   ORDER BY o.id_orden DESC";
+                   
     $data['ordenes'] = $conexion->query($sqlOrdenes)->fetch_all(MYSQLI_ASSOC);
     
     $sqlBahias = "SELECT b.id_bahia, b.descripcion, 
@@ -91,7 +100,6 @@ function obtener_asignacion($conexion) {
         $idOrd = $data['id_orden'];
         
         $maquinarias = [];
-        // AHORA LEE DE ORDEN_MAQUINARIA
         $resMaq = $conexion->query("SELECT id_maquinaria FROM Orden_Maquinaria WHERE id_orden = $idOrd AND id_maquinaria IS NOT NULL");
         while($row = $resMaq->fetch_assoc()) { $maquinarias[] = $row['id_maquinaria']; }
         $data['maquinarias'] = $maquinarias;
@@ -131,6 +139,32 @@ function guardar_asignacion($conexion) {
         echo json_encode(['success' => false, 'message' => "La Bahía seleccionada ya está reservada o en uso."]); return;
     }
 
+    foreach ($mecanicos as $id_emp) {
+        $sqlHorario = "SELECT d.hora_ini, d.hora_fin, CONCAT(per.nombre, ' ', per.apellido_p) as nombre 
+                       FROM Empleado e 
+                       JOIN Puesto p ON e.id_puesto = p.id_puesto 
+                       JOIN Departamento d ON p.id_departamento = d.id_departamento 
+                       JOIN Persona per ON e.id_persona = per.id_persona 
+                       WHERE e.id_empleado = $id_emp";
+        $resH = $conexion->query($sqlHorario)->fetch_assoc();
+        
+        if ($resH && ($hora_prog < $resH['hora_ini'] || $hora_prog > $resH['hora_fin'])) {
+            echo json_encode(['success' => false, 'message' => "El empleado {$resH['nombre']} está fuera de su horario ({$resH['hora_ini']} - {$resH['hora_fin']})."]); 
+            return;
+        }
+
+        $sqlDisp = "SELECT COUNT(*) as ocupado 
+                    FROM detalle_asignacion_p dap 
+                    JOIN asignacion_personal ap ON dap.id_asignacion = ap.id_asignacion 
+                    WHERE dap.id_empleado = $id_emp AND ap.estado_asignacion = 'En Curso' $excludeAsig";
+        $resD = $conexion->query($sqlDisp)->fetch_assoc();
+        
+        if ($resD['ocupado'] > 0) {
+            echo json_encode(['success' => false, 'message' => "El empleado {$resH['nombre']} ya tiene un trabajo EN CURSO actualmente."]); 
+            return;
+        }
+    }
+
     $conexion->begin_transaction();
     try {
         $fp = $fecha_prog.' '.$hora_prog;
@@ -148,7 +182,6 @@ function guardar_asignacion($conexion) {
                 foreach($maquinarias as $m) { $stmtMaq->bind_param("ii", $id_orden, $m); $stmtMaq->execute(); }
             }
             
-            // ASEGURAR QUE LA ORDEN ESTÉ EN ESTADO REPARACIÓN EN LA NUEVA TABLA
             $resEstRep = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Reparación' LIMIT 1");
             if($resEstRep->num_rows > 0) {
                 $id_est = $resEstRep->fetch_assoc()['id_estado'];
@@ -229,13 +262,11 @@ function finalizar_tiempo($conexion) {
             $conexion->query("UPDATE Maquinaria SET estado_maquina = 'Activo' WHERE id_maquinaria = {$row['id_maquinaria']}");
         }
 
-        // VERIFICAR SI LA ORDEN ESTÁ COMPLETA
         $sqlCheck = "SELECT COUNT(*) as pendientes FROM asignacion_orden ao JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE ao.id_orden = $id_orden AND ap.estado_asignacion != 'Completado'";
         $resCheck = $conexion->query($sqlCheck)->fetch_assoc();
 
         if ($resCheck['pendientes'] == 0) {
             
-            // Sumatoria Financiera
             $sqlSum = "SELECT SUM(p.monto) as total_monto FROM taller t JOIN Precio p ON t.id_precio = p.id_precio WHERE t.id_orden = $id_orden AND t.estado = 'activo'";
             $monto_total = (float)$conexion->query($sqlSum)->fetch_assoc()['total_monto'];
 
@@ -243,12 +274,13 @@ function finalizar_tiempo($conexion) {
             $stmtUpd->bind_param("di", $monto_total, $id_orden);
             $stmtUpd->execute();
             
-            // LA MAGIA NORMALIZADA: CAMBIAR ESTADO A "LISTO" EN LA TABLA ORDEN_ESTADO
             $usuario = $_SESSION['id_usuario'] ?? 1;
-            $resEstListo = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Listo' LIMIT 1");
-            if($resEstListo->num_rows > 0) {
-                $id_estado_listo = $resEstListo->fetch_assoc()['id_estado'];
-                $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_listo, $usuario)");
+            
+            $resEstCC = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Control Calidad' LIMIT 1");
+            
+            if($resEstCC->num_rows > 0) {
+                $id_estado_cc = $resEstCC->fetch_assoc()['id_estado'];
+                $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_cc, $usuario)");
             }
         }
 

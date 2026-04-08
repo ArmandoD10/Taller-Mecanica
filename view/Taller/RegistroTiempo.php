@@ -36,7 +36,7 @@ require("../../header.php");
 
     <div class="modal fade" id="modalAsignacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
+            <div class="modal-content border-primary border-2">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="tituloModalAsignacion">Nueva Asignación Detallada</h5>
                     <button type="button" class="btn-close btn-close-white" onclick="cerrarModalAsignacion()"></button>
@@ -46,15 +46,25 @@ require("../../header.php");
                         <input type="hidden" id="id_asignacion" name="id_asignacion">
                         
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-6 mb-3 position-relative">
                                 <label class="fw-bold">1. Seleccionar Orden <span class="text-danger">*</span></label>
-                                <select class="form-select border-dark" name="id_orden" id="id_orden" onchange="cargarServiciosPorOrden(this.value)" required>
-                                    <option value="">Cargando órdenes...</option>
-                                </select>
+                                <div class="input-group shadow-sm">
+                                    <span class="input-group-text bg-white border-dark"><i class="fas fa-search text-primary"></i></span>
+                                    <input type="text" class="form-control border-dark" id="txt_buscar_orden" placeholder="Escriba ORD-X o descripción..." autocomplete="off" required>
+                                </div>
+                                
+                                <div id="info_orden_seleccionada" class="mt-2 p-2 border border-info rounded bg-white shadow-sm d-none">
+                                    <small class="d-block text-dark mb-1"><i class="fas fa-user text-primary me-2"></i><strong>Cliente:</strong> <span id="lbl_orden_cliente" class="text-muted"></span></small>
+                                    <small class="d-block text-dark"><i class="fas fa-car text-primary me-2"></i><strong>Vehículo:</strong> <span id="lbl_orden_vehiculo" class="text-muted"></span></small>
+                                </div>
+
+                                <input type="hidden" name="id_orden" id="id_orden" required>
+                                <ul class="list-group position-absolute w-100 d-none shadow" id="lista_ordenes" style="z-index:1000; max-height: 200px; overflow-y: auto; top: 100%;"></ul>
                             </div>
+
                             <div class="col-md-6 mb-3">
                                 <label class="fw-bold">2. Servicio de la Orden <span class="text-danger">*</span></label>
-                                <select class="form-select border-dark" name="id_tipo_servicio" id="id_tipo_servicio" required disabled>
+                                <select class="form-select border-dark shadow-sm" name="id_tipo_servicio" id="id_tipo_servicio" required disabled>
                                     <option value="">Seleccione primero una orden...</option>
                                 </select>
                             </div>
@@ -78,12 +88,12 @@ require("../../header.php");
                                 <label class="fw-bold">Maquinaria <small class="text-muted">(Opcional)</small></label>
                                 <div class="input-group">
                                     <input type="text" class="form-control border-dark" id="txt_buscar_maquinaria" placeholder="Buscar..." autocomplete="off">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="agregarMaquinariaLista()">
+                                    <button class="btn btn-outline-secondary border-dark" type="button" onclick="agregarMaquinariaLista()">
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
                                 <input type="hidden" id="id_maquinaria_temp">
-                                <ul class="list-group position-absolute w-100 d-none shadow" id="lista_maquinaria" style="z-index:1000; max-height: 150px; overflow-y: auto;"></ul>
+                                <ul class="list-group position-absolute w-100 d-none shadow" id="lista_maquinaria" style="z-index:1000; max-height: 150px; overflow-y: auto; top: 100%;"></ul>
                                 
                                 <div class="mt-2 p-2 border border-dark rounded bg-white" id="contenedor_maquinaria" style="min-height: 50px;">
                                     <p class="text-muted small m-0" id="msg_sin_maquinaria">Ninguna asignada.</p>
@@ -95,13 +105,14 @@ require("../../header.php");
                             <div class="col-md-12 mb-3 position-relative">
                                 <label class="fw-bold">Asignar Mecánicos <small class="text-muted">(Se validará disponibilidad y horario)</small> <span class="text-danger">*</span></label>
                                 <div class="input-group">
+                                    <span class="input-group-text bg-light border-dark"><i class="fas fa-user-cog"></i></span>
                                     <input type="text" class="form-control border-dark" id="txt_buscar_empleado" placeholder="Buscar mecánico por nombre..." autocomplete="off">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="agregarMecanicoLista()">
+                                    <button class="btn btn-outline-primary border-dark fw-bold" type="button" onclick="agregarMecanicoLista()">
                                         <i class="fas fa-plus"></i> Añadir
                                     </button>
                                 </div>
                                 <input type="hidden" id="id_empleado_temp">
-                                <ul class="list-group position-absolute w-100 d-none shadow" id="lista_empleado" style="z-index:1000; max-height: 150px; overflow-y: auto;"></ul>
+                                <ul class="list-group position-absolute w-100 d-none shadow" id="lista_empleado" style="z-index:1000; max-height: 150px; overflow-y: auto; top: 100%;"></ul>
                                 
                                 <div class="mt-2 p-2 border border-dark rounded bg-white" id="contenedor_mecanicos" style="min-height: 60px;">
                                     <p class="text-muted small m-0" id="msg_sin_mecanicos">No hay mecánicos seleccionados.</p>
@@ -112,17 +123,17 @@ require("../../header.php");
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="fw-bold">Fecha programada</label>
-                                <input type="date" class="form-control border-dark" name="fecha_asignacion" id="fecha_asignacion" required>
+                                <input type="date" class="form-control border-dark bg-light" name="fecha_asignacion" id="fecha_asignacion" required>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="fw-bold">Hora de inicio</label>
-                                <input type="time" class="form-control border-dark" name="hora_asignacion" id="hora_asignacion" required>
+                                <input type="time" class="form-control border-dark bg-light" name="hora_asignacion" id="hora_asignacion" required>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="cerrarModalAsignacion()">Cerrar</button>
-                        <button type="submit" class="btn btn-success" id="btnGuardarAsig"><i class="fas fa-save me-2"></i>Guardar Asignación</button>
+                        <button type="button" class="btn btn-secondary" onclick="cerrarModalAsignacion()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarAsig"><i class="fas fa-save me-2"></i>Guardar Asignación</button>
                     </div>
                 </form>
             </div>
@@ -131,7 +142,7 @@ require("../../header.php");
 
     <div class="modal fade" id="modalTiempos" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+            <div class="modal-content border-danger border-2">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title"><i class="fas fa-flag-checkered me-2"></i>Finalizar Trabajo</h5>
                     <button type="button" class="btn-close btn-close-white" onclick="cerrarModalTiempos()"></button>
@@ -158,7 +169,7 @@ require("../../header.php");
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="cerrarModalTiempos()">Cancelar</button>
-                        <button type="submit" class="btn btn-danger"><i class="fas fa-stop-circle me-2"></i>Confirmar</button>
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-stop-circle me-2"></i>Confirmar y Finalizar</button>
                     </div>
                 </form>
             </div>

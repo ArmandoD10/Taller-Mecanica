@@ -12,6 +12,9 @@ switch ($action) {
     case 'procesar_entrega':
         procesar_entrega($conexion);
         break;
+    case 'procesar_calidad':
+        procesar_calidad($conexion);
+        break;
     case 'obtener_acta':
         obtener_acta($conexion);
         break;
@@ -20,15 +23,41 @@ switch ($action) {
         break;
 }
 
+// =========================================================================
+// FUNCIÓN DE SEGURIDAD: VERIFICA CLAVES DEL GRUPO ADMINISTRADOR / SUPERVISOR
+// =========================================================================
+function verificar_clave_admin($conexion, $username, $password_ingresada) {
+    if (empty($username) || empty($password_ingresada)) return false;
+
+    // Busca al usuario asumiendo que los que pueden hacer QC son de nivel Administrador
+    $sql = "SELECT u.password_hash 
+            FROM Usuario u 
+            JOIN Nivel n ON u.id_nivel = n.id_nivel 
+            WHERE u.username = ? AND n.nombre = 'Administrador' AND u.estado = 'activo' LIMIT 1";
+            
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    
+    if ($res && $res->num_rows > 0) {
+        $row = $res->fetch_assoc();
+        $hash = $row['password_hash'];
+        if (password_verify($password_ingresada, $hash) || $password_ingresada === $hash) {
+            return true; 
+        }
+    }
+    return false; 
+}
+// =========================================================================
+
 function listar_entregas($conexion) {
-    // CONSULTA COMPLEJA: Extrae el ÚLTIMO estado registrado en Orden_Estado para cada orden
     $sql = "SELECT 
                 o.id_orden, 
                 o.descripcion, 
                 IFNULL(o.monto_total, 0) AS monto_total,
                 CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
                 
-                -- Subconsulta para sacar el nombre del estado más reciente
                 (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
                  WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) AS estado_orden,
                 
@@ -63,6 +92,51 @@ function listar_entregas($conexion) {
     }
 }
 
+function procesar_calidad($conexion) {
+    $id_orden = $_POST['id_orden_calidad'] ?? '';
+    $decision = $_POST['decision_calidad'] ?? '';
+    $admin_user = $_POST['admin_username'] ?? '';
+    $admin_pass = $_POST['admin_password'] ?? '';
+    $usuario_sesion = $_SESSION['id_usuario'] ?? 1;
+
+    if (empty($id_orden) || empty($decision)) {
+        echo json_encode(['success' => false, 'message' => 'Faltan datos para evaluar la orden.']); return;
+    }
+
+    if (!verificar_clave_admin($conexion, $admin_user, $admin_pass)) {
+        echo json_encode(['success' => false, 'message' => 'Credenciales incorrectas o el usuario no tiene permisos de Administrador/Supervisor para realizar Control de Calidad.']);
+        return;
+    }
+
+    $conexion->begin_transaction();
+
+    try {
+        // Determinar cuál es el nuevo estado a insertar
+        $nombre_estado_nuevo = ($decision === 'Aprobado') ? 'Listo' : 'Reparación';
+        
+        $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = '$nombre_estado_nuevo' LIMIT 1");
+        if($resEst->num_rows == 0) throw new Exception("No existe el estado '$nombre_estado_nuevo' en la BD.");
+        
+        $id_estado_nuevo = $resEst->fetch_assoc()['id_estado'];
+
+        // Guardamos el nuevo estado usando el ID del usuario de la sesión (o se puede buscar el ID del admin, usamos el de sesión por auditoría)
+        $stmtInsert = $conexion->prepare("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES (?, ?, ?)");
+        $stmtInsert->bind_param("iii", $id_orden, $id_estado_nuevo, $usuario_sesion);
+        $stmtInsert->execute();
+
+        $conexion->commit();
+        
+        if ($decision === 'Aprobado') {
+            echo json_encode(['success' => true, 'message' => 'Control de Calidad Aprobado. El vehículo está ahora Listo para entregar.']);
+        } else {
+            echo json_encode(['success' => true, 'message' => 'Control de Calidad Rechazado. El vehículo ha regresado a la cola de Reparación de los mecánicos.']);
+        }
+
+    } catch (Exception $e) {
+        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
 function procesar_entrega($conexion) {
     $id_orden = $_POST['id_orden_entrega'] ?? '';
     $usuario = $_SESSION['id_usuario'] ?? 1;
@@ -74,16 +148,18 @@ function procesar_entrega($conexion) {
     $conexion->begin_transaction();
 
     try {
-        // Verificar que no esté ya entregado buscando el estado más reciente
         $sqlCheck = "SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado WHERE oe.id_orden = $id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1";
         $resCheck = $conexion->query($sqlCheck);
         if($resCheck && $resCheck->num_rows > 0) {
-            if($resCheck->fetch_assoc()['nombre'] === 'Entregado') {
+            $estadoActual = $resCheck->fetch_assoc()['nombre'];
+            if($estadoActual === 'Entregado') {
                 throw new Exception("Esta orden ya había sido marcada como Entregada.");
+            }
+            if($estadoActual !== 'Listo') {
+                throw new Exception("El vehículo debe estar en estado 'Listo' para poder entregarse.");
             }
         }
 
-        // LÓGICA NORMALIZADA: En lugar de hacer UPDATE en Orden, insertamos el Estado Entregado
         $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Entregado' LIMIT 1");
         if($resEst->num_rows == 0) throw new Exception("No existe el estado 'Entregado' en la configuración de la BD.");
         
@@ -108,7 +184,6 @@ function obtener_acta($conexion) {
         echo json_encode(['success' => false, 'message' => 'ID de orden no válido.']); return;
     }
 
-    // Buscamos cuándo se insertó el estado "Entregado" y quién lo hizo
     $sql = "SELECT 
                 o.id_orden, 
                 DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_ingreso,
@@ -118,7 +193,6 @@ function obtener_acta($conexion) {
                 v.vin_chasis,
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' (', IFNULL(v.anio, 'N/A'), ')') AS vehiculo,
                 
-                -- Datos de entrega desde Orden_Estado
                 DATE_FORMAT(oe_entrega.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
                 IFNULL(u.username, 'Administrador (Sistema)') AS entregado_por
                 
@@ -129,7 +203,6 @@ function obtener_acta($conexion) {
             JOIN Cliente c ON v.id_cliente = c.id_cliente
             JOIN Persona per ON c.id_persona = per.id_persona
             
-            -- JOIN para buscar la auditoría exacta de la entrega
             LEFT JOIN Orden_Estado oe_entrega ON o.id_orden = oe_entrega.id_orden 
             LEFT JOIN Estado e_entrega ON oe_entrega.id_estado = e_entrega.id_estado AND e_entrega.nombre = 'Entregado'
             LEFT JOIN Usuario u ON oe_entrega.usuario_creacion = u.id_usuario

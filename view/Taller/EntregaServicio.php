@@ -7,9 +7,15 @@ require("../../header.php");
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
             <h2><i class="fas fa-key me-2 text-success"></i>Entrega de Vehículos y Servicios</h2>
-            <button class="btn btn-secondary" type="button" onclick="listar()">
-                <i class="fas fa-sync-alt me-2"></i>Actualizar Lista
-            </button>
+            <div class="d-flex gap-2">
+                <div class="input-group shadow-sm" style="width: 300px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="buscar_entrega" class="form-control border-start-0" placeholder="Buscar orden o cliente..." onkeyup="filtrarEntregas()">
+                </div>
+                <button class="btn btn-secondary shadow-sm" type="button" onclick="listar()">
+                    <i class="fas fa-sync-alt me-2"></i>Actualizar Lista
+                </button>
+            </div>
         </div>
 
         <div class="row mb-4">
@@ -90,19 +96,26 @@ require("../../header.php");
                                         </div>
                                     </div>
 
-                                    <h6 class="fw-bold border-bottom pb-2 text-secondary mt-3">Detalle de Servicios y Repuestos</h6>
-                                    <div class="table-responsive bg-light border rounded" style="max-height: 220px; overflow-y: auto;">
-                                        <table class="table table-sm table-borderless align-middle mb-0">
+                                    <h6 class="fw-bold border-bottom pb-2 text-secondary mt-3">Detalle y Repuestos Extras</h6>
+                                    <div class="input-group mb-2 shadow-sm position-relative">
+                                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-barcode text-muted"></i></span>
+                                        <input type="text" id="buscar_prod_entrega" class="form-control border-start-0" placeholder="Buscar repuestos extras..." oninput="buscarProductoEntrega(this)">
+                                        <input type="number" id="cant_prod_entrega" class="form-control text-center bg-light" style="max-width: 80px;" value="1" min="1">
+                                    </div>
+                                    <div id="res_prod_entrega" class="list-group position-absolute w-100 shadow-lg d-none" style="z-index: 1050; max-height: 200px; overflow-y: auto;"></div>
+
+                                    <div class="table-responsive bg-white border rounded mt-2" style="max-height: 220px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover align-middle mb-0">
                                             <thead class="table-secondary text-muted small sticky-top">
                                                 <tr>
                                                     <th>Descripción</th>
                                                     <th class="text-center">Cant.</th>
                                                     <th class="text-end">Precio</th>
                                                     <th class="text-end">Total</th>
-                                                </tr>
+                                                    <th class="text-center"></th> </tr>
                                             </thead>
                                             <tbody id="fac_tabla_detalles">
-                                                <tr><td colspan="4" class="text-center text-muted py-3">Cargando detalles...</td></tr>
+                                                <tr><td colspan="5" class="text-center text-muted py-3">Cargando detalles...</td></tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -117,7 +130,7 @@ require("../../header.php");
                                     
                                     <div class="mb-3">
                                         <label class="small fw-bold">NCF (Comprobante Fiscal)</label>
-                                        <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0100000001 (Consumidor Final)">
+                                        <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)">
                                     </div>
 
                                     <div class="bg-light p-3 rounded mb-3 border">

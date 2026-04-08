@@ -1,6 +1,6 @@
 /**
  * Scripts_Factura.js - Versión Profesional Completa
- * Manejo de POS, Inventario por Sucursal, Pasarela Azul y Crédito.
+ * Manejo de POS, Inventario por Sucursal, Pasarela Azul, ITBIS y Crédito Actualizado.
  */
 
 let listaItemsFactura = [];
@@ -10,46 +10,24 @@ let subtotalGlobal = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Sistema de Facturación POS inicializado...");
-    cargarImpuestosAuto();
+    
+    // Ya no usamos cargarImpuestosAuto() porque el 18% está fijo en la lógica DGII
 
-    // Evento para limpiar el buscador si se borra el texto
     document.getElementById("buscar_producto").addEventListener("search", () => {
         document.getElementById("res_productos").classList.add("d-none");
     });
 
     const inputNCF = document.getElementById("ncf_factura");
-if (inputNCF) {
-    inputNCF.addEventListener("input", function(e) {
-        // 1. Convierte minúsculas a MAYÚSCULAS automáticamente
-        // 2. Remueve cualquier caracter que NO sea una letra (A-Z) o un número (0-9)
-        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    });
-}
+    if (inputNCF) {
+        inputNCF.addEventListener("input", function(e) {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        });
+    }
 });
-
-// ==========================================
-// 1. CARGA Y CONFIGURACIÓN DE IMPUESTOS
-// ==========================================
-
-function cargarImpuestosAuto() {
-    fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=listar_impuestos_automaticos")
-        .then(res => res.json())
-        .then(res => {
-            if (res.success) {
-                listaImpuestos = res.data;
-                console.log("Impuestos cargados:", listaImpuestos.length);
-                actualizarInterfaz(); // Para que inicie en 0 correctamente
-            } else {
-                console.error("Error al cargar impuestos:", res.message);
-            }
-        })
-        .catch(err => console.error("Fallo crítico al cargar impuestos:", err));
-}
 
 // ==========================================
 // 2. BUSCADOR DE PRODUCTOS E INVENTARIO
 // ==========================================
-
 function buscarProducto(input) {
     const term = input.value.trim();
     const resDiv = document.getElementById("res_productos");
@@ -105,7 +83,6 @@ function agregarProductoAlCarrito(p) {
     const cantAAgregar = parseInt(cantInput.value) || 1;
     const stockDisponible = parseInt(p.stock);
 
-    // Buscar si ya existe en el carrito
     const itemExistente = listaItemsFactura.find(item => item.id === p.id_articulo);
 
     if (itemExistente) {
@@ -127,18 +104,15 @@ function agregarProductoAlCarrito(p) {
         });
     }
 
-    // Resetear buscador
     document.getElementById("buscar_producto").value = "";
     document.getElementById("res_productos").classList.add("d-none");
     cantInput.value = 1;
-
     actualizarInterfaz();
 }
 
 // ==========================================
-// 3. INTERFAZ Y CÁLCULOS
+// 3. INTERFAZ Y CÁLCULOS (DGII ITBIS)
 // ==========================================
-
 function actualizarInterfaz() {
     const tbody = document.getElementById("detalle_factura_items");
     tbody.innerHTML = "";
@@ -170,42 +144,35 @@ function actualizarInterfaz() {
 }
 
 function calcularTotales() {
-    let montoImpuestos = 0;
-    const contDesglose = document.getElementById("desglose_impuestos");
-    contDesglose.innerHTML = "";
+    let itbis = subtotalGlobal * 0.18; 
+    let totalFinal = subtotalGlobal + itbis;
 
-    listaImpuestos.forEach(imp => {
-        let calc = subtotalGlobal * (parseFloat(imp.porcentaje) / 100);
-        montoImpuestos += calc;
-        
-        const div = document.createElement("div");
-        div.className = "d-flex justify-content-between text-muted small mb-1";
-        div.innerHTML = `<span>${imp.nombre_impuesto} (${imp.porcentaje}%):</span>
-                         <span>RD$ ${calc.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>`;
-        contDesglose.appendChild(div);
-    });
-
-    const totalFinal = subtotalGlobal + montoImpuestos;
-
-    // Actualización de campos en pantalla
-    const totalStr = totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById("subtotal_valor").innerText = `RD$ ${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    document.getElementById("itbis_valor").innerText = `RD$ ${itbis.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    
+    const totalStr = totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById("total_final_valor").innerText = `RD$ ${totalStr}`;
     document.getElementById("total_general_display").innerText = `RD$ ${totalStr}`;
     document.getElementById("monto_azul_display").innerText = totalStr;
 }
 
+function eliminarItem(index) {
+    if (confirm("¿Remover este producto de la factura?")) {
+        listaItemsFactura.splice(index, 1);
+        actualizarInterfaz();
+    }
+}
+
 // ==========================================
 // 4. CLIENTES Y CRÉDITO
 // ==========================================
-
 function toggleModoCredito(checked) {
     const contenedor = document.getElementById("contenedor_cliente");
     const selectPago = document.getElementById("metodo_pago");
     
     if (checked) {
         contenedor.classList.remove("d-none");
-        selectPago.value = "1"; // Forzamos efectivo o lo bloqueamos
+        selectPago.value = "1"; 
         selectPago.disabled = true;
     } else {
         contenedor.classList.add("d-none");
@@ -242,7 +209,7 @@ function buscarClienteCredito(input) {
                             </div>
                             <div class="text-end">
                                 <span class="badge bg-soft-primary text-primary border border-primary-subtle">
-                                    Disponible: RD$ ${parseFloat(c.saldo_pendiente).toLocaleString()}
+                                    Disponible: RD$ ${parseFloat(c.disponible).toLocaleString()}
                                 </span>
                             </div>
                         </div>`;
@@ -261,14 +228,13 @@ function seleccionarCliente(c) {
     document.getElementById("buscar_cliente").value = `${c.nombre} ${c.apellido_p}`;
     document.getElementById("info_credito_cliente").classList.remove("d-none");
     document.getElementById("c_nombre").innerText = c.nombre;
-    document.getElementById("c_limite").innerText = `RD$ ${parseFloat(c.monto_credito).toLocaleString()}`;
-    document.getElementById("c_disponible").innerText = `RD$ ${parseFloat(c.saldo_pendiente).toLocaleString()}`;
+    document.getElementById("c_limite").innerText = `RD$ ${parseFloat(c.limite).toLocaleString()}`;
+    document.getElementById("c_disponible").innerText = `RD$ ${parseFloat(c.disponible).toLocaleString()}`;
 }
 
 // ==========================================
 // 5. FLUJO DE PAGO Y VOUCHER
 // ==========================================
-
 function previsualizarVoucher() {
     if (listaItemsFactura.length === 0) return alert("Debe añadir productos al carrito.");
     if (document.getElementById("switch_credito").checked && !clienteSeleccionado) {
@@ -282,27 +248,40 @@ function previsualizarVoucher() {
     listaItemsFactura.forEach(i => {
         lineasItems += `
             <div class="d-flex justify-content-between small py-1">
-                <span>${i.cantidad}x ${i.nombre.substring(0, 20)}</span>
+                <span>${i.cantidad}x ${i.nombre.substring(0, 18)}</span>
                 <span>$${(i.precio * i.cantidad).toFixed(2)}</span>
             </div>`;
     });
+
+    let itbis = subtotalGlobal * 0.18;
 
     cont.innerHTML = `
         <div class="text-center mb-3">
             <h6 class="fw-bold mb-0">MECÁNICA DÍAZ & PANTALEÓN</h6>
             <small class="text-muted">RNC: 131-XXXXX-1</small><br>
-            <small class="text-muted">Tel: 809-XXX-XXXX</small>
+            <small class="text-muted">Tel: 809-545-6872</small>
         </div>
         <hr style="border-style: dashed;">
-        <div class="text-start mb-3">
-            <small class="fw-bold">CLIENTE:</small> <small>${clienteSeleccionado ? clienteSeleccionado.nombre : 'CONSUMIDOR FINAL'}</small><br>
-            <small class="fw-bold">FECHA:</small> <small>${new Date().toLocaleString()}</small>
+        <div class="text-start mb-3 small">
+            <b>CLIENTE:</b> ${clienteSeleccionado ? clienteSeleccionado.nombre : 'CONSUMIDOR FINAL'}<br>
+            <b>NCF:</b> ${document.getElementById("ncf_factura").value || 'B0200000001'}<br>
+            <b>FECHA:</b> ${new Date().toLocaleString()}
         </div>
-        <div class="mb-3">
+        <div class="mb-2 border-bottom pb-2">
+            <div class="d-flex justify-content-between fw-bold small">
+                <span>DESCRIPCIÓN</span><span>VALOR</span>
+            </div>
             ${lineasItems}
         </div>
-        <hr style="border-style: dashed;">
-        <div class="d-flex justify-content-between fw-bold h5">
+        <div class="d-flex justify-content-between small text-muted">
+            <span>Sub-Total:</span>
+            <span>$${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+        </div>
+        <div class="d-flex justify-content-between small text-muted border-bottom pb-2 mb-2">
+            <span>ITBIS (18%):</span>
+            <span>$${itbis.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold h5 mb-0">
             <span>TOTAL:</span>
             <span>${document.getElementById("total_final_valor").innerText}</span>
         </div>
@@ -318,7 +297,7 @@ function finalizarTodo() {
 
     if (esCredito) {
         guardarFacturaFinal(null, true);
-    } else if (metodo === "2") { // Azul
+    } else if (metodo === "2") { 
         bootstrap.Modal.getInstance(document.getElementById('modalVoucher')).hide();
         new bootstrap.Modal(document.getElementById('modalAzul')).show();
     } else {
@@ -358,10 +337,10 @@ function guardarFacturaFinal(refAzul, esCredito) {
 
     const data = {
         id_cliente: clienteSeleccionado ? clienteSeleccionado.id_cliente : null,
-        ncf: document.getElementById("ncf_factura").value,
+        ncf: document.getElementById("ncf_factura").value || 'B0200000001',
         metodo_pago: document.getElementById("metodo_pago").value,
         items: listaItemsFactura,
-        impuestos_ids: listaImpuestos.map(i => i.id_impuesto),
+        impuestos_ids: [], 
         total_final: totalNum,
         referencia_azul: refAzul,
         es_credito: esCredito,
@@ -383,13 +362,3 @@ function guardarFacturaFinal(refAzul, esCredito) {
         }
     });
 }
-
-function eliminarItem(index) {
-    if (confirm("¿Remover este producto de la factura?")) {
-        listaItemsFactura.splice(index, 1);
-        actualizarInterfaz();
-    }
-}
-
-// Coloca esto dentro de document.addEventListener("DOMContentLoaded", () => { ... });
-

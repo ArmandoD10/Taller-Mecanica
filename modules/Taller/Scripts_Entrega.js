@@ -3,6 +3,9 @@ let totalFacturaFinalNum = 0;
 let subtotalFacturaNum = 0;
 let itbisFacturaNum = 0;
 let detallesFacturaActual = [];
+let repuestosExtra = [];
+let ordenActualID = 0;
+let clienteActualID = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
     listar();
@@ -12,6 +15,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inputNCF) {
         inputNCF.addEventListener("input", function() {
             this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        });
+    }
+
+    const searchInput = document.getElementById("buscar_prod_entrega");
+    if(searchInput) {
+        searchInput.addEventListener("search", () => {
+            document.getElementById("res_prod_entrega").classList.add("d-none");
         });
     }
 
@@ -53,6 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// ==========================================
+// 1. LISTADO Y BUSCADOR PRINCIPAL
+// ==========================================
 function listar() {
     fetch("../../modules/Taller/Archivo_Entrega.php?action=listar")
     .then(res => res.json())
@@ -98,6 +111,7 @@ function listar() {
                 }
 
                 const tr = document.createElement("tr");
+                tr.className = "fila-entrega";
                 tr.innerHTML = `
                     <td class="fw-bold text-primary">ORD-${o.id_orden}</td>
                     <td>${o.cliente}</td>
@@ -116,9 +130,25 @@ function listar() {
         document.getElementById('count_listos').innerText = countListos;
         document.getElementById('count_calidad').innerText = countCalidad;
         document.getElementById('count_entregados').innerText = countEntregados;
+        
+        filtrarEntregas();
     });
 }
 
+function filtrarEntregas() {
+    const input = document.getElementById("buscar_entrega");
+    if(!input) return;
+    const textoBusqueda = input.value.toUpperCase();
+    const filas = document.getElementsByClassName("fila-entrega");
+    for (let i = 0; i < filas.length; i++) {
+        const textoFila = filas[i].innerText.toUpperCase();
+        filas[i].style.display = textoFila.includes(textoBusqueda) ? "" : "none";
+    }
+}
+
+// ==========================================
+// 2. FACTURACIÓN Y PRODUCTOS EXTRAS (CON IMÁGENES)
+// ==========================================
 function cargarImpuestosTaller() {
     fetch("../../modules/Taller/Archivo_Entrega.php?action=listar_impuestos")
     .then(res => res.json())
@@ -126,48 +156,148 @@ function cargarImpuestosTaller() {
 }
 
 function abrirModalFacturacion(id_orden, cliente, vehiculo, id_cliente) {
+    ordenActualID = id_orden;
+    clienteActualID = id_cliente;
+    
     document.getElementById('fac_id_orden').value = id_orden;
     document.getElementById('fac_id_cliente').value = id_cliente;
-    
     document.getElementById('fac_lbl_orden').innerText = 'ORD-' + id_orden;
     document.getElementById('fac_lbl_cliente').innerText = cliente;
     document.getElementById('fac_lbl_vehiculo').innerText = vehiculo;
-    
     document.getElementById('fac_ncf').value = '';
     document.getElementById('fac_metodo_pago').value = '1';
     
     document.getElementById('fac_switch_credito').checked = false;
     toggleCreditoTaller(false);
 
+    repuestosExtra = [];
+    document.getElementById("buscar_prod_entrega").value = "";
+    document.getElementById("cant_prod_entrega").value = 1;
+
     fetch(`../../modules/Taller/Archivo_Entrega.php?action=obtener_detalle_facturacion&id_orden=${id_orden}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {
             detallesFacturaActual = data.data;
-            renderizarTablaFactura(detallesFacturaActual);
+            renderizarTablaFactura();
         }
     });
     
     abrirModalUI('modalFacturacion');
 }
 
-function renderizarTablaFactura(detalles) {
+function buscarProductoEntrega(input) {
+    const term = input.value.trim();
+    const resDiv = document.getElementById("res_prod_entrega");
+    
+    if (term.length < 2) { resDiv.classList.add("d-none"); return; }
+
+    fetch(`../../modules/Taller/Archivo_Entrega.php?action=buscar_productos&term=${encodeURIComponent(term)}`)
+    .then(res => res.json())
+    .then(data => {
+        resDiv.innerHTML = "";
+        if (data.success && data.data.length > 0) {
+            resDiv.classList.remove("d-none");
+            data.data.forEach(p => {
+                const stockNum = parseInt(p.stock);
+                const stockClass = stockNum <= 5 ? 'text-danger fw-bold' : 'text-success';
+                // Lógica de imagen por defecto si no tiene
+                const img = p.imagen ? p.imagen : '/Taller/Taller-Mecanica/img/default.png';
+
+                const btn = document.createElement("button");
+                btn.className = "list-group-item list-group-item-action d-flex align-items-center gap-3 py-2";
+                
+                // Estructura HTML con la imagen a la izquierda
+                btn.innerHTML = `
+                    <div style="width: 40px; height: 40px;" class="flex-shrink-0">
+                        <img src="${img}" class="rounded shadow-sm border w-100 h-100" style="object-fit: cover; object-position: center;">
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold small text-dark text-truncate" style="max-width: 180px;">${p.nombre}</span>
+                            <span class="badge bg-success shadow-sm">RD$ ${parseFloat(p.precio_venta).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                        </div>
+                        <div class="text-start mt-1">
+                            <small class="text-muted" style="font-size: 10px;">Stock: <span class="${stockClass}">${stockNum}</span></small>
+                        </div>
+                    </div>
+                `;
+                
+                btn.onclick = (e) => { e.preventDefault(); agregarRepuestoExtra(p); };
+                resDiv.appendChild(btn);
+            });
+        } else {
+            resDiv.classList.add("d-none");
+        }
+    });
+}
+
+function agregarRepuestoExtra(p) {
+    const cantInput = document.getElementById("cant_prod_entrega");
+    const cantAAgregar = parseInt(cantInput.value) || 1;
+    const stockDisponible = parseInt(p.stock);
+
+    const itemExistente = repuestosExtra.find(item => item.id === p.id_articulo);
+
+    if (itemExistente) {
+        if ((itemExistente.cantidad + cantAAgregar) > stockDisponible) {
+            return alert(`No puedes agregar más. El stock máximo es ${stockDisponible}`);
+        }
+        itemExistente.cantidad += cantAAgregar;
+    } else {
+        if (cantAAgregar > stockDisponible) {
+            return alert(`Stock insuficiente. Solo quedan ${stockDisponible} unidades.`);
+        }
+        repuestosExtra.push({
+            id: p.id_articulo,
+            descripcion: p.nombre,
+            precio: parseFloat(p.precio_venta),
+            cantidad: cantAAgregar,
+            es_extra: true
+        });
+    }
+
+    document.getElementById("buscar_prod_entrega").value = "";
+    document.getElementById("res_prod_entrega").classList.add("d-none");
+    cantInput.value = 1;
+    renderizarTablaFactura();
+}
+
+function eliminarRepuestoExtra(index) {
+    repuestosExtra.splice(index, 1);
+    renderizarTablaFactura();
+}
+
+function renderizarTablaFactura() {
     const tbody = document.getElementById("fac_tabla_detalles");
     tbody.innerHTML = "";
     subtotalFacturaNum = 0;
 
-    if(detalles.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No hay servicios registrados en esta orden.</td></tr>`;
+    const itemsCombinados = [...detallesFacturaActual, ...repuestosExtra];
+
+    if(itemsCombinados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No hay servicios ni repuestos registrados.</td></tr>`;
     } else {
-        detalles.forEach(d => {
-            let subt = parseFloat(d.subtotal);
+        itemsCombinados.forEach((d, index) => {
+            let subt = parseFloat(d.precio) * parseInt(d.cantidad);
             subtotalFacturaNum += subt;
+            
+            let btnEliminar = "";
+            let badgeExtra = "";
+            
+            if (d.es_extra) {
+                badgeExtra = `<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">EXTRA</span>`;
+                let indexExtra = index - detallesFacturaActual.length;
+                btnEliminar = `<button class="btn btn-sm btn-link text-danger p-0 m-0" onclick="eliminarRepuestoExtra(${indexExtra})"><i class="fas fa-times-circle"></i></button>`;
+            }
+
             tbody.innerHTML += `
                 <tr>
-                    <td class="small fw-bold text-dark">${d.descripcion}</td>
+                    <td class="small fw-bold text-dark">${d.descripcion} ${badgeExtra}</td>
                     <td class="text-center small">${d.cantidad}</td>
                     <td class="text-end small">RD$ ${parseFloat(d.precio).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                     <td class="text-end small fw-bold">RD$ ${subt.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td class="text-center">${btnEliminar}</td>
                 </tr>`;
         });
     }
@@ -178,18 +308,17 @@ function renderizarTablaFactura(detalles) {
     document.getElementById('fac_subtotal').innerText = `RD$ ${subtotalFacturaNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     document.getElementById('fac_itbis').innerText = `RD$ ${itbisFacturaNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     document.getElementById('fac_total_final').innerText = `RD$ ${totalFacturaFinalNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    
-    const displayAzul = document.getElementById('azul_monto_display');
-    if(displayAzul) displayAzul.innerText = `RD$ ${totalFacturaFinalNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 }
 
+// ==========================================
+// 3. COBRO Y CRÉDITO
+// ==========================================
 function toggleCreditoTaller(checked) {
     const infoCredito = document.getElementById("fac_info_credito");
     const selPago = document.getElementById("fac_metodo_pago");
     const id_cliente = document.getElementById('fac_id_cliente').value;
 
     if (checked) {
-        // Validar que tengamos un ID de cliente válido antes de buscar
         if (!id_cliente || id_cliente == "0") {
             alert("No se ha podido identificar al cliente de esta orden.");
             document.getElementById("fac_switch_credito").checked = false;
@@ -207,12 +336,10 @@ function toggleCreditoTaller(checked) {
         .then(res => res.json())
         .then(data => {
             if(data.success) {
-                // Mostramos el Límite y el Disponible formateados
                 document.getElementById('fac_credito_limite').innerText = `RD$ ${parseFloat(data.limite).toLocaleString(undefined, {minimumFractionDigits:2})}`;
                 document.getElementById('fac_credito_disponible').innerText = `RD$ ${parseFloat(data.disponible).toLocaleString(undefined, {minimumFractionDigits:2})}`;
                 document.getElementById('fac_id_credito').value = data.id_credito;
                 
-                // Validación visual: si lo que debe es más de lo que tiene, resaltar en rojo
                 if (totalFacturaFinalNum > parseFloat(data.disponible)) {
                     document.getElementById('fac_credito_disponible').classList.replace('text-success', 'text-danger');
                 } else {
@@ -224,13 +351,13 @@ function toggleCreditoTaller(checked) {
                 toggleCreditoTaller(false);
             }
         })
-        .catch(err => console.error("Error consultando crédito:", err));
     } else {
         infoCredito.classList.add("d-none");
         selPago.disabled = false;
         document.getElementById('fac_id_credito').value = '';
     }
 }
+
 function iniciarCobroOrden() {
     const esCredito = document.getElementById("fac_switch_credito").checked;
     const metodo = document.getElementById("fac_metodo_pago").value;
@@ -239,6 +366,8 @@ function iniciarCobroOrden() {
         ejecutarFacturacionFinal(null, true);
     } else if (metodo === "2") { 
         cerrarModalFacturacion();
+        const displayAzul = document.getElementById('azul_monto_display');
+        if(displayAzul) displayAzul.innerText = `RD$ ${totalFacturaFinalNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         abrirModalUI('modalAzulTaller');
     } else {
         ejecutarFacturacionFinal(null, false);
@@ -286,7 +415,8 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
         impuestos_ids: [], 
         referencia_azul: refAzul,
         es_credito: esCredito,
-        id_credito: document.getElementById("fac_id_credito").value
+        id_credito: document.getElementById("fac_id_credito").value,
+        repuestos_extra: repuestosExtra
     };
 
     fetch("../../modules/Taller/Archivo_Entrega.php?action=guardar_factura_orden", {
@@ -306,17 +436,23 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
     });
 }
 
+// ==========================================
+// 4. IMPRESIÓN Y VOUCHERS
+// ==========================================
 function imprimirFacturaVoucher(id_factura, dataCobro) {
     const cliente = document.getElementById('fac_lbl_cliente').innerText;
     const vehiculo = document.getElementById('fac_lbl_vehiculo').innerText;
     const fecha = new Date().toLocaleString();
     
     let htmlItems = "";
-    detallesFacturaActual.forEach(d => {
+    const itemsCombinados = [...detallesFacturaActual, ...repuestosExtra];
+    
+    itemsCombinados.forEach(d => {
+        let subt = parseFloat(d.precio) * parseInt(d.cantidad);
         htmlItems += `
         <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
             <span>${d.cantidad}x ${d.descripcion.substring(0,20)}</span>
-            <span>RD$${parseFloat(d.subtotal).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+            <span>RD$${subt.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
         </div>`;
     });
 
@@ -383,6 +519,7 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
     </html>`;
 
     const ventana = window.open('', '_blank', 'width=350,height=600');
+    if (!ventana) { alert("Tu navegador bloqueó el pop-up del recibo."); return; }
     ventana.document.write(htmlFactura);
     ventana.document.close();
     ventana.focus();
@@ -428,6 +565,7 @@ function mostrarComprobanteInmediato(id_orden) {
 function imprimirComprobante() {
     const contenido = document.getElementById('areaImpresionEntrega').innerHTML;
     const ventana = window.open('', '_blank', 'width=800,height=600');
+    if (!ventana) { alert("Tu navegador bloqueó el pop-up del acta."); return; }
     ventana.document.write(`
         <html><head><title>Acta de Entrega</title>
         <style>body{font-family:Arial;padding:30px;} .text-center{text-align:center;} .border-bottom{border-bottom:2px solid #ddd;padding-bottom:10px;margin-bottom:15px;} .border-top{border-top:1px solid #000;padding-top:10px;margin-top:50px;} .row{display:flex;width:100%;} .col-6{width:50%;float:left;} .card{background:#f8f9fa;padding:20px;border-radius:5px;} p{margin:5px 0;}</style>
@@ -437,6 +575,9 @@ function imprimirComprobante() {
     setTimeout(() => { ventana.print(); ventana.close(); }, 500);
 }
 
+// ==========================================
+// 5. UTILIDADES MODALES
+// ==========================================
 function cerrarModalFacturacion() { cerrarModalUI('modalFacturacion'); }
 function cerrarModalAzul() { cerrarModalUI('modalAzulTaller'); }
 function cerrarModalEntrega() { cerrarModalUI('modalEntrega'); }

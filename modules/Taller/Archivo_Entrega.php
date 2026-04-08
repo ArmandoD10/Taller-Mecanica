@@ -36,6 +36,9 @@ switch ($action) {
     case 'obtener_detalle_facturacion':
         obtener_detalle_facturacion($conexion);
         break;
+    case 'buscar_productos':
+        buscar_productos($conexion, $id_sucursal);
+        break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
@@ -81,10 +84,28 @@ function listar_entregas($conexion) {
     echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
 }
 
+function buscar_productos($conexion, $id_sucursal) {
+    $term = "%" . ($_GET['term'] ?? '') . "%";
+    $sql = "SELECT ra.id_articulo, ra.nombre, ra.precio_venta, ra.imagen, 
+                   SUM(i.cantidad) as stock 
+            FROM Repuesto_Articulo ra
+            INNER JOIN Inventario i ON ra.id_articulo = i.id_articulo
+            INNER JOIN Gondola g ON i.id_gondola = g.id_gondola
+            INNER JOIN Almacen a ON g.id_almacen = a.id_almacen
+            WHERE (ra.nombre LIKE ? OR ra.num_serie LIKE ?) 
+              AND a.id_sucursal = ? 
+              AND ra.estado = 'activo'
+            GROUP BY ra.id_articulo, ra.nombre, ra.precio_venta, ra.imagen
+            HAVING stock > 0"; 
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("ssi", $term, $term, $id_sucursal);
+    $stmt->execute();
+    echo json_encode(['success' => true, 'data' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]);
+}
+
 function verificar_credito($conexion) {
     $id_cliente = (int)$_GET['id_cliente'];
     
-    // Leemos la nueva columna 'saldo_disponible'
     $sql = "SELECT id_credito, monto_credito, saldo_disponible 
             FROM Credito 
             WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
@@ -127,7 +148,6 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
 
     try {
         if ($data['es_credito']) {
-            // Validamos contra la nueva columna saldo_disponible
             $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
             $stmtC->bind_param("i", $data['id_credito']);
@@ -157,7 +177,6 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
             $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
             $stmtFC->execute();
 
-            // LA MAGIA CONTABLE: Restamos del disponible y sumamos a la deuda (pendiente)
             $sqlUpdC = "UPDATE Credito 
                         SET saldo_disponible = saldo_disponible - ?, 
                             saldo_pendiente = saldo_pendiente + ? 
@@ -167,6 +186,37 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
             $stmtUpdC->execute();
         }
 
+        // --- INSERCIÓN DE REPUESTOS EXTRAS AL INVENTARIO Y A LA ORDEN ---
+        if (!empty($data['repuestos_extra'])) {
+            foreach ($data['repuestos_extra'] as $item) {
+                // Registrar en la orden
+                $sqlR = "INSERT INTO Orden_Repuesto (id_orden, id_articulo, cantidad, precio_base, sub_total, estado) VALUES (?, ?, ?, ?, ?, 'activo')";
+                $sub = $item['precio'] * $item['cantidad'];
+                $stmtR = $conexion->prepare($sqlR);
+                $stmtR->bind_param("iiidd", $id_orden, $item['id'], $item['cantidad'], $item['precio'], $sub);
+                $stmtR->execute();
+
+                // Rebajar inventario
+                $sqlU = "UPDATE Inventario i 
+                         INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
+                         INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
+                         SET i.cantidad = i.cantidad - ? 
+                         WHERE i.id_articulo = ? AND a.id_sucursal = ?";
+                $stmtU = $conexion->prepare($sqlU);
+                $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
+                $stmtU->execute();
+
+                // Movimiento de inventario
+                $motivo = "Agregado en Entrega ORD-" . $id_orden;
+                $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
+                           VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
+                $stmtM = $conexion->prepare($sqlMov);
+                $stmtM->bind_param("iisi", $item['id'], $item['cantidad'], $motivo, $id_usuario);
+                $stmtM->execute();
+            }
+        }
+
+        // Impuestos
         foreach ($data['impuestos_ids'] as $id_imp) {
             $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
             $stmtI = $conexion->prepare($sqlI);
@@ -191,7 +241,6 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
 function obtener_detalle_facturacion($conexion) {
     $id_orden = (int)$_GET['id_orden'];
     
-    // 1. Extraer los nombres de los servicios que REALMENTE se trabajaron
     $sqlServ = "SELECT ts.nombre AS descripcion, 1 AS cantidad
                 FROM asignacion_orden ao
                 JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
@@ -201,7 +250,6 @@ function obtener_detalle_facturacion($conexion) {
                 
     $nombres_servicios = $conexion->query($sqlServ)->fetch_all(MYSQLI_ASSOC);
 
-    // 2. Extraer las Tarifas (Precios) reales que se asignaron en el módulo de Tiempos
     $sqlPrecios = "SELECT p.monto AS precio
                    FROM taller t
                    JOIN Precio p ON t.id_precio = p.id_precio
@@ -211,7 +259,6 @@ function obtener_detalle_facturacion($conexion) {
     $resPrecios = $conexion->query($sqlPrecios);
     $tarifas_asignadas = $resPrecios ? $resPrecios->fetch_all(MYSQLI_ASSOC) : [];
 
-    // 3. Emparejar el Servicio con su Tarifa Asignada dinámicamente
     $servicios_facturar = [];
     foreach ($nombres_servicios as $index => $serv) {
         $precio_real = isset($tarifas_asignadas[$index]) ? (float)$tarifas_asignadas[$index]['precio'] : 0;
@@ -223,7 +270,6 @@ function obtener_detalle_facturacion($conexion) {
         ];
     }
 
-    // 4. Extraer Repuestos
     $repuestos_data = [];
     try {
         $sqlRep = "SELECT ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal

@@ -38,7 +38,6 @@ switch ($action) {
 function buscar_productos($conexion, $id_sucursal) {
     $term = "%" . ($_GET['term'] ?? '') . "%";
     
-    // Corregido: SUM y GROUP BY para evitar duplicados por góndola y HAVING para ocultar negativos
     $sql = "SELECT ra.id_articulo, ra.nombre, ra.precio_venta, ra.imagen, 
                    SUM(i.cantidad) as stock 
             FROM Repuesto_Articulo ra
@@ -59,7 +58,7 @@ function buscar_productos($conexion, $id_sucursal) {
 
 function buscar_cliente_credito($conexion) {
     $term = "%" . ($_GET['term'] ?? '') . "%";
-    $sql = "SELECT c.id_cliente, p.nombre, p.apellido_p, cr.id_credito, cr.monto_credito, cr.saldo_pendiente
+    $sql = "SELECT c.id_cliente, p.nombre, p.apellido_p, cr.id_credito, cr.monto_credito AS limite, cr.saldo_disponible AS disponible
             FROM Cliente c
             INNER JOIN Persona p ON c.id_persona = p.id_persona
             INNER JOIN Credito cr ON c.id_cliente = cr.id_cliente
@@ -94,20 +93,18 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
     $conexion->begin_transaction();
 
     try {
-        // 1. Lógica de Crédito: Validar que el monto no exceda el saldo disponible
         if ($data['es_credito']) {
-            $sqlC = "SELECT saldo_pendiente FROM Credito WHERE id_credito = ? FOR UPDATE";
+            $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
             $stmtC->bind_param("i", $data['id_credito']);
             $stmtC->execute();
             $cred = $stmtC->get_result()->fetch_assoc();
 
-            if (!$cred || $cred['saldo_pendiente'] < $data['total_final']) {
+            if (!$cred || $cred['saldo_disponible'] < $data['total_final']) {
                 throw new Exception("Saldo de crédito insuficiente para esta operación.");
             }
         }
 
-        // 2. Insertar Factura Central
         $sqlF = "INSERT INTO Factura_Central (id_cliente, id_sucursal, id_metodo, id_moneda, NCF, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
                  VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'activo')";
         $id_cliente = $data['id_cliente'] ?? null;
@@ -118,29 +115,28 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
-        // 3. Si es crédito, afectar tablas de crédito y restar del disponible
         if ($data['es_credito']) {
             $sqlFC = "INSERT INTO Factura_Credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
             $stmtFC = $conexion->prepare($sqlFC);
             $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
             $stmtFC->execute();
 
-            $sqlUpdC = "UPDATE Credito SET saldo_pendiente = saldo_pendiente - ? WHERE id_credito = ?";
+            $sqlUpdC = "UPDATE Credito 
+                        SET saldo_disponible = saldo_disponible - ?, 
+                            saldo_pendiente = saldo_pendiente + ? 
+                        WHERE id_credito = ?";
             $stmtUpdC = $conexion->prepare($sqlUpdC);
-            $stmtUpdC->bind_param("di", $data['total_final'], $data['id_credito']);
+            $stmtUpdC->bind_param("ddi", $data['total_final'], $data['total_final'], $data['id_credito']);
             $stmtUpdC->execute();
         }
 
-        // 4. Detalle de Factura, Rebaja de Inventario y Movimiento
         foreach ($data['items'] as $item) {
-            // Insertar Detalle
             $sqlD = "INSERT INTO Detalle_Factura (id_factura, id_articulo, cantidad, precio, subtotal) VALUES (?, ?, ?, ?, ?)";
             $sub = $item['precio'] * $item['cantidad'];
             $stmtD = $conexion->prepare($sqlD);
             $stmtD->bind_param("iiidd", $id_factura, $item['id'], $item['cantidad'], $item['precio'], $sub);
             $stmtD->execute();
 
-            // Rebajar Inventario (específico de la sucursal)
             $sqlU = "UPDATE Inventario i 
                      INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
                      INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
@@ -150,8 +146,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
             $stmtU->execute();
 
-            // Registrar Movimiento de Inventario (Tipo 2 = Salida)
-            $motivo = "Venta Factura #" . $id_factura;
+            $motivo = "Venta POS #" . $id_factura;
             $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
                        VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
             $stmtM = $conexion->prepare($sqlMov);
@@ -159,7 +154,6 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtM->execute();
         }
 
-        // 5. Registro de Impuestos
         foreach ($data['impuestos_ids'] as $id_imp) {
             $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
             $stmtI = $conexion->prepare($sqlI);

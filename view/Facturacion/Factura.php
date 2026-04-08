@@ -58,6 +58,7 @@ require("../../header.php");
                         <div id="contenedor_cliente" class="d-none">
                             <input type="text" id="buscar_cliente" class="form-control mb-2" placeholder="Buscar cliente con línea activa..." oninput="buscarClienteCredito(this)">
                             <div id="res_clientes" class="list-group shadow-sm d-none mb-3"></div>
+                            
                             <div id="info_credito_cliente" class="p-3 bg-light rounded border d-none">
                                 <div class="row text-center small">
                                     <div class="col-4 border-end">CLIENTE: <b id="c_nombre">---</b></div>
@@ -75,25 +76,32 @@ require("../../header.php");
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="small fw-bold">NCF Comprobante</label>
-                            <input type="text" id="ncf_factura" class="form-control fw-bold" placeholder="B0100000001">
+                            <input type="text" id="ncf_factura" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)">
                         </div>
-                        <div class="d-flex justify-content-between mb-2 small text-muted">
-                            <span>Sub-Total:</span>
-                            <span id="subtotal_valor">RD$ 0.00</span>
+                        
+                        <div class="bg-light p-3 rounded mb-3 border">
+                            <div class="d-flex justify-content-between mb-1 small text-muted">
+                                <span>Sub-Total Gravado:</span>
+                                <span id="subtotal_valor" class="text-dark fw-bold">RD$ 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 small text-muted border-bottom pb-2">
+                                <span>ITBIS (18%):</span>
+                                <span id="itbis_valor" class="text-danger fw-bold">RD$ 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="fw-bold text-uppercase">Total a Cobrar:</span>
+                                <h4 class="fw-bold text-success mb-0" id="total_final_valor">RD$ 0.00</h4>
+                            </div>
                         </div>
-                        <div id="desglose_impuestos" class="mb-3 border-bottom pb-2"></div>
-                        <div class="p-3 bg-dark text-white rounded mb-4 text-center">
-                            <span class="d-block small text-uppercase">Total Neto</span>
-                            <h2 class="fw-bold text-info mb-0" id="total_final_valor">RD$ 0.00</h2>
-                        </div>
+
                         <label class="small fw-bold mb-2">Método de Pago</label>
                         <select id="metodo_pago" class="form-select mb-4 fw-bold">
                             <option value="1">💵 Efectivo</option>
                             <option value="2">💳 Tarjeta (AZUL / POPULAR)</option>
                             <option value="3">🏦 Transferencia</option>
                         </select>
-                        <button class="btn btn-primary w-100 py-3 fw-bold" onclick="previsualizarVoucher()">
-                            <i class="fas fa-file-invoice-dollar me-2"></i> PROCESAR FACTURA
+                        <button class="btn btn-primary w-100 py-3 fw-bold shadow-sm" onclick="previsualizarVoucher()">
+                            <i class="fas fa-print me-2"></i> FACTURAR E IMPRIMIR
                         </button>
                     </div>
                 </div>
@@ -124,7 +132,7 @@ require("../../header.php");
                 <div class="text-center mb-4">
                     <h2 class="fw-bold">RD$ <span id="monto_azul_display">0.00</span></h2>
                 </div>
-                <input type="text" class="form-control form-control-lg text-center mb-4" id="tarjeta_numero" placeholder="•••• •••• •••• ••••">
+                <input type="text" class="form-control form-control-lg text-center mb-4 border-primary" id="tarjeta_numero" placeholder="•••• •••• •••• ••••" maxlength="16">
                 <button class="btn btn-primary w-100 py-3 fw-bold" onclick="simularAzul()">AUTORIZAR PAGO</button>
             </div>
             <div id="azul_cargando" class="text-center py-5 d-none">
@@ -137,3 +145,5 @@ require("../../header.php");
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Facturacion/Scripts_Factura.js"></script>
+</body>
+</html>

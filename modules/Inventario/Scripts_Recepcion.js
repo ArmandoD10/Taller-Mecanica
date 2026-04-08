@@ -19,6 +19,61 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
+    // 3. BUSCADOR INTELIGENTE DE EMPLEADOS
+    const inputEmp = document.getElementById('buscar_empleado');
+    const listaEmp = document.getElementById('lista_empleados');
+    const hiddenEmp = document.getElementById('id_empleado_seleccionado');
+
+    if (inputEmp) {
+        inputEmp.addEventListener('input', function() {
+            const q = this.value.trim();
+            
+            if (q.length < 2) {
+                listaEmp.classList.add('d-none');
+                hiddenEmp.value = ''; // Limpiar ID si borra el texto
+                return;
+            }
+
+            fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Recepcion.php?action=buscar_empleado&q=${q}`)
+            .then(res => res.json())
+            .then(data => {
+                listaEmp.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(emp => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.classList.add('list-group-item', 'list-group-item-action', 'py-2');
+                        btn.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>${emp.nombre}</span>
+                                <small class="text-muted">#${emp.id_empleado}</small>
+                            </div>`;
+                        
+                        btn.onclick = () => {
+                            inputEmp.value = emp.nombre;
+                            hiddenEmp.value = emp.id_empleado;
+                            listaEmp.classList.add('d-none');
+                            inputEmp.classList.remove('is-invalid');
+                            inputEmp.classList.add('is-valid');
+                        };
+                        listaEmp.appendChild(btn);
+                    });
+                    listaEmp.classList.remove('d-none');
+                } else {
+                    listaEmp.classList.add('d-none');
+                }
+            })
+            .catch(err => console.error("Error buscando empleados:", err));
+        });
+
+        // Cerrar lista si se hace clic fuera
+        document.addEventListener('click', (e) => {
+            if (!inputEmp.contains(e.target) && !listaEmp.contains(e.target)) {
+                listaEmp.classList.add('d-none');
+            }
+        });
+    }
 });
 
 // --- FUNCIONES DE CARGA ---
@@ -84,13 +139,10 @@ function verDetalleModal(id) {
             const tbody = document.getElementById('tbody_modal_detalle');
             tbody.innerHTML = '';
             
-            // --- NUEVA LÓGICA PARA EL TOTAL ---
             let sumaTotal = 0; 
 
             d.articulos.forEach(art => {
                 const img = art.imagen || '/Taller/Taller-Mecanica/img/default-part.webp';
-                
-                // Sumamos el subtotal que viene del backend
                 const subtotal = parseFloat(art.subtotal || 0);
                 sumaTotal += subtotal;
 
@@ -115,11 +167,9 @@ function verDetalleModal(id) {
                     </tr>`;
             });
 
-            // Mostramos la suma total calculada
             document.getElementById('md_total').innerText = sumaTotal.toLocaleString('en-US', {
                 style: 'currency', currency: 'USD'
             });
-            // ----------------------------------
 
             document.getElementById('btn_iniciar_desde_modal').onclick = () => {
                 const modalInstance = bootstrap.Modal.getInstance(document.getElementById('modalDetalleCompra'));
@@ -133,7 +183,7 @@ function verDetalleModal(id) {
     });
 }
 
-// --- PROCESO DE RECEPCIÓN (FORMULARIO) ---
+// --- PROCESO DE RECEPCIÓN ---
 
 function seleccionarCompra(id) {
     fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Recepcion.php?action=obtener_detalle&id=${id}`)
@@ -142,12 +192,16 @@ function seleccionarCompra(id) {
         if (res.success) {
             compraActiva = res.data;
             
-            // Mostrar UI de recepción
             const area = document.getElementById('area_recepcion');
             area.classList.remove('d-none');
             document.getElementById('lbl_detalle_compra').innerText = `Procesando Recepción de Orden #${id}`;
             document.getElementById('lbl_proveedor_recep').innerText = `Proveedor: ${res.data.proveedor}`;
+            
+            // Limpiar campos de empleado y conduce
             document.getElementById('num_conduze_recep').value = '';
+            document.getElementById('buscar_empleado').value = '';
+            document.getElementById('id_empleado_seleccionado').value = '';
+            document.getElementById('buscar_empleado').classList.remove('is-valid', 'is-invalid');
 
             const tbody = document.getElementById('tbody_detalle_recepcion');
             tbody.innerHTML = '';
@@ -155,7 +209,6 @@ function seleccionarCompra(id) {
             res.data.articulos.forEach(art => {
                 const faltante = art.cantidad_pedida - art.cantidad_recibida;
                 
-                // Solo cargamos los que tienen faltantes
                 if (faltante > 0) {
                     tbody.innerHTML += `
                         <tr data-id="${art.id_articulo}">
@@ -179,7 +232,6 @@ function seleccionarCompra(id) {
                 }
             });
 
-            // Auto-scroll al formulario
             area.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     });
@@ -188,8 +240,17 @@ function seleccionarCompra(id) {
 function confirmarRecepcion() {
     const inputConduze = document.getElementById('num_conduze_recep');
     const numConduze = inputConduze.value.trim();
+    const idEmpleado = document.getElementById('id_empleado_seleccionado').value;
+    const inputEmpBusqueda = document.getElementById('buscar_empleado');
     
-    // Validación básica en cliente
+    // 1. Validaciones
+    if (!idEmpleado) {
+        alert("⚠️ Por favor, seleccione un empleado responsable de la lista de sugerencias.");
+        inputEmpBusqueda.focus();
+        inputEmpBusqueda.classList.add('is-invalid');
+        return;
+    }
+
     if (!numConduze) {
         alert("⚠️ Por favor, ingrese el número de conduce.");
         inputConduze.focus();
@@ -215,12 +276,15 @@ function confirmarRecepcion() {
 
     if (!confirm("¿Desea confirmar la entrada de mercancía?")) return;
 
+    // 2. Preparar Payload
     const payload = {
         id_compra: compraActiva.id_compra,
         num_conduze: numConduze,
+        id_empleado: idEmpleado, // Nuevo campo enviado al backend
         items: items
     };
 
+    // 3. Envío al servidor
     fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Recepcion.php?action=guardar_recepcion', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -230,9 +294,8 @@ function confirmarRecepcion() {
     .then(res => {
         if (res.success) {
             alert("✅ " + res.message);
-            location.reload(); // Recarga para actualizar tablas y badges
+            location.reload(); 
         } else {
-            // Aquí se mostrará el mensaje amigable de "Conduce ya registrado"
             alert("❌ " + res.message);
         }
     })

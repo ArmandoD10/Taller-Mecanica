@@ -36,43 +36,61 @@ require("../../header.php");
         </div>
 
         <div id="area_recepcion" class="card card-recepcion shadow-lg border-0 d-none mb-5">
-            <div class="card-header bg-white py-3">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <h5 class="mb-0 fw-bold text-success" id="lbl_detalle_compra">Procesando Recepción</h5>
-                        <small class="text-muted fw-bold" id="lbl_proveedor_recep"></small>
+    <div class="card-header bg-white py-3">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <h5 class="mb-0 fw-bold text-success" id="lbl_detalle_compra">Procesando Recepción</h5>
+                <small class="text-muted fw-bold" id="lbl_proveedor_recep"></small>
+            </div>
+
+            <div class="col-md-8 mt-2 mt-md-0">
+                <div class="d-flex gap-2 justify-content-end align-items-end">
+                    
+                    <div class="text-start position-relative" style="width: 250px;">
+                        <label class="small fw-bold text-primary">Empleado Responsable *</label>
+                        <input type="text" id="buscar_empleado" class="form-control form-control-sm" placeholder="Nombre o Código...">
+                        <input type="hidden" id="id_empleado_seleccionado">
+                        <div id="lista_empleados" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
                     </div>
-                    <div class="col-md-6 text-md-end mt-2 mt-md-0">
-                        <div class="d-inline-block text-start me-3">
-                            <label class="small fw-bold text-danger">No. Conduce del Proveedor *</label>
-                            <input type="text" id="num_conduze_recep" class="form-control form-control-sm border-danger" placeholder="Obligatorio">
-                        </div>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="cerrarRecepcion()">Cerrar</button>
+
+                    <div class="text-start" style="width: 180px;">
+                        <label class="small fw-bold text-danger">No. Conduce *</label>
+                        <input type="text" id="num_conduze_recep" class="form-control form-control-sm border-danger" placeholder="Obligatorio">
                     </div>
+                    
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="cerrarRecepcion()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
                 </div>
             </div>
-            <div class="card-body p-0">
-                <table class="table table-striped align-middle mb-0">
-                    <thead class="table-light text-secondary small">
-                        <tr>
-                            <th class="ps-4">Artículo / Repuesto</th>
-                            <th class="text-center">Pedido</th>
-                            <th class="text-center">En Stock</th>
-                            <th class="text-center">Faltante</th>
-                            <th width="150" class="text-center">Recibir Ahora</th>
-                            <th width="250">Almacén Destino</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbody_detalle_recepcion">
-                        </tbody>
-                </table>
-            </div>
-            <div class="card-footer bg-white p-4 text-end">
-                <button class="btn btn-success btn-lg px-5 shadow fw-bold" onclick="confirmarRecepcion()">
-                    <i class="fas fa-save me-2"></i> Confirmar Entrada de Mercancía
-                </button>
-            </div>
         </div>
+    </div>
+
+    <div class="card-body p-0">
+        <table class="table table-striped align-middle mb-0">
+            <thead class="table-light text-secondary small">
+                <tr>
+                    <th class="ps-4">Artículo / Repuesto</th>
+                    <th class="text-center">Pedido</th>
+                    <th class="text-center">En Stock</th>
+                    <th class="text-center">Faltante</th>
+                    <th width="150" class="text-center">Recibir Ahora</th>
+                    <th width="250">Almacén Destino</th>
+                </tr>
+            </thead>
+            <tbody id="tbody_detalle_recepcion">
+                </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white p-4 text-end">
+        <button class="btn btn-success btn-lg px-5 shadow fw-bold" onclick="confirmarRecepcion()">
+            <i class="fas fa-save me-2"></i> Confirmar Entrada de Mercancía
+        </button>
+    </div>
+</div>
     </div>
 
     <div class="modal fade" id="modalDetalleCompra" tabindex="-1" aria-hidden="true">

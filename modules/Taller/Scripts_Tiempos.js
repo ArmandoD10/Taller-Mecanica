@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("mecanicos", JSON.stringify(mecanicosSeleccionados));
             formData.append("maquinarias", JSON.stringify(maquinariaSeleccionada));
             
-            fetch("../../modules/Taller/Archivo_Tiempos.php?action=guardar_asignacion", { 
+            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=guardar_asignacion", { 
                 method: "POST", 
                 body: formData 
             })
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
         formTiempos.addEventListener("submit", function(e) {
             e.preventDefault();
             const formData = new FormData(this);
-            fetch("../../modules/Taller/Archivo_Tiempos.php?action=finalizar_tiempo", { method: "POST", body: formData })
+            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=finalizar_tiempo", { method: "POST", body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.success) { 
@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ==========================================
 
 function listar() {
-    fetch("../../modules/Taller/Archivo_Tiempos.php?action=listar")
+    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=listar")
     .then(res => res.json()).then(data => {
         const tbody = document.getElementById("cuerpoTablaAsignaciones");
         if(!tbody) return;
@@ -226,7 +226,7 @@ function listar() {
 }
 
 function cargarDependencias() {
-    fetch("../../modules/Taller/Archivo_Tiempos.php?action=cargar_dependencias")
+    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=cargar_dependencias")
     .then(res => res.json()).then(data => {
         if (data.success) {
             const selOrden = document.getElementById("id_orden");
@@ -269,7 +269,7 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
     selServicio.innerHTML = '<option value="" data-precio="">Cargando servicios...</option>';
     selServicio.disabled = true;
 
-    fetch(`../../modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}`)
+    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}`)
     .then(res => res.json())
     .then(data => {
         selServicio.innerHTML = '';
@@ -360,7 +360,7 @@ function iniciarTrabajo(id) {
     if (confirm("¿Desea iniciar el cronómetro para este trabajo? Se ocupará la Bahía y Maquinaria asignada.")) {
         const f = new FormData();
         f.append("id_asignacion", id);
-        fetch("../../modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
+        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
         .then(res => res.json())
         .then(data => { 
             if(data.success) {
@@ -409,7 +409,7 @@ function editarAsignacion(id) {
     document.getElementById("tituloModalAsignacion").innerHTML = "Editar Asignación Pendiente";
     document.getElementById("btnGuardarAsig").innerHTML = '<i class="fas fa-sync me-2"></i>Actualizar Cambios';
     
-    fetch(`../../modules/Taller/Archivo_Tiempos.php?action=obtener_asignacion&id=${id}`)
+    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Tiempos.php?action=obtener_asignacion&id=${id}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {

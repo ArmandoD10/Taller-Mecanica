@@ -16,18 +16,17 @@ switch ($action) {
     case 'obtener_recibo':
         obtener_recibo($conexion);
         break;
+    case 'obtener_detalle':
+        obtener_detalle_factura($conexion);
+        break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
 }
 
 function listar_pendientes($conexion) {
-    // Usamos f.fecha_emision y ordenamos por id_factura para que no falle
     $sql = "SELECT 
-                f.id_factura, 
-                f.id_orden, 
-                f.monto_total, 
-                DATE_FORMAT(f.fecha_emision, '%d/%m/%Y') AS fecha_emision_fmt,
+                f.*, 
                 CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, '')) AS cliente,
                 fc.id_credito,
                 IFNULL((SELECT SUM(monto) FROM Abono_Factura WHERE id_factura = f.id_factura AND estado = 'activo'), 0) AS total_pagado
@@ -43,8 +42,9 @@ function listar_pendientes($conexion) {
     if ($res) {
         $data = [];
         while($row = $res->fetch_assoc()) {
+            $fechaRaw = $row['fecha_creacion'] ?? ($row['fecha_emision'] ?? ($row['fecha'] ?? null));
             $row['restante'] = (float)$row['monto_total'] - (float)$row['total_pagado'];
-            $row['fecha_emision'] = $row['fecha_emision_fmt'];
+            $row['fecha_emision'] = $fechaRaw ? date('d/m/Y', strtotime($fechaRaw)) : 'N/A';
             $data[] = $row;
         }
         echo json_encode(['success' => true, 'data' => $data]);
@@ -67,14 +67,12 @@ function procesar_pago($conexion, $id_usuario) {
     $conexion->begin_transaction();
 
     try {
-        // 1. Guardar el Abono
         $sqlAbono = "INSERT INTO Abono_Factura (id_factura, monto, metodo_pago, referencia, usuario_creacion) VALUES (?, ?, ?, ?, ?)";
         $stmtA = $conexion->prepare($sqlAbono);
         $stmtA->bind_param("idssi", $id_factura, $monto_pago, $metodo_pago, $referencia, $id_usuario);
         $stmtA->execute();
         $id_abono = $conexion->insert_id;
 
-        // 2. LA MAGIA CONTABLE INVERSA: Sumamos al disponible y restamos a la deuda (pendiente)
         $sqlCredito = "UPDATE Credito 
                        SET saldo_disponible = saldo_disponible + ?, 
                            saldo_pendiente = saldo_pendiente - ? 
@@ -83,7 +81,6 @@ function procesar_pago($conexion, $id_usuario) {
         $stmtC->bind_param("ddi", $monto_pago, $monto_pago, $id_credito);
         $stmtC->execute();
 
-        // 3. Verificar si la factura ya se saldó por completo
         $sqlCheck = "SELECT f.monto_total, IFNULL(SUM(a.monto), 0) AS pagado 
                      FROM Factura_Central f 
                      LEFT JOIN Abono_Factura a ON f.id_factura = a.id_factura AND a.estado = 'activo'
@@ -126,5 +123,59 @@ function obtener_recibo($conexion) {
     } else {
         echo json_encode(['success' => false, 'message' => 'Recibo no encontrado.']);
     }
+}
+
+function obtener_detalle_factura($conexion) {
+    $id_factura = (int)$_GET['id_factura'];
+    $detalles = [];
+
+    // 1. Buscamos primero si la factura viene del POS (Tabla Detalle_Factura)
+    $sqlPOS = "SELECT ra.nombre as descripcion, df.cantidad, df.precio, df.subtotal 
+               FROM Detalle_Factura df 
+               JOIN Repuesto_Articulo ra ON df.id_articulo = ra.id_articulo 
+               WHERE df.id_factura = $id_factura";
+    $resPOS = $conexion->query($sqlPOS);
+    if ($resPOS && $resPOS->num_rows > 0) {
+        while($row = $resPOS->fetch_assoc()) {
+            $detalles[] = $row;
+        }
+    } 
+    // 2. Si no hay en POS, verificamos si es una Factura de Taller (Asociada a id_orden)
+    else {
+        $sqlFac = "SELECT id_orden FROM Factura_Central WHERE id_factura = $id_factura LIMIT 1";
+        $resFac = $conexion->query($sqlFac);
+        if($resFac && $resFac->num_rows > 0) {
+            $id_orden = $resFac->fetch_assoc()['id_orden'];
+            if($id_orden) {
+                // A. Buscar Servicios del Taller
+                $sqlServ = "SELECT ts.nombre AS descripcion, 1 AS cantidad, p.monto AS precio, p.monto AS subtotal
+                            FROM asignacion_orden ao
+                            JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
+                            JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio
+                            LEFT JOIN taller t ON t.id_orden = ao.id_orden AND t.estado='activo'
+                            LEFT JOIN Precio p ON t.id_precio = p.id_precio
+                            WHERE ao.id_orden = $id_orden AND ap.estado != 'eliminado' GROUP BY ap.id_asignacion";
+                $resServ = $conexion->query($sqlServ);
+                if($resServ) {
+                    while($r = $resServ->fetch_assoc()) {
+                        if($r['precio'] > 0) $detalles[] = $r;
+                    }
+                }
+                // B. Buscar Repuestos del Taller
+                $sqlRep = "SELECT ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal
+                           FROM Orden_Repuesto orp 
+                           JOIN Repuesto_Articulo ra ON orp.id_articulo = ra.id_articulo
+                           WHERE orp.id_orden = $id_orden AND orp.estado = 'activo'";
+                $resRep = $conexion->query($sqlRep);
+                if($resRep) {
+                    while($r = $resRep->fetch_assoc()) {
+                        $detalles[] = $r;
+                    }
+                }
+            }
+        }
+    }
+    
+    echo json_encode(['success' => true, 'data' => $detalles]);
 }
 ?>

@@ -1,203 +1,214 @@
 document.addEventListener("DOMContentLoaded", () => {
-    listarHistorial();
+    listarCuentas();
+
+    const formCobro = document.getElementById("formCobro");
+    if(formCobro) {
+        formCobro.addEventListener("submit", function(e) {
+            e.preventDefault();
+            
+            const montoPagar = parseFloat(document.getElementById("monto_pago").value);
+            const maximo = parseFloat(document.getElementById("cobro_maximo").value);
+
+            if(montoPagar <= 0) {
+                return alert("El monto a pagar debe ser mayor a cero.");
+            }
+            if(montoPagar > maximo) {
+                return alert(`No puedes cobrar más del balance pendiente (Máximo: RD$ ${maximo.toLocaleString()}).`);
+            }
+
+            const formData = new FormData(this);
+            
+            fetch("../../modules/Facturacion/Archivo_Cobros.php?action=procesar_pago", { 
+                method: "POST", 
+                body: formData 
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    cerrarModalCobro();
+                    listarCuentas(); 
+                    imprimirReciboPago(data.id_abono); 
+                } else {
+                    alert("ERROR AL PROCESAR PAGO:\n" + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("Error crítico al procesar el pago:", err);
+                alert("Ocurrió un error de conexión con el servidor. Revisa la consola (F12).");
+            });
+        });
+    }
 });
 
-function listarHistorial() {
-    fetch("../../modules/Facturacion/Archivo_HistorialPagos.php?action=listar")
+// ==========================================
+// 1. CARGAR Y FILTRAR LA TABLA DE DEUDAS
+// ==========================================
+function listarCuentas() {
+    const tbody = document.getElementById("cuerpoTablaCxC");
+    if(!tbody) return;
+
+    fetch("../../modules/Facturacion/Archivo_Cobros.php?action=listar_pendientes")
     .then(res => res.json())
     .then(data => {
-        const tbody = document.getElementById("cuerpoTablaPagos");
-        if(!tbody) return;
         tbody.innerHTML = "";
 
-        if (data.success && data.data && data.data.length > 0) {
-            data.data.forEach(p => {
-                let badgeMetodo = "";
-                if(p.metodo_pago === 'Efectivo') badgeMetodo = `<span class="badge bg-success"><i class="fas fa-money-bill-wave me-1"></i> Efectivo</span>`;
-                else if(p.metodo_pago === 'Tarjeta') badgeMetodo = `<span class="badge bg-primary"><i class="fas fa-credit-card me-1"></i> Tarjeta</span>`;
-                else badgeMetodo = `<span class="badge bg-info text-dark"><i class="fas fa-exchange-alt me-1"></i> Transferencia</span>`;
+        if (data.success) {
+            if(data.data.length > 0) {
+                data.data.forEach(c => {
+                    const ordRef = c.id_orden ? `<small class="text-muted">ORD-${c.id_orden}</small>` : `<small class="text-muted">Venta Mostrador</small>`;
+                    
+                    // BOTONES DE ACCIÓN: Detalle (Ojito) + Cobrar
+                    const btnDetalle = `<button class="btn btn-sm btn-outline-info fw-bold shadow-sm me-2" onclick="verDetalle(${c.id_factura}, '${c.cliente}')" title="Ver Detalles de la Factura"><i class="fas fa-eye"></i></button>`;
+                    const btnCobrar = `<button class="btn btn-sm btn-success fw-bold px-3 shadow-sm" onclick="abrirModalCobro(${c.id_factura}, ${c.id_credito}, ${c.restante}, '${c.cliente}')"><i class="fas fa-hand-holding-usd me-1"></i> Cobrar</button>`;
 
-                const tr = document.createElement("tr");
-                tr.className = "fila-pago"; 
-                tr.setAttribute("data-fecha", p.fecha_raw); // Fecha oculta YYYY-MM-DD para el filtro
-                tr.setAttribute("data-monto", p.monto); // Monto oculto para la sumatoria
-
-                tr.innerHTML = `
-                    <td class="fw-bold text-dark recibo-id">REC-${p.id_abono}</td>
-                    <td class="small text-muted">${p.fecha}</td>
-                    <td class="fw-bold cliente-nombre">${p.cliente}</td>
-                    <td>
-                        <span class="text-primary fw-bold factura-id">FAC-${p.id_factura}</span><br>
-                        <small class="text-muted orden-id">ORD-${p.id_orden}</small>
-                    </td>
-                    <td class="text-end fw-bold text-success fs-6">RD$ ${parseFloat(p.monto).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                    <td class="text-center">
-                        ${badgeMetodo}<br>
-                        <small class="text-muted" style="font-size: 0.7rem;">${p.referencia !== 'N/A' ? 'Ref: '+p.referencia : ''}</small>
-                    </td>
-                    <td class="small"><i class="fas fa-user-circle text-secondary me-1"></i>${p.cajero}</td>
-                    <td class="text-center no-print">
-                        <button class="btn btn-sm btn-outline-dark" onclick="reimprimirRecibo(${p.id_abono})" title="Reimprimir Recibo">
-                            <i class="fas fa-print"></i> Reimprimir
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-            
-            document.getElementById("inputBusqueda").value = "";
-            document.getElementById("fechaDesde").value = "";
-            document.getElementById("fechaHasta").value = "";
-            filtrarTabla(); // Forzamos el cálculo inicial
+                    const tr = document.createElement("tr");
+                    tr.className = "fila-cxc"; // Clase clave para que funcione el buscador
+                    tr.innerHTML = `
+                        <td class="fw-bold text-primary">FAC-${c.id_factura} <br>${ordRef}</td>
+                        <td class="text-start fw-bold text-dark">${c.cliente}</td>
+                        <td class="text-muted">${c.fecha_emision}</td>
+                        <td class="text-muted">RD$ ${parseFloat(c.monto_total).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                        <td class="text-danger fw-bold fs-5">RD$ ${parseFloat(c.restante).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                        <td>
+                            <div class="d-flex justify-content-center">
+                                ${btnDetalle}
+                                ${btnCobrar}
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted"><i class="fas fa-laugh-beam me-2 text-success fs-4"></i> No hay facturas pendientes de cobro actualmente.</td></tr>`;
+            }
         } else {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-muted">Aún no hay pagos registrados en el sistema.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Error: ${data.message}</td></tr>`;
+        }
+        
+        // Ejecutamos el filtro por si había texto escrito antes de actualizar
+        filtrarCuentas();
+    })
+    .catch(err => {
+        console.error("Error al listar cuentas:", err);
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-danger fw-bold"><i class="fas fa-bug me-2"></i>Error interno al cargar los datos. Revisa el Archivo_Cobros.php</td></tr>`;
+    });
+}
+
+function filtrarCuentas() {
+    const input = document.getElementById("buscador_cxc");
+    if(!input) return;
+    const textoBusqueda = input.value.toUpperCase();
+    const filas = document.getElementsByClassName("fila-cxc");
+    
+    for (let i = 0; i < filas.length; i++) {
+        const textoFila = filas[i].innerText.toUpperCase();
+        filas[i].style.display = textoFila.includes(textoBusqueda) ? "" : "none";
+    }
+}
+
+// ==========================================
+// 2. VISOR DE DETALLES DE LA FACTURA
+// ==========================================
+function verDetalle(id_factura, cliente) {
+    document.getElementById('lbl_detalle_factura').innerText = "FAC-" + id_factura;
+    document.getElementById('lbl_detalle_cliente').innerText = cliente;
+    
+    const tbody = document.getElementById("cuerpoTablaDetalle");
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm me-2"></div> Buscando detalles...</td></tr>';
+    document.getElementById('lbl_detalle_total').innerText = "RD$ 0.00";
+    
+    abrirModalUI('modalDetalle');
+
+    fetch(`../../modules/Facturacion/Archivo_Cobros.php?action=obtener_detalle&id_factura=${id_factura}`)
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            tbody.innerHTML = "";
+            if (data.data.length > 0) {
+                let totalCalculado = 0;
+                data.data.forEach(d => {
+                    const subtotal = parseFloat(d.subtotal);
+                    totalCalculado += subtotal;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="text-start fw-bold small text-dark">${d.descripcion}</td>
+                            <td class="text-center small">${d.cantidad}</td>
+                            <td class="text-end small">RD$ ${parseFloat(d.precio).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                            <td class="text-end fw-bold small">RD$ ${subtotal.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('lbl_detalle_total').innerText = "RD$ " + totalCalculado.toLocaleString(undefined, {minimumFractionDigits:2});
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No se encontraron detalles específicos para esta factura.</td></tr>';
+            }
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger fw-bold py-4">Error al cargar detalles.</td></tr>`;
         }
     })
-    .catch(err => console.error("Error al listar historial:", err));
+    .catch(err => {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger fw-bold py-4">Error de conexión.</td></tr>`;
+    });
+}
+
+function cerrarModalDetalle() {
+    cerrarModalUI('modalDetalle');
 }
 
 // ==========================================
-// MOTOR DE BÚSQUEDA Y FILTRADO DE FECHAS
+// 3. LÓGICA DEL MODAL DE PAGOS
 // ==========================================
-function filtrarTabla() {
-    const inputTexto = document.getElementById("inputBusqueda").value.toUpperCase();
-    const fechaDesde = document.getElementById("fechaDesde").value;
-    const fechaHasta = document.getElementById("fechaHasta").value;
+function abrirModalCobro(id_factura, id_credito, restante, cliente) {
+    document.getElementById("formCobro").reset();
     
-    const filas = document.getElementsByClassName("fila-pago");
-    let encontrados = 0;
-    let sumaTotal = 0;
-
-    for (let i = 0; i < filas.length; i++) {
-        const cliente = filas[i].querySelector(".cliente-nombre").innerText.toUpperCase();
-        const factura = filas[i].querySelector(".factura-id").innerText.toUpperCase();
-        const recibo = filas[i].querySelector(".recibo-id").innerText.toUpperCase();
-        const orden = filas[i].querySelector(".orden-id").innerText.toUpperCase();
-        
-        const fechaFila = filas[i].getAttribute("data-fecha");
-        const montoFila = parseFloat(filas[i].getAttribute("data-monto"));
-
-        // Comprobación de Texto
-        let cumpleTexto = (cliente.indexOf(inputTexto) > -1 || factura.indexOf(inputTexto) > -1 || recibo.indexOf(inputTexto) > -1 || orden.indexOf(inputTexto) > -1);
-        
-        // Comprobación de Rango de Fechas
-        let cumpleFecha = true;
-        if (fechaDesde !== "" && fechaFila < fechaDesde) cumpleFecha = false;
-        if (fechaHasta !== "" && fechaFila > fechaHasta) cumpleFecha = false;
-
-        // Mostrar u ocultar fila
-        if (cumpleTexto && cumpleFecha) {
-            filas[i].style.display = "";
-            encontrados++;
-            sumaTotal += montoFila;
-        } else {
-            filas[i].style.display = "none";
-        }
-    }
-
-    // Actualizar Textos
-    const status = document.getElementById("statusBusqueda");
-    const labelTotal = document.getElementById("totalFiltrado");
+    document.getElementById("cobro_id_factura").value = id_factura;
+    document.getElementById("cobro_id_credito").value = id_credito;
+    document.getElementById("cobro_maximo").value = restante;
     
-    labelTotal.classList.remove("d-none");
-    labelTotal.innerText = `Total Recaudado: RD$ ${sumaTotal.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    document.getElementById("lbl_cobro_factura").innerText = "FAC-" + id_factura;
+    document.getElementById("lbl_cobro_cliente").innerText = cliente;
+    document.getElementById("lbl_balance_pendiente").innerText = "RD$ " + parseFloat(restante).toLocaleString(undefined, {minimumFractionDigits:2});
+    
+    verificarMetodo();
+    abrirModalUI('modalCobro');
+}
 
-    if (inputTexto === "" && fechaDesde === "" && fechaHasta === "") {
-        status.innerText = `Mostrando todos los registros (${filas.length}).`;
-        status.className = "form-text small text-muted";
+function saldarCompleto(isChecked) {
+    const maximo = document.getElementById("cobro_maximo").value;
+    const inputMonto = document.getElementById("monto_pago");
+    
+    if(isChecked) {
+        inputMonto.value = maximo;
+        inputMonto.readOnly = true;
     } else {
-        status.innerText = `Resultados encontrados: ${encontrados}`;
-        status.className = encontrados > 0 ? "form-text small text-success fw-bold" : "form-text small text-danger fw-bold";
+        inputMonto.value = "";
+        inputMonto.readOnly = false;
+        inputMonto.focus();
     }
 }
 
-// ==========================================
-// REPORTE MASIVO DE INGRESOS (Imprimir Filtro)
-// ==========================================
-function imprimirReportePagos() {
-    const filas = document.getElementsByClassName("fila-pago");
-    let filasImprimir = "";
-    let totalSuma = 0;
-    let cont = 0;
-
-    for (let i = 0; i < filas.length; i++) {
-        if (filas[i].style.display !== "none") {
-            const celdas = filas[i].getElementsByTagName("td");
-            const monto = parseFloat(filas[i].getAttribute("data-monto"));
-            totalSuma += monto;
-            cont++;
-            
-            filasImprimir += `
-            <tr>
-                <td>${celdas[0].innerText}</td>
-                <td>${celdas[1].innerText}</td>
-                <td>${celdas[2].innerText}</td>
-                <td>${celdas[3].innerText.replace(/\n/g, ' ')}</td>
-                <td style="text-align: right;">${celdas[4].innerText}</td>
-                <td style="text-align: center;">${celdas[5].innerText.replace(/\n/g, ' ')}</td>
-                <td>${celdas[6].innerText}</td>
-            </tr>`;
-        }
+function verificarMetodo() {
+    const metodo = document.getElementById("metodo_pago").value;
+    const ref = document.getElementById("referencia_pago");
+    if(metodo === "Efectivo") {
+        ref.value = "N/A";
+        ref.readOnly = true;
+    } else {
+        ref.value = "";
+        ref.readOnly = false;
+        ref.focus();
     }
+}
 
-    if (cont === 0) return alert("No hay datos visibles para imprimir.");
-
-    const ventana = window.open('', '_blank');
-    ventana.document.write(`
-        <html>
-        <head>
-            <title>Reporte de Ingresos</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                h2 { text-align: center; margin-bottom: 5px; }
-                .subtitle { text-align: center; color: #555; margin-bottom: 30px; font-size: 14px; }
-                table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-                th { background-color: #f2f2f2; border: 1px solid #ddd; padding: 8px; text-align: left; }
-                td { border: 1px solid #ddd; padding: 8px; }
-                .total-box { float: right; border: 2px solid #000; padding: 10px; font-size: 18px; font-weight: bold; }
-                .fecha-impresion { font-size: 10px; color: #888; margin-top: 50px; }
-            </style>
-        </head>
-        <body>
-            <h2>REPORTE DE INGRESOS Y COBROS</h2>
-            <div class="subtitle">Mecánica Automotriz Díaz Pantaleón (SIG)</div>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>N° Recibo</th>
-                        <th>Fecha / Hora</th>
-                        <th>Cliente</th>
-                        <th>Factura/Orden</th>
-                        <th style="text-align: right;">Monto</th>
-                        <th style="text-align: center;">Método</th>
-                        <th>Cajero</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filasImprimir}
-                </tbody>
-            </table>
-            
-            <div class="total-box">
-                TOTAL RECAUDADO: RD$ ${totalSuma.toLocaleString(undefined, {minimumFractionDigits:2})}
-            </div>
-            
-            <div style="clear: both;"></div>
-            <div class="fecha-impresion">Generado el: ${new Date().toLocaleString()} | Registros: ${cont}</div>
-        </body>
-        </html>
-    `);
-    ventana.document.close();
-    ventana.focus();
-    setTimeout(() => { ventana.print(); ventana.close(); }, 500);
+function cerrarModalCobro() {
+    cerrarModalUI('modalCobro');
 }
 
 // ==========================================
-// IMPRESIÓN INDIVIDUAL DE RECIBO (Térmico)
+// 4. IMPRESIÓN TÉRMICA DEL RECIBO
 // ==========================================
-function reimprimirRecibo(id_abono) {
-    fetch(`../../modules/Facturacion/Archivo_HistorialPagos.php?action=obtener_recibo&id_abono=${id_abono}`)
+function imprimirReciboPago(id_abono) {
+    fetch(`../../modules/Facturacion/Archivo_Cobros.php?action=obtener_recibo&id_abono=${id_abono}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {
@@ -205,7 +216,7 @@ function reimprimirRecibo(id_abono) {
             const htmlRecibo = `
             <html>
             <head>
-                <title>Copia de Recibo #${r.id_abono}</title>
+                <title>Recibo de Pago #${r.id_abono}</title>
                 <style>
                     body { font-family: 'Courier New', monospace; width: 300px; margin: 0 auto; color: #000; font-size:12px; }
                     .text-center { text-align: center; }
@@ -217,32 +228,95 @@ function reimprimirRecibo(id_abono) {
             <body>
                 <div class="text-center">
                     <h3 style="margin-bottom:5px;">MECÁNICA DÍAZ PANTALEÓN</h3>
-                    <div style="font-size:12px;">** COPIA DE RECIBO **</div>
-                    <div style="font-size:12px;">INGRESO / ABONO</div>
+                    <div style="font-size:12px;">RECIBO DE INGRESO / ABONO</div>
                 </div>
+                
                 <div class="divider"></div>
                 <div><b>Recibo N°:</b> ${r.id_abono}</div>
                 <div><b>Fecha:</b> ${r.fecha}</div>
                 <div><b>Cliente:</b> ${r.cliente}</div>
                 <div><b>Cajero:</b> ${r.cajero}</div>
                 <div class="divider"></div>
+                
                 <div class="text-center fw-bold" style="margin-bottom:5px;">APLICADO A LA FACTURA FAC-${r.id_factura}</div>
-                <div class="row-flex"><span>Total Factura:</span><span>RD$ ${parseFloat(r.monto_total).toLocaleString(undefined,{minimumFractionDigits:2})}</span></div>
-                <div class="row-flex text-center" style="margin:10px 0;"><span style="border:1px dashed #000; padding:5px; width:100%; font-size:14px;"><b>MONTO PAGADO:<br>RD$ ${parseFloat(r.monto).toLocaleString(undefined,{minimumFractionDigits:2})}</b></span></div>
+                <div class="row-flex">
+                    <span>Total Factura Orig:</span>
+                    <span>RD$ ${parseFloat(r.monto_total).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                </div>
+                
+                <div class="row-flex text-center" style="margin:10px 0;">
+                    <span style="border:1px solid #000; padding:5px; width:100%; font-size:14px; background:#f2f2f2;">
+                        <b>MONTO PAGADO:<br>RD$ ${parseFloat(r.monto).toLocaleString(undefined,{minimumFractionDigits:2})}</b>
+                    </span>
+                </div>
+                
                 <div class="row-flex"><span>Método Pago:</span><span>${r.metodo_pago}</span></div>
                 <div class="row-flex"><span>Referencia:</span><span>${r.referencia}</span></div>
+                
                 <div class="divider"></div>
-                <div class="row-flex fw-bold" style="font-size:14px;"><span>BALANCE RESTANTE:</span><span>RD$ ${parseFloat(r.balance_restante).toLocaleString(undefined,{minimumFractionDigits:2})}</span></div>
+                <div class="row-flex fw-bold" style="font-size:14px;">
+                    <span>BALANCE RESTANTE:</span>
+                    <span>RD$ ${parseFloat(r.balance_restante).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                </div>
                 <div class="divider"></div>
-                <div class="text-center" style="font-size:11px;">Documento informativo. Copia generada el ${new Date().toLocaleString()}</div>
+                
+                <div class="text-center" style="font-size:11px;">
+                    Gracias por su pago.<br>
+                    Su crédito ha sido restaurado proporcionalmente.
+                </div>
             </body>
             </html>`;
 
             const ventana = window.open('', '_blank', 'width=350,height=600');
+            if (!ventana) {
+                alert("⚠️ El navegador bloqueó el recibo. Por favor, permite las ventanas emergentes (pop-ups) para este sitio.");
+                return;
+            }
             ventana.document.write(htmlRecibo);
             ventana.document.close();
             ventana.focus();
             setTimeout(() => { ventana.print(); ventana.close(); }, 500);
         }
     });
+}
+
+// ==========================================
+// 5. UTILIDADES DE MODALES 
+// ==========================================
+function abrirModalUI(id) {
+    const el = document.getElementById(id);
+    if(!el) return;
+    try {
+        if (typeof bootstrap !== 'undefined') {
+            let m = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el); m.show();
+        } else { throw new Error(); }
+    } catch (e) {
+        if (typeof jQuery !== 'undefined') {
+            $('#' + id).modal('show');
+        } else {
+            el.classList.add('show'); el.style.display = 'block';
+            document.body.classList.add('modal-open');
+            document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
+            const b = document.createElement('div'); b.id = 'm-bd-' + id; b.className = 'modal-backdrop fade show'; document.body.appendChild(b);
+        }
+    }
+}
+
+function cerrarModalUI(id) {
+    const el = document.getElementById(id);
+    if(!el) return;
+    try { 
+        if (typeof bootstrap !== 'undefined') { 
+            let m = bootstrap.Modal.getInstance(el); if (m) m.hide(); 
+        } else { throw new Error(); }
+    } catch (e) {
+        if (typeof jQuery !== 'undefined') {
+            $('#' + id).modal('hide');
+        } else {
+            el.classList.remove('show'); el.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            const b = document.getElementById('m-bd-' + id); if(b) b.remove();
+            document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
+        }
+    }
 }

@@ -148,12 +148,13 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Factura.php">Nueva Factura (POS)</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
-                    <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Gestion de pago credito</a>
+                    <a href="/Taller/Taller-Mecanica/view/Facturacion/CuentasPorCobrar.php">Cuentas Por Cobrar</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/RFactura.php">Reportes de Ventas (NCF)</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialFactura.php">Historial Factura</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialCotizacion.php">Historial Cotizacion</a>
-                    <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagoCredito.php">Historial de Pagos</a>
+                    <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagos.php">Historial de Pagos</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialDevolucion.php">Historial de Devoluciones</a>
+                    <a href="/Taller/Taller-Mecanica/view/Taller/HistorialAvanzado.php">Historial Avanzado</a>
                 </div>
             </div>
             <?php endif; ?>

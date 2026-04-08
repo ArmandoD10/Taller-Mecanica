@@ -51,14 +51,152 @@ require("../../header.php");
                                 <th>N° Orden</th>
                                 <th>Cliente</th>
                                 <th>Vehículo</th>
-                                <th>Monto Total</th>
+                                <th>Monto Base</th>
                                 <th>Estado Pago</th>
                                 <th>Estado Orden</th>
-                                <th class="text-center" style="min-width: 100px;">Acción</th>
+                                <th class="text-center" style="min-width: 140px;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaEntregas"></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalFacturacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-primary border-2">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i>Facturación Fiscal de Orden</h5>
+                    <button type="button" class="btn-close btn-close-white" onclick="cerrarModalFacturacion()"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <input type="hidden" id="fac_id_orden">
+                    <input type="hidden" id="fac_id_cliente">
+
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold border-bottom pb-2 text-secondary">Datos del Cliente</h6>
+                                    <div class="row mb-3 small">
+                                        <div class="col-6">
+                                            <p class="mb-1"><strong>Orden:</strong> <span id="fac_lbl_orden" class="text-primary fw-bold"></span></p>
+                                            <p class="mb-1"><strong>Cliente:</strong> <span id="fac_lbl_cliente"></span></p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="mb-1"><strong>Vehículo:</strong> <span id="fac_lbl_vehiculo"></span></p>
+                                        </div>
+                                    </div>
+
+                                    <h6 class="fw-bold border-bottom pb-2 text-secondary mt-3">Detalle de Servicios y Repuestos</h6>
+                                    <div class="table-responsive bg-light border rounded" style="max-height: 220px; overflow-y: auto;">
+                                        <table class="table table-sm table-borderless align-middle mb-0">
+                                            <thead class="table-secondary text-muted small sticky-top">
+                                                <tr>
+                                                    <th>Descripción</th>
+                                                    <th class="text-center">Cant.</th>
+                                                    <th class="text-end">Precio</th>
+                                                    <th class="text-end">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="fac_tabla_detalles">
+                                                <tr><td colspan="4" class="text-center text-muted py-3">Cargando detalles...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-5">
+                            <div class="card border-0 shadow-sm h-100 bg-white">
+                                <div class="card-body">
+                                    <h6 class="fw-bold border-bottom pb-2 text-secondary">Resumen Financiero</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label class="small fw-bold">NCF (Comprobante Fiscal)</label>
+                                        <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0100000001 (Consumidor Final)">
+                                    </div>
+
+                                    <div class="bg-light p-3 rounded mb-3 border">
+                                        <div class="d-flex justify-content-between mb-1 small text-muted">
+                                            <span>Sub-Total Gravado:</span>
+                                            <span id="fac_subtotal" class="fw-bold text-dark">RD$ 0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2 small text-muted border-bottom pb-2">
+                                            <span>ITBIS (18%):</span>
+                                            <span id="fac_itbis" class="fw-bold text-danger">RD$ 0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-2">
+                                            <span class="fw-bold text-uppercase">Total a Cobrar:</span>
+                                            <h4 class="fw-bold text-success mb-0" id="fac_total_final">RD$ 0.00</h4>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="small fw-bold text-dark">Método de Pago</label>
+                                            <div class="form-check form-switch m-0">
+                                                <input class="form-check-input" type="checkbox" id="fac_switch_credito" onchange="toggleCreditoTaller(this.checked)">
+                                                <label class="form-check-label fw-bold text-danger small" for="fac_switch_credito">Facturar a Crédito</label>
+                                            </div>
+                                        </div>
+                                        <select id="fac_metodo_pago" class="form-select fw-bold">
+                                            <option value="1">💵 Efectivo</option>
+                                            <option value="2">💳 Tarjeta (Pasarela AZUL)</option>
+                                            <option value="3">🏦 Transferencia Bancaria</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div id="fac_info_credito" class="alert alert-info d-none p-2 small mb-0 shadow-sm border-info">
+                                        <div class="row text-center">
+                                            <div class="col-6 border-end">
+                                                <span class="text-muted d-block" style="font-size: 10px;">LÍMITE TOTAL</span>
+                                                <b id="fac_credito_limite" class="text-dark">RD$ 0.00</b>
+                                            </div>
+                                            <div class="col-6">
+                                                <span class="text-muted d-block" style="font-size: 10px;">DISPONIBLE</span>
+                                                <b id="fac_credito_disponible" class="text-success">RD$ 0.00</b>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="fac_id_credito">
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModalFacturacion()">Cancelar</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4" onclick="iniciarCobroOrden()"><i class="fas fa-print me-2"></i>Facturar e Imprimir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAzulTaller" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 overflow-hidden shadow-lg">
+                <div class="bg-primary p-4 text-center">
+                    <img src="/Taller/Taller-Mecanica/img/azul.webp" alt="Azul" style="filter: brightness(0) invert(1); height: 45px;">
+                    <div class="mt-2 text-white small fw-bold">PASARELA BANCO POPULAR</div>
+                </div>
+                <div class="p-4" id="azul_formulario_taller">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold text-dark" id="azul_monto_display">RD$ 0.00</h2>
+                    </div>
+                    <label class="small fw-bold text-muted mb-1">Número de Tarjeta del Cliente</label>
+                    <input type="text" class="form-control form-control-lg text-center mb-4 border-primary" id="azul_tarjeta_taller" placeholder="•••• •••• •••• ••••" maxlength="16">
+                    <button class="btn btn-primary w-100 py-3 fw-bold" onclick="procesarAzulTaller()"><i class="fas fa-lock me-2"></i>AUTORIZAR PAGO</button>
+                    <button class="btn btn-link text-muted w-100 mt-2" onclick="cerrarModalAzul()">Cancelar</button>
+                </div>
+                <div id="azul_cargando_taller" class="text-center py-5 d-none">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                    <h5 class="fw-bold text-dark">Procesando Transacción...</h5>
+                    <p class="text-muted small">Comunicando con Banco Popular</p>
                 </div>
             </div>
         </div>
@@ -74,35 +212,31 @@ require("../../header.php");
                 <form id="formCalidad">
                     <div class="modal-body bg-light">
                         <input type="hidden" id="id_orden_calidad" name="id_orden_calidad">
-                        
                         <div class="mb-3 text-center">
                             <h4 class="text-primary fw-bold" id="lbl_calidad_orden"></h4>
                             <p class="text-muted mb-0" id="lbl_calidad_vehiculo"></p>
                         </div>
-
                         <div class="mb-4">
                             <label class="form-label fw-bold">Veredicto de la Revisión <span class="text-danger">*</span></label>
-                            <select class="form-select border-info border-2" name="decision_calidad" id="decision_calidad" required>
+                            <select class="form-select border-info border-2" name="decision_calidad" required>
                                 <option value="">Seleccione el resultado...</option>
                                 <option value="Aprobado" class="text-success fw-bold">✅ APROBADO: Vehículo Listo para Entrega</option>
                                 <option value="Rechazado" class="text-danger fw-bold">❌ RECHAZADO: Devolver a los Mecánicos (Reparación)</option>
                             </select>
                         </div>
-
                         <div class="card border-0 shadow-sm mt-3">
                             <div class="card-body bg-white rounded">
                                 <label class="form-label fw-bold text-dark"><i class="fas fa-shield-alt text-info me-1"></i> Firma del Supervisor / Admin <span class="text-danger">*</span></label>
                                 <div class="input-group mb-2">
                                     <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
-                                    <input type="text" class="form-control" id="admin_user_calidad" name="admin_username" placeholder="Usuario" required>
+                                    <input type="text" class="form-control" name="admin_username" placeholder="Usuario" required>
                                 </div>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="fas fa-key"></i></span>
-                                    <input type="password" class="form-control" id="admin_pass_calidad" name="admin_password" placeholder="Contraseña" required>
+                                    <input type="password" class="form-control" name="admin_password" placeholder="Contraseña" required>
                                 </div>
                             </div>
                         </div>
-
                     </div>
                     <div class="modal-footer bg-light">
                         <button type="button" class="btn btn-secondary" onclick="cerrarModalCalidad()">Cancelar</button>
@@ -123,11 +257,6 @@ require("../../header.php");
                 <form id="formEntrega">
                     <div class="modal-body bg-light">
                         <input type="hidden" id="id_orden_entrega" name="id_orden_entrega">
-                        
-                        <div class="alert alert-warning d-none" id="alerta_pago">
-                            <i class="fas fa-exclamation-triangle me-2"></i><strong>Atención:</strong> Esta orden figura como <span id="txt_alerta_pago" class="fw-bold"></span>. Confirme con facturación antes de entregar las llaves.
-                        </div>
-
                         <div class="mb-3">
                             <ul class="list-group list-group-flush shadow-sm">
                                 <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
@@ -141,10 +270,6 @@ require("../../header.php");
                                 <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
                                     <span class="text-muted fw-bold">Vehículo:</span>
                                     <span class="fw-bold" id="lbl_vehiculo"></span>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
-                                    <span class="text-muted fw-bold">Monto:</span>
-                                    <span class="fw-bold text-success fs-5" id="lbl_monto"></span>
                                 </li>
                             </ul>
                         </div>
@@ -191,8 +316,8 @@ require("../../header.php");
 
                     <div class="card bg-light border-0 mb-4">
                         <div class="card-body text-center">
-                            <h4 class="fw-bold mb-1">Monto Total del Servicio: <span id="acta_monto" class="text-success"></span></h4>
-                            <p class="text-muted small mb-0">Verifique su factura fiscal para el detalle de impuestos y retenciones.</p>
+                            <h4 class="fw-bold mb-1">Monto Total Facturado: <span id="acta_monto" class="text-success"></span></h4>
+                            <p class="text-muted small mb-0">La factura fiscal y detalles impositivos fueron entregados por caja.</p>
                         </div>
                     </div>
 

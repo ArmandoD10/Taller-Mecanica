@@ -255,6 +255,9 @@ $stats = [
                 <?php if (in_array("Perfil", $modulos)) : ?>
                 <a href="#"><i class="fas fa-user-circle"></i> Perfil</a>
                 <?php endif; ?>
+                <?php if (in_array("Whatsapp", $modulos)) : ?>
+                <a href="#"><i class="fas fa-comments"></i>API Whatsapp</a>
+                <?php endif; ?>
                 <?php if (in_array("Contrasena", $modulos)) : ?>
                 <a href="#"><i class="fas fa-shield-alt"></i> Seguridad</a>
                 <?php endif; ?>
@@ -268,7 +271,7 @@ $stats = [
                 <a href="#"><i class="fas fa-percentage"></i> Ofertas</a>
                 <?php endif; ?>
                 <?php if (in_array("Impuestos", $modulos)) : ?>
-                <a href="#"><i class="fas fa-file-invoice-dollar"></i> Impuestos</a>
+                <a href="/Taller/Taller-Mecanica/view/Submodulos/impuestos.php"><i class="fas fa-file-invoice-dollar"></i> Impuestos</a>
                 <?php endif; ?>
             </div>
         </div>

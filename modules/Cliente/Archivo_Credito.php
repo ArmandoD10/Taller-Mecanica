@@ -18,6 +18,9 @@ switch ($action) {
     case 'actualizar':
         actualizar($conexion);
         break;
+    case 'eliminar':
+        eliminar($conexion);
+        break;
     case 'cargar_consultas_api':
         cargar_consultas_api($conexion);
         break;
@@ -26,10 +29,37 @@ switch ($action) {
         break;
 }
 
+// =========================================================================
+// FUNCIÓN DE SEGURIDAD BLINDADA: SUPERVISOR OVERRIDE
+// =========================================================================
+function verificar_clave_admin($conexion, $username, $password_ingresada) {
+    if (empty($username) || empty($password_ingresada)) return false;
+
+    $sql = "SELECT u.password_hash 
+            FROM usuario u 
+            JOIN nivel n ON u.id_nivel = n.id_nivel 
+            WHERE u.username = ? AND n.nombre = 'Administrador' AND u.estado = 'activo' LIMIT 1";
+            
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    
+    if ($res && $res->num_rows > 0) {
+        $row = $res->fetch_assoc();
+        $hash = $row['password_hash'];
+        if (password_verify($password_ingresada, $hash) || $password_ingresada === $hash) {
+            return true; 
+        }
+    }
+    return false; 
+}
+// =========================================================================
+
 function cargar_clientes($conexion) {
-    // Traemos solo clientes activos. Diferenciamos si es empresa o persona física para el nombre.
     $sql = "SELECT 
                 c.id_cliente, 
+                p.tipo_persona,
                 IF(p.tipo_persona = 'Juridica', p.nombre, CONCAT(p.nombre, ' ', p.apellido_p)) AS nombre_cliente,
                 p.cedula
             FROM Cliente c
@@ -79,81 +109,89 @@ function guardar($conexion) {
     $usuario_creacion = $_SESSION['id_usuario'] ?? 1;
 
     $id_cliente = $_POST['id_cliente'] ?? '';
-    $monto_credito = $_POST['monto_credito'] ?? 0;
+    $monto_ingresado = (float)($_POST['monto_credito'] ?? 0);
     $fecha_vencimiento = $_POST['fecha_vencimiento'] ?? '';
     $referencia = $_POST['referencia_datacredito'] ?? '';
-    $estado_credito = 'Activo'; // Por defecto al crear
-    $saldo_pendiente = 0.00; // Inicia en 0, se consume al facturar
-
-    if (empty($id_cliente) || empty($monto_credito) || empty($fecha_vencimiento)) {
+    
+    $admin_user = $_POST['admin_username'] ?? '';
+    $admin_password = $_POST['admin_password'] ?? '';
+    
+    if (empty($id_cliente) || empty($monto_ingresado) || empty($fecha_vencimiento)) {
         echo json_encode(['success' => false, 'message' => 'Cliente, monto y fecha de vencimiento son obligatorios.']);
         exit;
     }
 
-    // --- BLOQUE DE VALIDACIONES DE POLÍTICA DE CRÉDITO ---
+    $sqlCli = "SELECT p.tipo_persona FROM Cliente c JOIN Persona p ON c.id_persona = p.id_persona WHERE c.id_cliente = $id_cliente";
+    $tipo_persona = $conexion->query($sqlCli)->fetch_assoc()['tipo_persona'] ?? 'Fisica';
 
-    // 1. Buscamos el crédito activo más reciente del cliente
-    $sql_check = "SELECT monto_credito, saldo_pendiente 
-                  FROM Credito 
-                  WHERE id_cliente = $id_cliente 
-                  AND estado_credito = 'Activo' 
-                  AND estado = 'activo' 
-                  ORDER BY id_credito DESC LIMIT 1";
-    
-    $res_check = $conexion->query($sql_check);
-
-    if ($res_check && $res_check->num_rows > 0) {
-        $data = $res_check->fetch_assoc();
-        $monto_actual = (float)$data['monto_credito'];
-        $saldo_actual = (float)$data['saldo_pendiente'];
-
-        // --- REGLA 1: Evitar Créditos "Vacíos" e Inactivos ---
-        if ($saldo_actual == 0) {
-            echo json_encode([
-                'success' => false, 
-                'message' => "Denegado: El cliente ya tiene una línea de crédito activa que NO ha empezado a utilizar. No se puede asignar una nueva hasta que consuma la actual."
-            ]);
+    // 1. VALIDACIÓN BYPASS
+    if ($tipo_persona === 'Fisica' && $referencia === 'BYPASS-ADMIN') {
+        if (empty($admin_user) || empty($admin_password)) {
+            echo json_encode(['success' => false, 'message' => 'Faltan credenciales de Administrador para autorizar el Bypass.']);
             exit;
         }
-
-        // --- REGLA 2: Límite de Endeudamiento (75%) ---
-        $porcentaje_uso = ($saldo_actual / $monto_actual) * 100;
-
-        if ($porcentaje_uso >= 75) {
-            echo json_encode([
-                'success' => false, 
-                'message' => "Denegado: El cliente ha consumido el " . number_format($porcentaje_uso, 2) . "% de su crédito disponible. Ha superado el límite de riesgo permitido (75%)."
-            ]);
+        if (!verificar_clave_admin($conexion, $admin_user, $admin_password)) {
+            echo json_encode(['success' => false, 'message' => 'Credenciales incorrectas o el usuario no tiene permisos de Administrador.']);
             exit;
         }
     }
-    // --- FIN DE VALIDACIONES ---
+
+    $sql_check = "SELECT id_credito, monto_credito FROM Credito WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
+    $res_check = $conexion->query($sql_check);
 
     try {
         $conexion->begin_transaction();
 
-        // 1. Insertar el Crédito
-        $sql = "INSERT INTO Credito (id_cliente, monto_credito, saldo_pendiente, fecha_aprobacion, fecha_vencimiento, estado_credito, referencia_datacredito, usuario_creacion, estado)
-                VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'activo')";
-        $stmt = $conexion->prepare($sql);
-        
-        // 🔥 CORRECCIÓN APLICADA: 'iddsssi' (i=int, d=decimal, d=decimal, s=string/date, s=string, s=string, i=int)
-        $stmt->bind_param("iddsssi", $id_cliente, $monto_credito, $saldo_pendiente, $fecha_vencimiento, $estado_credito, $referencia, $usuario_creacion);
-        
-        $stmt->execute();
+        if ($res_check && $res_check->num_rows > 0) {
+            // == EL CLIENTE YA TIENE CRÉDITO: SE SUMARÁ (AMPLIACIÓN) ==
+            $row = $res_check->fetch_assoc();
+            $id_credito_existente = $row['id_credito'];
+            $monto_actual_bd = (float)$row['monto_credito'];
+            
+            // LA SUMATORIA MATEMÁTICA
+            $nuevo_monto_total = $monto_actual_bd + $monto_ingresado;
 
-        // 2. Actualizar el límite de crédito en el perfil del Cliente
-        $sqlCli = "UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?";
-        $stmtCli = $conexion->prepare($sqlCli);
-        $stmtCli->bind_param("di", $monto_credito, $id_cliente);
-        $stmtCli->execute();
+            // Al sumar y aumentar, requiere Administrador obligatoriamente
+            if (empty($admin_user) || empty($admin_password)) {
+                throw new Exception("Para ampliar una línea de crédito existente se requieren credenciales de Administrador.");
+            }
+            if (!verificar_clave_admin($conexion, $admin_user, $admin_password)) {
+                throw new Exception("Credenciales incorrectas o sin permisos de Administrador para autorizar el aumento.");
+            }
+
+            $sqlUpdate = "UPDATE Credito SET monto_credito = ?, fecha_vencimiento = ?, referencia_datacredito = IF(? != '', ?, referencia_datacredito) WHERE id_credito = ?";
+            $stmtU = $conexion->prepare($sqlUpdate);
+            $stmtU->bind_param("dsssi", $nuevo_monto_total, $fecha_vencimiento, $referencia, $referencia, $id_credito_existente);
+            $stmtU->execute();
+            
+            $msg = "Se ha ampliado el crédito del cliente. Nuevo límite total: RD$ " . number_format($nuevo_monto_total, 2);
+            
+            // Actualizamos en Cliente el nuevo total
+            $stmtL = $conexion->prepare("UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?");
+            $stmtL->bind_param("di", $nuevo_monto_total, $id_cliente);
+            $stmtL->execute();
+
+        } else {
+            // == CRÉDITO TOTALMENTE NUEVO ==
+            $sqlI = "INSERT INTO Credito (id_cliente, monto_credito, saldo_pendiente, fecha_aprobacion, fecha_vencimiento, estado_credito, referencia_datacredito, usuario_creacion, estado)
+                     VALUES (?, ?, 0.00, NOW(), ?, 'Activo', ?, ?, 'activo')";
+            $stmtI = $conexion->prepare($sqlI);
+            $stmtI->bind_param("idssi", $id_cliente, $monto_ingresado, $fecha_vencimiento, $referencia, $usuario_creacion);
+            $stmtI->execute();
+            
+            $msg = 'Línea de crédito inicial aprobada y asignada al cliente correctamente.';
+            
+            $stmtL = $conexion->prepare("UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?");
+            $stmtL->bind_param("di", $monto_ingresado, $id_cliente);
+            $stmtL->execute();
+        }
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Línea de crédito aprobada y asignada al cliente correctamente.']);
+        echo json_encode(['success' => true, 'message' => $msg]);
 
     } catch (Exception $e) {
         $conexion->rollback();
-        echo json_encode(['success' => false, 'message' => 'Error al guardar: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }
 
@@ -163,12 +201,31 @@ function actualizar($conexion) {
 
         $id_credito = $_POST['id_credito'];
         $id_cliente = $_POST['id_cliente'];
-        $monto_credito = $_POST['monto_credito'];
+        $monto_credito = (float)$_POST['monto_credito'];
         $fecha_vencimiento = $_POST['fecha_vencimiento'];
         $referencia = $_POST['referencia_datacredito'] ?? '';
-        $estado_credito = $_POST['estado_credito']; // Activo, Pagado, Vencido, Cancelado
+        $estado_credito = $_POST['estado_credito']; 
+        
+        $admin_user = $_POST['admin_username'] ?? '';
+        $admin_password = $_POST['admin_password'] ?? '';
 
-        // 1. Actualizar el Crédito
+        if (empty($admin_user) || empty($admin_password)) {
+            throw new Exception("Toda modificación a un registro de crédito existente requiere autorización del Administrador.");
+        }
+        
+        if (!verificar_clave_admin($conexion, $admin_user, $admin_password)) {
+            throw new Exception("Credenciales incorrectas o el usuario no tiene rol de Administrador. Edición denegada.");
+        }
+
+        $stmtCheck = $conexion->prepare("SELECT saldo_pendiente FROM Credito WHERE id_credito = ?");
+        $stmtCheck->bind_param("i", $id_credito);
+        $stmtCheck->execute();
+        $saldo_actual = (float)($stmtCheck->get_result()->fetch_assoc()['saldo_pendiente'] ?? 0);
+
+        if ($monto_credito < $saldo_actual) {
+            throw new Exception("El nuevo límite (RD$ $monto_credito) no puede ser menor a la deuda que ya tiene el cliente (RD$ $saldo_actual).");
+        }
+
         $sql = "UPDATE Credito 
                 SET monto_credito=?, fecha_vencimiento=?, estado_credito=?, referencia_datacredito=? 
                 WHERE id_credito=?";
@@ -176,14 +233,13 @@ function actualizar($conexion) {
         $stmt->bind_param("dsssi", $monto_credito, $fecha_vencimiento, $estado_credito, $referencia, $id_credito);
         $stmt->execute();
 
-        // 2. Sincronizar el límite de crédito del cliente si el crédito sigue Activo
         $sqlCli = "UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?";
         $stmtCli = $conexion->prepare($sqlCli);
         $stmtCli->bind_param("di", $monto_credito, $id_cliente);
         $stmtCli->execute();
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Crédito actualizado correctamente.']);
+        echo json_encode(['success' => true, 'message' => 'Crédito actualizado correctamente tras verificación de seguridad.']);
 
     } catch (Exception $e) {
         $conexion->rollback();
@@ -191,11 +247,59 @@ function actualizar($conexion) {
     }
 }
 
-// Nueva función:
+function eliminar($conexion) {
+    try {
+        $conexion->begin_transaction();
+
+        $id_credito = $_POST['id_credito_eliminar'] ?? '';
+        $admin_user = $_POST['admin_username_eliminar'] ?? '';
+        $admin_password = $_POST['admin_password_eliminar'] ?? '';
+
+        if (empty($id_credito) || empty($admin_user) || empty($admin_password)) {
+            throw new Exception("Faltan datos o las credenciales de administrador.");
+        }
+        if (!verificar_clave_admin($conexion, $admin_user, $admin_password)) {
+            throw new Exception("Credenciales incorrectas o el usuario no tiene rol de Administrador. Eliminación denegada.");
+        }
+
+        $stmtCheck = $conexion->prepare("SELECT saldo_pendiente, id_cliente, monto_credito FROM Credito WHERE id_credito = ?");
+        $stmtCheck->bind_param("i", $id_credito);
+        $stmtCheck->execute();
+        $resCheck = $stmtCheck->get_result();
+        
+        if($resCheck->num_rows === 0) {
+            throw new Exception("El crédito especificado no existe.");
+        }
+        
+        $res = $resCheck->fetch_assoc();
+        
+        if($res['saldo_pendiente'] > 0) {
+            throw new Exception("Denegado: No se puede eliminar un crédito que tiene un saldo pendiente por cobrar.");
+        }
+
+        $idCliente = $res['id_cliente'];
+        $montoCredito = (float)$res['monto_credito'];
+
+        $stmtDel = $conexion->prepare("UPDATE Credito SET estado = 'eliminado' WHERE id_credito = ?");
+        $stmtDel->bind_param("i", $id_credito);
+        $stmtDel->execute();
+
+        $stmtLim = $conexion->prepare("UPDATE Cliente SET limite_credito = GREATEST(0, limite_credito - ?) WHERE id_cliente = ?");
+        $stmtLim->bind_param("di", $montoCredito, $idCliente);
+        $stmtLim->execute();
+
+        $conexion->commit();
+        echo json_encode(['success' => true, 'message' => 'El crédito fue cancelado y eliminado del perfil del cliente.']);
+
+    } catch (Exception $e) {
+        $conexion->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
 function cargar_consultas_api($conexion) {
     $id_cliente = $_GET['id_cliente'] ?? 0;
     
-    // Unimos la consulta con el maestro de crédito para obtener el SCORE
     $sql = "SELECT 
                 c.fecha_consulta, 
                 c.referencia_consulta, 

@@ -136,7 +136,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <img src="/Taller/Taller-Mecanica/img/facturacion.png" class="icono-modulo"> <span>Facturacion</span>
                 </button>
                 <div class="modulo-content">
-                    <a href="/Taller/Taller-Mecanica/view/Facturacion/Factura.php">Nueva Factura</a>
+                    <a href="/Taller/Taller-Mecanica/view/Facturacion/Factura.php">Nueva Factura (POS)</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CobroFactura.php">Gestion de pago credito</a>

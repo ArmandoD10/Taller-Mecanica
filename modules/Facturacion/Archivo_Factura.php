@@ -5,133 +5,174 @@ session_start();
 
 $action = $_GET['action'] ?? '';
 $id_sucursal = $_SESSION['id_sucursal'] ?? 0;
+// Capturamos el ID de usuario de la sesión para los movimientos de inventario
+$id_usuario = $_SESSION['id_usuario'] ?? 1; 
 
 switch ($action) {
-    case 'listar_ordenes_pendientes':
-        listar_ordenes($conexion, $id_sucursal);
-        break;
-    case 'obtener_detalle_orden':
-        obtener_detalle_orden($conexion);
-        break;
     case 'buscar_productos':
-        buscar_productos($conexion);
+        buscar_productos($conexion, $id_sucursal);
         break;
-    case 'listar_impuestos_activos':
-        listar_impuestos_activos($conexion);
+
+    case 'buscar_cliente_credito':
+        buscar_cliente_credito($conexion);
         break;
-    case 'guardar_factura':
-        guardar_factura($conexion);
+
+    case 'listar_impuestos_automaticos':
+        $res = $conexion->query("SELECT id_impuesto, nombre_impuesto, porcentaje FROM Impuestos WHERE estado = 'activo'");
+        echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
         break;
+
+    case 'simular_azul':
+        simular_api_azul($conexion);
+        break;
+
+    case 'guardar_factura_pos':
+        guardar_factura_pos($conexion, $id_sucursal, $id_usuario);
+        break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
 }
 
-function listar_ordenes($conexion, $id_sucursal) {
-    $sql = "SELECT 
-                o.id_orden, 
-                o.monto_total as total, 
-                DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y') as fecha_formateada,
-                v.placa,
-                p.nombre as nombre_persona,
-                p.apellido_p as apellido_persona,
-                c.id_cliente -- Necesario para Factura_Central más adelante
-            FROM Orden o
-            INNER JOIN Inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            INNER JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo 
-            INNER JOIN Cliente c ON v.id_cliente = c.id_cliente
-            INNER JOIN Persona p ON c.id_persona = p.id_persona
-            WHERE o.id_sucursal = ? 
-              AND o.estado = 'activo'
-              AND o.id_orden NOT IN (
-                  SELECT id_orden 
-                  FROM Factura_Central 
-                  WHERE estado != 'eliminado'
-              )
-            ORDER BY o.id_orden DESC";
+function buscar_productos($conexion, $id_sucursal) {
+    $term = "%" . ($_GET['term'] ?? '') . "%";
     
-    $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("i", $id_sucursal);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $data = [];
-    while ($row = $result->fetch_assoc()) {
-        // CREAMOS LA PROPIEDAD 'cliente' AQUÍ MISMO
-        $nombre = $row['nombre_persona'] ?? '';
-        $apellido = $row['apellido_persona'] ?? '';
-        $row['cliente'] = trim($nombre . " " . $apellido);
-        
-        // Si por alguna razón está vacío, ponemos un fallback
-        if (empty($row['cliente'])) {
-            $row['cliente'] = "Cliente no identificado";
-        }
-        
-        $data[] = $row;
-    }
-    
-    echo json_encode(['success' => true, 'data' => $data]);
-}
-
-function obtener_detalle_orden($conexion) {
-    $id_orden = (int)$_GET['id_orden'];
-    
-    // 1. Obtener Servicios de la Orden (Mano de Obra)
-    $sql_serv = "SELECT ts.nombre, 'Servicio' as tipo, os.precio_estimado as precio, os.cantidad, ts.id_tipo_servicio as id_item
-                 FROM Orden_Servicio os
-                 JOIN Tipo_Servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio
-                 WHERE os.id_orden = ? AND os.estado = 'activo'";
-    
-    $stmt_serv = $conexion->prepare($sql_serv);
-    $stmt_serv->bind_param("i", $id_orden);
-    $stmt_serv->execute();
-    $servicios = $stmt_serv->get_result()->fetch_all(MYSQLI_ASSOC);
-
-    // 2. Obtener Repuestos de la Orden
-    $sql_rep = "SELECT ra.nombre, 'Producto' as tipo, ore.precio_base as precio, ore.cantidad, ra.id_articulo as id_item
-                FROM Orden_Repuesto ore
-                JOIN Repuesto_Articulo ra ON ore.id_articulo = ra.id_articulo
-                WHERE ore.id_orden = ? AND ore.estado = 'activo'";
-    
-    $stmt_rep = $conexion->prepare($sql_rep);
-    $stmt_rep->bind_param("i", $id_orden);
-    $stmt_rep->execute();
-    $repuestos = $stmt_rep->get_result()->fetch_all(MYSQLI_ASSOC);
-
-    echo json_encode([
-        'success' => true, 
-        'items' => array_merge($servicios, $repuestos)
-    ]);
-}
-
-function buscar_productos($conexion) {
-    $term = "%" . $_GET['term'] . "%";
-    
-    // Especificamos ra.imagen para que no haya dudas de que viene de Repuesto_Articulo
-    $sql = "SELECT 
-                ra.id_articulo, 
-                ra.nombre, 
-                ra.precio_venta, 
-                ra.imagen, 
-                SUM(i.cantidad) as stock
+    // Corregido: SUM y GROUP BY para evitar duplicados por góndola y HAVING para ocultar negativos
+    $sql = "SELECT ra.id_articulo, ra.nombre, ra.precio_venta, ra.imagen, 
+                   SUM(i.cantidad) as stock 
             FROM Repuesto_Articulo ra
             INNER JOIN Inventario i ON ra.id_articulo = i.id_articulo
+            INNER JOIN Gondola g ON i.id_gondola = g.id_gondola
+            INNER JOIN Almacen a ON g.id_almacen = a.id_almacen
             WHERE (ra.nombre LIKE ? OR ra.num_serie LIKE ?) 
-              AND ra.estado = 'activo' 
-              AND i.estado = 'activo'
-            GROUP BY ra.id_articulo
-            LIMIT 5";
-    
+              AND a.id_sucursal = ? 
+              AND ra.estado = 'activo'
+            GROUP BY ra.id_articulo, ra.nombre, ra.precio_venta, ra.imagen
+            HAVING stock > 0"; 
+            
     $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("ss", $term, $term);
+    $stmt->bind_param("ssi", $term, $term, $id_sucursal);
     $stmt->execute();
-    $result = $stmt->get_result();
-    
-    echo json_encode(['success' => true, 'data' => $result->fetch_all(MYSQLI_ASSOC)]);
+    echo json_encode(['success' => true, 'data' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]);
 }
 
-function listar_impuestos_activos($conexion) {
-    $res = $conexion->query("SELECT id_impuesto, nombre_impuesto, porcentaje FROM Impuestos WHERE estado = 'activo'");
-    echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+function buscar_cliente_credito($conexion) {
+    $term = "%" . ($_GET['term'] ?? '') . "%";
+    $sql = "SELECT c.id_cliente, p.nombre, p.apellido_p, cr.id_credito, cr.monto_credito, cr.saldo_pendiente
+            FROM Cliente c
+            INNER JOIN Persona p ON c.id_persona = p.id_persona
+            INNER JOIN Credito cr ON c.id_cliente = cr.id_cliente
+            WHERE (p.nombre LIKE ? OR p.apellido_p LIKE ? OR p.cedula LIKE ?) 
+              AND cr.estado_credito = 'Activo' AND cr.estado = 'activo'";
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("sss", $term, $term, $term);
+    $stmt->execute();
+    echo json_encode(['success' => true, 'data' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]);
+}
+
+function simular_api_azul($conexion) {
+    $tarjeta = $_POST['tarjeta'] ?? '';
+    $monto = $_POST['monto'] ?? 0;
+    $referencia = "AZL-" . strtoupper(bin2hex(random_bytes(4)));
+    $ultimos4 = substr($tarjeta, -4);
+    
+    $sql = "INSERT INTO Api_Azul (referencia_azul, codigo_tarjeta, monto, tipo_tarjeta, ultimos_4_digitos, estado_transaccion, codigo_autorizacion, mensaje_respuesta, estado) 
+            VALUES (?, ?, ?, 'Credito', ?, 'Aprobada', 'AUTH-POS', 'Aprobado por Popular', 'activo')";
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("ssds", $referencia, $tarjeta, $monto, $ultimos4);
+    
+    if($stmt->execute()) {
+        echo json_encode(['success' => true, 'referencia' => $referencia, 'ultimos4' => $ultimos4]);
+    } else {
+        echo json_encode(['success' => false, 'message' => $conexion->error]);
+    }
+}
+
+function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
+    $data = json_decode(file_get_contents("php://input"), true);
+    $conexion->begin_transaction();
+
+    try {
+        // 1. Lógica de Crédito: Validar que el monto no exceda el saldo disponible
+        if ($data['es_credito']) {
+            $sqlC = "SELECT saldo_pendiente FROM Credito WHERE id_credito = ? FOR UPDATE";
+            $stmtC = $conexion->prepare($sqlC);
+            $stmtC->bind_param("i", $data['id_credito']);
+            $stmtC->execute();
+            $cred = $stmtC->get_result()->fetch_assoc();
+
+            if (!$cred || $cred['saldo_pendiente'] < $data['total_final']) {
+                throw new Exception("Saldo de crédito insuficiente para esta operación.");
+            }
+        }
+
+        // 2. Insertar Factura Central
+        $sqlF = "INSERT INTO Factura_Central (id_cliente, id_sucursal, id_metodo, id_moneda, NCF, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
+                 VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'activo')";
+        $id_cliente = $data['id_cliente'] ?? null;
+        $estado_pago = $data['es_credito'] ? 'Pendiente' : 'Pagado';
+        
+        $stmtF = $conexion->prepare($sqlF);
+        $stmtF->bind_param("iiisdssi", $id_cliente, $id_sucursal, $data['metodo_pago'], $data['ncf'], $data['total_final'], $data['referencia_azul'], $estado_pago, $id_usuario);
+        $stmtF->execute();
+        $id_factura = $conexion->insert_id;
+
+        // 3. Si es crédito, afectar tablas de crédito y restar del disponible
+        if ($data['es_credito']) {
+            $sqlFC = "INSERT INTO Factura_Credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
+            $stmtFC = $conexion->prepare($sqlFC);
+            $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
+            $stmtFC->execute();
+
+            $sqlUpdC = "UPDATE Credito SET saldo_pendiente = saldo_pendiente - ? WHERE id_credito = ?";
+            $stmtUpdC = $conexion->prepare($sqlUpdC);
+            $stmtUpdC->bind_param("di", $data['total_final'], $data['id_credito']);
+            $stmtUpdC->execute();
+        }
+
+        // 4. Detalle de Factura, Rebaja de Inventario y Movimiento
+        foreach ($data['items'] as $item) {
+            // Insertar Detalle
+            $sqlD = "INSERT INTO Detalle_Factura (id_factura, id_articulo, cantidad, precio, subtotal) VALUES (?, ?, ?, ?, ?)";
+            $sub = $item['precio'] * $item['cantidad'];
+            $stmtD = $conexion->prepare($sqlD);
+            $stmtD->bind_param("iiidd", $id_factura, $item['id'], $item['cantidad'], $item['precio'], $sub);
+            $stmtD->execute();
+
+            // Rebajar Inventario (específico de la sucursal)
+            $sqlU = "UPDATE Inventario i 
+                     INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
+                     INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
+                     SET i.cantidad = i.cantidad - ? 
+                     WHERE i.id_articulo = ? AND a.id_sucursal = ?";
+            $stmtU = $conexion->prepare($sqlU);
+            $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
+            $stmtU->execute();
+
+            // Registrar Movimiento de Inventario (Tipo 2 = Salida)
+            $motivo = "Venta Factura #" . $id_factura;
+            $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
+                       VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
+            $stmtM = $conexion->prepare($sqlMov);
+            $stmtM->bind_param("iisi", $item['id'], $item['cantidad'], $motivo, $id_usuario);
+            $stmtM->execute();
+        }
+
+        // 5. Registro de Impuestos
+        foreach ($data['impuestos_ids'] as $id_imp) {
+            $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
+            $stmtI = $conexion->prepare($sqlI);
+            $stmtI->bind_param("ii", $id_factura, $id_imp);
+            $stmtI->execute();
+        }
+
+        $conexion->commit();
+        echo json_encode(['success' => true, 'id_factura' => $id_factura]);
+
+    } catch (Exception $e) {
+        $conexion->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
 }
 ?>

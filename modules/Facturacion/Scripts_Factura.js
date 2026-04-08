@@ -16,6 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("buscar_producto").addEventListener("search", () => {
         document.getElementById("res_productos").classList.add("d-none");
     });
+
+    const inputNCF = document.getElementById("ncf_factura");
+if (inputNCF) {
+    inputNCF.addEventListener("input", function(e) {
+        // 1. Convierte minúsculas a MAYÚSCULAS automáticamente
+        // 2. Remueve cualquier caracter que NO sea una letra (A-Z) o un número (0-9)
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    });
+}
 });
 
 // ==========================================
@@ -381,3 +390,6 @@ function eliminarItem(index) {
         actualizarInterfaz();
     }
 }
+
+// Coloca esto dentro de document.addEventListener("DOMContentLoaded", () => { ... });
+

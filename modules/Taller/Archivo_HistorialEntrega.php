@@ -18,7 +18,7 @@ switch ($action) {
 }
 
 function listar_entregas($conexion) {
-    // Consulta especializada: Une la orden con su historial para buscar exactamente quién y cuándo la entregó.
+    // Consulta que busca específicamente el registro de auditoría "Entregado" en la tabla normalizada
     $sql = "SELECT 
                 o.id_orden,
                 CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, '')) AS cliente,
@@ -26,20 +26,29 @@ function listar_entregas($conexion) {
                 v.placa,
                 IFNULL(o.monto_total, 0) AS monto_total,
                 CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
-                -- Datos de la auditoría de entrega
-                DATE_FORMAT(heo.fecha_cambio, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
+                
+                -- Datos de la auditoría de entrega desde la nueva tabla
+                DATE_FORMAT(oe_ent.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
                 IFNULL(u.username, 'Administrador') AS entregado_por
-            FROM orden o
+                
+            FROM Orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN marca mar ON v.id_marca = mar.id_marca
-            JOIN cliente c ON v.id_cliente = c.id_cliente
-            JOIN persona per ON c.id_persona = per.id_persona
-            -- Cruce crucial: Buscamos el registro en el historial donde el estado pasó a Entregado
-            LEFT JOIN historial_estado_orden heo ON o.id_orden = heo.id_orden AND heo.estado_nuevo = 'Entregado'
-            LEFT JOIN usuario u ON heo.usuario_creacion = u.id_usuario
-            WHERE o.estado != 'eliminado' AND o.estado_orden = 'Entregado'
-            ORDER BY heo.fecha_cambio DESC, o.id_orden DESC";
+            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN Marca mar ON v.id_marca = mar.id_marca
+            JOIN Cliente c ON v.id_cliente = c.id_cliente
+            JOIN Persona per ON c.id_persona = per.id_persona
+            
+            -- Cruce crucial: Buscamos el registro en el historial donde el estado fue Entregado
+            INNER JOIN Orden_Estado oe_ent ON o.id_orden = oe_ent.id_orden
+            INNER JOIN Estado e_ent ON oe_ent.id_estado = e_ent.id_estado AND e_ent.nombre = 'Entregado'
+            LEFT JOIN Usuario u ON oe_ent.usuario_creacion = u.id_usuario
+            
+            WHERE o.estado != 'eliminado' 
+            -- Aseguramos que el estado MÁS RECIENTE de esa orden siga siendo 'Entregado'
+            AND (SELECT e2.nombre FROM Orden_Estado oe2 JOIN Estado e2 ON oe2.id_estado = e2.id_estado 
+                 WHERE oe2.id_orden = o.id_orden ORDER BY oe2.fecha_creacion DESC LIMIT 1) = 'Entregado'
+                 
+            ORDER BY oe_ent.fecha_creacion DESC, o.id_orden DESC";
             
     $res = $conexion->query($sql);
     
@@ -66,16 +75,22 @@ function obtener_acta($conexion) {
                 v.placa, 
                 v.vin_chasis,
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' (', IFNULL(v.anio, 'N/A'), ')') AS vehiculo,
-                DATE_FORMAT(heo.fecha_cambio, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
+                
+                DATE_FORMAT(oe_ent.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
                 IFNULL(u.username, 'Administrador (Sistema)') AS entregado_por
-            FROM orden o
+                
+            FROM Orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN marca mar ON v.id_marca = mar.id_marca
-            JOIN cliente c ON v.id_cliente = c.id_cliente
-            JOIN persona per ON c.id_persona = per.id_persona
-            LEFT JOIN historial_estado_orden heo ON o.id_orden = heo.id_orden AND heo.estado_nuevo = 'Entregado'
-            LEFT JOIN usuario u ON heo.usuario_creacion = u.id_usuario
+            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN Marca mar ON v.id_marca = mar.id_marca
+            JOIN Cliente c ON v.id_cliente = c.id_cliente
+            JOIN Persona per ON c.id_persona = per.id_persona
+            
+            -- Buscamos quién y cuándo se puso el estado Entregado
+            INNER JOIN Orden_Estado oe_ent ON o.id_orden = oe_ent.id_orden
+            INNER JOIN Estado e_ent ON oe_ent.id_estado = e_ent.id_estado AND e_ent.nombre = 'Entregado'
+            LEFT JOIN Usuario u ON oe_ent.usuario_creacion = u.id_usuario
+            
             WHERE o.id_orden = $id_orden LIMIT 1";
             
     $res = $conexion->query($sql);

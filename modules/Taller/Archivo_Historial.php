@@ -18,22 +18,26 @@ switch ($action) {
 }
 
 function listar_historial($conexion) {
-    // Consulta principal del historial. Muestra todas las órdenes.
+    // Consulta adaptada a la nueva estructura normalizada
     $sql = "SELECT 
                 o.id_orden, 
                 DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_fmt,
-                o.estado_orden, 
+                
+                -- Extraemos el estado más reciente desde Orden_Estado
+                (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
+                 WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) AS estado_orden,
+                 
                 IFNULL(o.monto_total, 0) AS monto_total,
                 CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
                 CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, '')) AS cliente,
                 v.placa, 
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, '')) AS vehiculo
-            FROM orden o
+            FROM Orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN marca mar ON v.id_marca = mar.id_marca
-            JOIN cliente c ON v.id_cliente = c.id_cliente
-            JOIN persona per ON c.id_persona = per.id_persona
+            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN Marca mar ON v.id_marca = mar.id_marca
+            JOIN Cliente c ON v.id_cliente = c.id_cliente
+            JOIN Persona per ON c.id_persona = per.id_persona
             WHERE o.estado != 'eliminado'
             ORDER BY o.id_orden DESC";
             
@@ -56,11 +60,14 @@ function obtener_detalles($conexion) {
 
     $response = [];
 
-    // 1. OBTENER DATOS DE CABECERA (Orden, Cliente, Vehículo)
+    // 1. OBTENER DATOS DE CABECERA adaptados
     $sqlCabecera = "SELECT 
                 o.id_orden, 
                 DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_fmt,
-                o.estado_orden, 
+                
+                (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
+                 WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) AS estado_orden,
+                 
                 CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
                 CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, ''), ' ', IFNULL(per.apellido_m, '')) AS cliente,
                 per.cedula,
@@ -68,12 +75,12 @@ function obtener_detalles($conexion) {
                 v.vin_chasis,
                 i.kilometraje_recepcion AS kilometraje,
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' (', IFNULL(v.anio, 'N/A'), ')') AS vehiculo
-            FROM orden o
+            FROM Orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN marca mar ON v.id_marca = mar.id_marca
-            JOIN cliente c ON v.id_cliente = c.id_cliente
-            JOIN persona per ON c.id_persona = per.id_persona
+            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN Marca mar ON v.id_marca = mar.id_marca
+            JOIN Cliente c ON v.id_cliente = c.id_cliente
+            JOIN Persona per ON c.id_persona = per.id_persona
             WHERE o.id_orden = $id_orden LIMIT 1";
             
     $resCab = $conexion->query($sqlCabecera);
@@ -84,8 +91,7 @@ function obtener_detalles($conexion) {
         return;
     }
 
-    // 2. OBTENER SERVICIOS REALIZADOS Y TIEMPOS (La "Radiografía")
-    // Subconsulta para agrupar mecánicos
+    // 2. OBTENER SERVICIOS REALIZADOS Y TIEMPOS (Radiografía)
     $sqlServicios = "SELECT 
                         ts.nombre AS servicio, 
                         ap.estado_asignacion,
@@ -95,13 +101,13 @@ function obtener_detalles($conexion) {
                         (
                             SELECT GROUP_CONCAT(DISTINCT CONCAT(p2.nombre, ' ', p2.apellido_p) SEPARATOR ', ') 
                             FROM detalle_asignacion_p dap 
-                            JOIN empleado e2 ON dap.id_empleado = e2.id_empleado 
-                            JOIN persona p2 ON e2.id_persona = p2.id_persona 
+                            JOIN Empleado e2 ON dap.id_empleado = e2.id_empleado 
+                            JOIN Persona p2 ON e2.id_persona = p2.id_persona 
                             WHERE dap.id_asignacion = ap.id_asignacion
                         ) AS mecanicos
                     FROM asignacion_orden ao
                     JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
-                    JOIN tipo_servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio
+                    JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio
                     LEFT JOIN registro_tiempos rt ON ap.id_asignacion = rt.id_asignacion
                     WHERE ao.id_orden = $id_orden
                     ORDER BY ap.id_asignacion ASC";

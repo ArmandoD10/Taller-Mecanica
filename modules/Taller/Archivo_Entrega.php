@@ -16,36 +16,37 @@ switch ($action) {
         obtener_acta($conexion);
         break;
     default:
-        echo json_encode(['success' => false, 'message' => 'Acción no válida en módulo de entregas']);
+        echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
 }
 
 function listar_entregas($conexion) {
+    // CONSULTA COMPLEJA: Extrae el ÚLTIMO estado registrado en Orden_Estado para cada orden
     $sql = "SELECT 
                 o.id_orden, 
                 o.descripcion, 
                 IFNULL(o.monto_total, 0) AS monto_total,
                 CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
-                o.estado_orden,
+                
+                -- Subconsulta para sacar el nombre del estado más reciente
+                (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
+                 WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) AS estado_orden,
+                
                 CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, '')) AS cliente,
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' [', v.placa, ']') AS vehiculo,
                 IFNULL(fc.estado_pago, 'Sin Facturar') AS estado_pago,
                 DATE(o.fecha_creacion) as fecha_orden
-            FROM orden o
+            FROM Orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN marca mar ON v.id_marca = mar.id_marca
-            JOIN cliente c ON v.id_cliente = c.id_cliente
-            JOIN persona per ON c.id_persona = per.id_persona
-            LEFT JOIN factura_central fc ON o.id_orden = fc.id_orden
+            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN Marca mar ON v.id_marca = mar.id_marca
+            JOIN Cliente c ON v.id_cliente = c.id_cliente
+            JOIN Persona per ON c.id_persona = per.id_persona
+            LEFT JOIN Factura_Central fc ON o.id_orden = fc.id_orden
             WHERE o.estado != 'eliminado' 
-              AND (
-                  o.estado_orden IN ('Control Calidad', 'Listo') 
-                  OR (o.estado_orden = 'Entregado' AND DATE(o.fecha_creacion) = CURDATE())
-              )
-            GROUP BY o.id_orden
+            HAVING (estado_orden IN ('Control Calidad', 'Listo') OR (estado_orden = 'Entregado' AND fecha_orden = CURDATE()))
             ORDER BY 
-                CASE o.estado_orden 
+                CASE estado_orden 
                     WHEN 'Listo' THEN 1 
                     WHEN 'Control Calidad' THEN 2 
                     WHEN 'Entregado' THEN 3 
@@ -64,47 +65,39 @@ function listar_entregas($conexion) {
 
 function procesar_entrega($conexion) {
     $id_orden = $_POST['id_orden_entrega'] ?? '';
-    $estado_anterior = $_POST['estado_anterior'] ?? 'Listo'; 
     $usuario = $_SESSION['id_usuario'] ?? 1;
 
     if (empty($id_orden)) {
-        echo json_encode(['success' => false, 'message' => 'Falta el ID de la orden.']);
-        return;
+        echo json_encode(['success' => false, 'message' => 'Falta el ID de la orden.']); return;
     }
 
     $conexion->begin_transaction();
 
     try {
-        $resCheck = $conexion->query("SELECT estado_orden FROM orden WHERE id_orden = $id_orden");
+        // Verificar que no esté ya entregado buscando el estado más reciente
+        $sqlCheck = "SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado WHERE oe.id_orden = $id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1";
+        $resCheck = $conexion->query($sqlCheck);
         if($resCheck && $resCheck->num_rows > 0) {
-            $rowCheck = $resCheck->fetch_assoc();
-            if($rowCheck['estado_orden'] === 'Entregado') {
-                throw new Exception("Esta orden ya había sido marcada como Entregada anteriormente.");
+            if($resCheck->fetch_assoc()['nombre'] === 'Entregado') {
+                throw new Exception("Esta orden ya había sido marcada como Entregada.");
             }
-            if($rowCheck['estado_orden'] != '') {
-                $estado_anterior = $rowCheck['estado_orden'];
-            }
-        } else {
-            throw new Exception("La orden no existe o fue eliminada.");
         }
 
-        $sqlUpdate = "UPDATE orden SET estado_orden = 'Entregado' WHERE id_orden = ?";
-        $stmtUpdate = $conexion->prepare($sqlUpdate);
-        $stmtUpdate->bind_param("i", $id_orden);
-        $stmtUpdate->execute();
+        // LÓGICA NORMALIZADA: En lugar de hacer UPDATE en Orden, insertamos el Estado Entregado
+        $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Entregado' LIMIT 1");
+        if($resEst->num_rows == 0) throw new Exception("No existe el estado 'Entregado' en la configuración de la BD.");
+        
+        $id_estado_entregado = $resEst->fetch_assoc()['id_estado'];
 
-        $sqlHistorial = "INSERT INTO historial_estado_orden (id_orden, estado_anterior, estado_nuevo, estado, usuario_creacion) 
-                         VALUES (?, ?, 'Entregado', 'activo', ?)";
-        $stmtHistorial = $conexion->prepare($sqlHistorial);
-        $stmtHistorial->bind_param("isi", $id_orden, $estado_anterior, $usuario);
-        $stmtHistorial->execute();
+        $stmtInsert = $conexion->prepare("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES (?, ?, ?)");
+        $stmtInsert->bind_param("iii", $id_orden, $id_estado_entregado, $usuario);
+        $stmtInsert->execute();
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'El rastro de auditoría ha sido guardado.']);
+        echo json_encode(['success' => true, 'message' => 'Vehículo marcado como Entregado en el historial de la orden.']);
 
     } catch (Exception $e) {
-        $conexion->rollback();
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 
@@ -112,10 +105,10 @@ function obtener_acta($conexion) {
     $id_orden = (int)($_GET['id_orden'] ?? 0);
     
     if($id_orden === 0) {
-        echo json_encode(['success' => false, 'message' => 'ID de orden no válido.']);
-        return;
+        echo json_encode(['success' => false, 'message' => 'ID de orden no válido.']); return;
     }
 
+    // Buscamos cuándo se insertó el estado "Entregado" y quién lo hizo
     $sql = "SELECT 
                 o.id_orden, 
                 DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_ingreso,
@@ -124,24 +117,32 @@ function obtener_acta($conexion) {
                 v.placa, 
                 v.vin_chasis,
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' (', IFNULL(v.anio, 'N/A'), ')') AS vehiculo,
-                DATE_FORMAT(heo.fecha_cambio, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
+                
+                -- Datos de entrega desde Orden_Estado
+                DATE_FORMAT(oe_entrega.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
                 IFNULL(u.username, 'Administrador (Sistema)') AS entregado_por
-            FROM orden o
+                
+            FROM Orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN marca mar ON v.id_marca = mar.id_marca
-            JOIN cliente c ON v.id_cliente = c.id_cliente
-            JOIN persona per ON c.id_persona = per.id_persona
-            LEFT JOIN historial_estado_orden heo ON o.id_orden = heo.id_orden AND heo.estado_nuevo = 'Entregado'
-            LEFT JOIN usuario u ON heo.usuario_creacion = u.id_usuario
-            WHERE o.id_orden = $id_orden LIMIT 1";
+            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN Marca mar ON v.id_marca = mar.id_marca
+            JOIN Cliente c ON v.id_cliente = c.id_cliente
+            JOIN Persona per ON c.id_persona = per.id_persona
+            
+            -- JOIN para buscar la auditoría exacta de la entrega
+            LEFT JOIN Orden_Estado oe_entrega ON o.id_orden = oe_entrega.id_orden 
+            LEFT JOIN Estado e_entrega ON oe_entrega.id_estado = e_entrega.id_estado AND e_entrega.nombre = 'Entregado'
+            LEFT JOIN Usuario u ON oe_entrega.usuario_creacion = u.id_usuario
+            
+            WHERE o.id_orden = $id_orden 
+            ORDER BY oe_entrega.fecha_creacion DESC LIMIT 1";
             
     $res = $conexion->query($sql);
     
     if($res && $res->num_rows > 0) {
         echo json_encode(['success' => true, 'data' => $res->fetch_assoc()]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'No se pudo generar el acta de entrega de esta orden.']);
+        echo json_encode(['success' => false, 'message' => 'No se pudo generar el acta de entrega.']);
     }
 }
 ?>

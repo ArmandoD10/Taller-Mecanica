@@ -27,6 +27,7 @@ require("../../header.php");
         select, input { border: none !important; background: transparent !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; font-weight: bold; padding: 0 !important; }
         #lista_clientes_busqueda { display: none !important; } 
         .input-group-text { background: transparent !important; border: none !important; }
+        #msg_contexto { display: none !important; }
     }
 </style>
 
@@ -36,12 +37,15 @@ require("../../header.php");
             <h3 class="mb-0">Recepción de Vehículo</h3>
             <div>
                 <button class="btn btn-primary me-2" onclick="window.print()"><i class="fas fa-print me-2"></i>Imprimir</button>
-                <button type="submit" form="formulario_inspeccion" class="btn btn-success"><i class="fas fa-save me-2"></i>Guardar</button>
+                <button type="submit" form="formulario_inspeccion" class="btn btn-success"><i class="fas fa-save me-2"></i>Guardar Inspección</button>
             </div>
         </div>
 
         <div class="hoja-inspeccion" id="hoja-impresion">
             <form id="formulario_inspeccion" method="POST">
+                
+                <input type="hidden" id="id_orden" name="id_orden" value="">
+                <div id="msg_contexto"></div>
                 <div class="row align-items-center mb-2">
                     <div class="col-4 text-center">
                         <img src="../../img/logo.png" alt="Logo Taller" style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
@@ -176,7 +180,7 @@ require("../../header.php");
                     </div>
                 </div>
 
-                <div class="section-title text-start ps-3 mt-2">TRABAJO SOLICITADO</div>
+                <div class="section-title text-start ps-3 mt-2">TRABAJO SOLICITADO / OBSERVACIONES</div>
                 <textarea class="form-control border-dark" name="motivo_visita" rows="2" required></textarea>
 
                 <div class="row mt-4 text-center">

@@ -39,6 +39,12 @@ switch ($action) {
     case 'buscar_productos':
         buscar_productos($conexion, $id_sucursal);
         break;
+    case 'validar_admin':
+        validar_acceso_admin($conexion);
+        break;
+    case 'listar_ofertas_vigentes':
+        listar_ofertas_vigentes($conexion);
+        break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
@@ -57,6 +63,24 @@ function verificar_clave_admin($conexion, $username, $password_ingresada) {
         if (password_verify($password_ingresada, $hash) || $password_ingresada === $hash) return true; 
     }
     return false; 
+}
+
+function validar_acceso_admin($conexion) {
+    $user = $_POST['usuario'] ?? '';
+    $pass = $_POST['password'] ?? '';
+    if (verificar_clave_admin($conexion, $user, $pass)) {
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Credenciales incorrectas o usuario no es Administrador.']);
+    }
+}
+
+function listar_ofertas_vigentes($conexion) {
+    $sql = "SELECT id_oferta, nombre_oferta, porciento 
+            FROM Oferta 
+            WHERE estado = 'activo' AND CURDATE() BETWEEN fecha_inicio AND fecha_fin";
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
 }
 
 function listar_entregas($conexion) {
@@ -105,11 +129,9 @@ function buscar_productos($conexion, $id_sucursal) {
 
 function verificar_credito($conexion) {
     $id_cliente = (int)$_GET['id_cliente'];
-    
     $sql = "SELECT id_credito, monto_credito, saldo_disponible 
             FROM Credito 
             WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
-            
     $res = $conexion->query($sql);
     if ($res && $res->num_rows > 0) {
         $row = $res->fetch_assoc();
@@ -129,12 +151,10 @@ function simular_api_azul($conexion) {
     $monto = $_POST['monto'] ?? 0;
     $referencia = "AZL-" . strtoupper(bin2hex(random_bytes(4)));
     $ultimos4 = substr($tarjeta, -4);
-    
     $sql = "INSERT INTO Api_Azul (referencia_azul, codigo_tarjeta, monto, tipo_tarjeta, ultimos_4_digitos, estado_transaccion, codigo_autorizacion, mensaje_respuesta, estado) 
             VALUES (?, ?, ?, 'Credito', ?, 'Aprobada', 'AUTH-TALLER', 'Aprobado por Popular', 'activo')";
     $stmt = $conexion->prepare($sql);
     $stmt->bind_param("ssds", $referencia, $tarjeta, $monto, $ultimos4);
-    
     if($stmt->execute()) {
         echo json_encode(['success' => true, 'referencia' => $referencia, 'ultimos4' => $ultimos4]);
     } else {
@@ -186,17 +206,25 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
             $stmtUpdC->execute();
         }
 
-        // --- INSERCIÓN DE REPUESTOS EXTRAS AL INVENTARIO Y A LA ORDEN ---
+        if (!empty($data['ofertas_ids'])) {
+            foreach ($data['ofertas_ids'] as $id_oferta) {
+                try {
+                    $sqlOf = "INSERT INTO Factura_Oferta (id_factura, id_oferta, estado) VALUES (?, ?, 'activo')";
+                    $stmtOf = $conexion->prepare($sqlOf);
+                    $stmtOf->bind_param("ii", $id_factura, $id_oferta);
+                    $stmtOf->execute();
+                } catch(Exception $ex) { }
+            }
+        }
+
         if (!empty($data['repuestos_extra'])) {
             foreach ($data['repuestos_extra'] as $item) {
-                // Registrar en la orden
                 $sqlR = "INSERT INTO Orden_Repuesto (id_orden, id_articulo, cantidad, precio_base, sub_total, estado) VALUES (?, ?, ?, ?, ?, 'activo')";
                 $sub = $item['precio'] * $item['cantidad'];
                 $stmtR = $conexion->prepare($sqlR);
                 $stmtR->bind_param("iiidd", $id_orden, $item['id'], $item['cantidad'], $item['precio'], $sub);
                 $stmtR->execute();
 
-                // Rebajar inventario
                 $sqlU = "UPDATE Inventario i 
                          INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
                          INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
@@ -206,7 +234,6 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
                 $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
                 $stmtU->execute();
 
-                // Movimiento de inventario
                 $motivo = "Agregado en Entrega ORD-" . $id_orden;
                 $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
                            VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
@@ -216,7 +243,6 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
             }
         }
 
-        // Impuestos
         foreach ($data['impuestos_ids'] as $id_imp) {
             $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
             $stmtI = $conexion->prepare($sqlI);
@@ -241,7 +267,10 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
 function obtener_detalle_facturacion($conexion) {
     $id_orden = (int)$_GET['id_orden'];
     
-    $sqlServ = "SELECT ts.nombre AS descripcion, 1 AS cantidad
+    // ========================================================
+    // MAGIA ANTI-DOBLE COBRO EN LA FACTURACIÓN DE ENTREGA
+    // ========================================================
+    $sqlServ = "SELECT ap.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad
                 FROM asignacion_orden ao
                 JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
                 JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio
@@ -260,19 +289,32 @@ function obtener_detalle_facturacion($conexion) {
     $tarifas_asignadas = $resPrecios ? $resPrecios->fetch_all(MYSQLI_ASSOC) : [];
 
     $servicios_facturar = [];
+    $servicios_vistos = []; // Arreglo de control EXCLUSIVO para servicios
+    
     foreach ($nombres_servicios as $index => $serv) {
+        $id_serv = $serv['id_tipo_servicio'];
+        
+        // Si el servicio ya se cobró (está en el arreglo), lo ignoramos.
+        if (in_array($id_serv, $servicios_vistos)) {
+            continue; 
+        }
+        $servicios_vistos[] = $id_serv;
+
         $precio_real = isset($tarifas_asignadas[$index]) ? (float)$tarifas_asignadas[$index]['precio'] : 0;
         $servicios_facturar[] = [
+            'id'          => 0,
             'descripcion' => $serv['descripcion'],
             'cantidad'    => 1,
             'precio'      => $precio_real,
-            'subtotal'    => $precio_real
+            'subtotal'    => $precio_real,
+            'es_extra'    => false
         ];
     }
 
+    // Los repuestos se extraen COMPLETOS, sin filtrar duplicados
     $repuestos_data = [];
     try {
-        $sqlRep = "SELECT ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal
+        $sqlRep = "SELECT ra.id_articulo as id, ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal, false as es_extra
                    FROM Orden_Repuesto orp 
                    JOIN Repuesto_Articulo ra ON orp.id_articulo = ra.id_articulo
                    WHERE orp.id_orden = $id_orden AND orp.estado = 'activo'";
@@ -301,17 +343,33 @@ function procesar_calidad($conexion) {
     $conexion->begin_transaction();
     try {
         $nombre_estado_nuevo = ($decision === 'Aprobado') ? 'Listo' : 'Reparación';
+        
         $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = '$nombre_estado_nuevo' LIMIT 1");
-        $id_estado_nuevo = $resEst->fetch_assoc()['id_estado'];
+        $rowEst = $resEst ? $resEst->fetch_assoc() : null;
 
-        $stmtInsert = $conexion->prepare("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES (?, ?, ?)");
-        $stmtInsert->bind_param("iii", $id_orden, $id_estado_nuevo, $usuario_sesion);
-        $stmtInsert->execute();
+        if (!$rowEst && $decision === 'Rechazado') {
+            $resEstAlt = $conexion->query("SELECT id_estado FROM Estado WHERE nombre IN ('En Proceso', 'Proceso', 'En Reparación', 'Revisión') LIMIT 1");
+            $rowEst = $resEstAlt ? $resEstAlt->fetch_assoc() : null;
+        }
+
+        if (!$rowEst) {
+            throw new Exception("No existe el estado '$nombre_estado_nuevo' en la base de datos.");
+        }
+
+        $id_estado_nuevo = $rowEst['id_estado'];
+
+        $checkEst = $conexion->query("SELECT 1 FROM Orden_Estado WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
+        if($checkEst->num_rows > 0){
+            $conexion->query("UPDATE Orden_Estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario_sesion WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
+        } else {
+            $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_nuevo, $usuario_sesion)");
+        }
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Control de Calidad guardado exitosamente.']);
+        echo json_encode(['success' => true, 'message' => 'Veredicto de Calidad guardado exitosamente.']);
     } catch (Exception $e) {
-        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        $conexion->rollback(); 
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 
@@ -323,9 +381,12 @@ function procesar_entrega($conexion) {
         $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Entregado' LIMIT 1");
         $id_estado_entregado = $resEst->fetch_assoc()['id_estado'];
 
-        $stmtInsert = $conexion->prepare("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES (?, ?, ?)");
-        $stmtInsert->bind_param("iii", $id_orden, $id_estado_entregado, $usuario);
-        $stmtInsert->execute();
+        $checkEst = $conexion->query("SELECT 1 FROM Orden_Estado WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
+        if($checkEst->num_rows > 0){
+            $conexion->query("UPDATE Orden_Estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
+        } else {
+            $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_entregado, $usuario)");
+        }
 
         $conexion->commit();
         echo json_encode(['success' => true, 'message' => 'Entregado.']);

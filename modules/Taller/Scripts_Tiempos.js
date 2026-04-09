@@ -63,7 +63,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item list-group-item-action py-2';
                     li.style.cursor = 'pointer';
-                    // Mostrar también cliente y vehículo en el selector
                     li.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="fw-bold text-primary">ORD-${o.id_orden}</span>
@@ -79,13 +78,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         hiddenOrden.value = o.id_orden;
                         listaOrdenes.classList.add('d-none');
                         
-                        // Mostrar la tarjeta informativa de cliente/vehículo
                         document.getElementById('info_orden_seleccionada').classList.remove('d-none');
                         document.getElementById('lbl_orden_cliente').innerText = o.cliente;
                         document.getElementById('lbl_orden_vehiculo').innerText = o.vehiculo;
 
-                        // Cargar los servicios de esta orden
-                        cargarServiciosPorOrden(o.id_orden);
+                        cargarServiciosPorOrden(o.id_orden, null, 0);
                     };
                     listaOrdenes.appendChild(li);
                 });
@@ -256,16 +253,19 @@ function listar() {
                 if (a.estado_asignacion === "Pendiente") {
                     badge = `<span class="badge bg-secondary">Pendiente</span>`;
                     btn = `
-                        <button class="btn btn-sm btn-warning text-dark me-1" onclick="editarAsignacion(${a.id_asignacion})" title="Editar Asignación">
+                        <button class="btn btn-sm btn-warning text-dark me-1 shadow-sm" onclick="editarAsignacion(${a.id_asignacion})" title="Editar Asignación">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-success" onclick="iniciarTrabajo(${a.id_asignacion})" title="Iniciar Cronómetro">
+                        <button class="btn btn-sm btn-success me-1 shadow-sm" onclick="iniciarTrabajo(${a.id_asignacion})" title="Iniciar Cronómetro">
                             <i class="fas fa-play"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger shadow-sm" onclick="eliminarAsignacion(${a.id_asignacion})" title="Eliminar Asignación">
+                            <i class="fas fa-trash-alt"></i>
                         </button>
                     `;
                 } else if (a.estado_asignacion === "En Curso") {
                     badge = `<span class="badge bg-info text-dark">En Curso</span>`;
-                    btn = `<button class="btn btn-sm btn-danger" onclick="abrirModalTiempos(${a.id_asignacion}, '${a.hora_inicio_fmt}')" title="Finalizar"><i class="fas fa-stop"></i></button>`;
+                    btn = `<button class="btn btn-sm btn-danger shadow-sm" onclick="abrirModalTiempos(${a.id_asignacion}, '${a.hora_inicio_fmt}')" title="Finalizar Trabajo"><i class="fas fa-stop"></i></button>`;
                 } else {
                     badge = `<span class="badge bg-success">Completado</span>`;
                     btn = `<i class="fas fa-check-circle text-success fs-5"></i>`;
@@ -273,13 +273,13 @@ function listar() {
 
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
-                    <td class="fw-bold">ORD-${a.id_orden}</td>
+                    <td class="fw-bold ps-3">ORD-${a.id_orden}</td>
                     <td>${a.servicio}</td>
                     <td>${a.mecanicos_nombres}</td>
                     <td>${badge}</td>
                     <td>${a.hora_inicio_fmt || '--:--'}</td>
                     <td>${a.hora_fin_fmt || '--:--'}</td>
-                    <td class="text-center">${btn}</td>
+                    <td class="text-center text-nowrap">${btn}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -319,7 +319,7 @@ function cargarDependencias() {
     .catch(err => console.error("Error cargarDependencias:", err));
 }
 
-function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
+function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null, id_asig_edit = 0) {
     const selServicio = document.getElementById("id_tipo_servicio");
     if(!id_orden) { 
         selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden válida...</option>';
@@ -328,10 +328,10 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
         return; 
     }
 
-    selServicio.innerHTML = '<option value="" data-precio="">Cargando servicios...</option>';
+    selServicio.innerHTML = '<option value="" data-precio="">Cargando servicios disponibles...</option>';
     selServicio.disabled = true;
 
-    fetch(`../../modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}`)
+    fetch(`../../modules/Taller/Archivo_Tiempos.php?action=cargar_servicios_orden&id_orden=${id_orden}&id_asig=${id_asig_edit}`)
     .then(res => res.json())
     .then(data => {
         selServicio.innerHTML = '';
@@ -347,7 +347,7 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null) {
                 selServicio.dispatchEvent(new Event('change'));
             }
         } else {
-            selServicio.innerHTML = '<option value="" data-precio="">Todos los servicios completados</option>';
+            selServicio.innerHTML = '<option value="" data-precio="">Todos los servicios ya fueron asignados</option>';
             selServicio.disabled = true;
             document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">N/A</span>`;
         }
@@ -375,7 +375,7 @@ function agregarMecanicoVisual(id, nombre) {
     document.getElementById('msg_sin_mecanicos').style.display = 'none';
     
     const div = document.createElement('span');
-    div.className = "badge bg-primary me-2 mb-2 p-2 fs-6";
+    div.className = "badge bg-primary me-2 mb-2 p-2 fs-6 shadow-sm";
     div.id = `badge_mec_${idStr}`;
     div.innerHTML = `${nombre} <i class="fas fa-times ms-2" style="cursor:pointer" onclick="removerMecanico('${idStr}')"></i>`;
     document.getElementById('contenedor_mecanicos').appendChild(div);
@@ -404,7 +404,7 @@ function agregarMaquinariaVisual(id, nombre) {
     document.getElementById('msg_sin_maquinaria').style.display = 'none';
     
     const div = document.createElement('span');
-    div.className = "badge bg-info text-dark border border-dark me-2 mb-2 p-2 fs-6";
+    div.className = "badge bg-info text-dark border border-secondary shadow-sm me-2 mb-2 p-2 fs-6";
     div.id = `badge_maq_${idStr}`;
     div.innerHTML = `${nombre} <i class="fas fa-times ms-2 text-danger" style="cursor:pointer" onclick="removerMaquinaria('${idStr}')"></i>`;
     document.getElementById('contenedor_maquinaria').appendChild(div);
@@ -434,6 +434,27 @@ function iniciarTrabajo(id) {
     }
 }
 
+function eliminarAsignacion(id) {
+    if(confirm("¿Está seguro que desea ELIMINAR esta asignación?\nEsta acción liberará la Bahía y la Maquinaria asociada si es el único trabajo pendiente de este vehículo.")) {
+        const fd = new FormData();
+        fd.append("id_asignacion", id);
+        fetch("../../modules/Taller/Archivo_Tiempos.php?action=eliminar_asignacion", {
+            method: "POST",
+            body: fd
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                listar();
+                cargarDependencias();
+            } else {
+                alert("Error al eliminar: " + data.message);
+            }
+        })
+        .catch(err => console.error("Error al eliminar:", err));
+    }
+}
+
 // ==========================================
 // GESTIÓN DE MODALES (UI) Y EDICIÓN
 // ==========================================
@@ -445,7 +466,6 @@ function nuevaAsignacion() {
     document.getElementById("formAsignacion").reset();
     document.getElementById("id_asignacion").value = "";
     
-    // Resetear el buscador híbrido y tarjeta
     document.getElementById("id_orden").value = "";
     document.getElementById("txt_buscar_orden").value = "";
     document.getElementById("txt_buscar_orden").disabled = false;
@@ -483,12 +503,10 @@ function editarAsignacion(id) {
             const d = data.data;
             document.getElementById("id_asignacion").value = d.id_asignacion;
             
-            // Setear valores en el buscador híbrido y bloquearlo
             document.getElementById("id_orden").value = d.id_orden;
             document.getElementById("txt_buscar_orden").value = `ORD-${d.id_orden} (Bloqueado por Edición)`;
             document.getElementById("txt_buscar_orden").disabled = true; 
             
-            // Llenar tarjeta de cliente y vehículo si la orden está en caché
             const ordCache = cacheOrdenes.find(o => o.id_orden == d.id_orden);
             if(ordCache) {
                 document.getElementById('info_orden_seleccionada').classList.remove('d-none');
@@ -496,14 +514,13 @@ function editarAsignacion(id) {
                 document.getElementById('lbl_orden_vehiculo').innerText = ordCache.vehiculo;
             }
 
-            cargarServiciosPorOrden(d.id_orden, d.id_tipo_servicio);
+            cargarServiciosPorOrden(d.id_orden, d.id_tipo_servicio, d.id_asignacion);
             
             document.getElementById("id_bahia").value = d.id_bahia || '';
             document.getElementById("id_precio").value = d.id_precio || ''; 
             document.getElementById("fecha_asignacion").value = d.fecha_asignacion;
             document.getElementById("hora_asignacion").value = d.hora_asignacion.substring(0, 5);
             
-            // Cargar Mecánicos
             mecanicosSeleccionados = [];
             document.getElementById('contenedor_mecanicos').innerHTML = '<p class="text-muted small m-0" id="msg_sin_mecanicos" style="display:none;">No hay mecánicos asignados.</p>';
             d.mecanicos.forEach(idEmp => {
@@ -511,7 +528,6 @@ function editarAsignacion(id) {
                 if(mec) agregarMecanicoVisual(mec.id_empleado, mec.nombre_completo);
             });
 
-            // Cargar Maquinaria
             maquinariaSeleccionada = [];
             document.getElementById('contenedor_maquinaria').innerHTML = '<p class="text-muted small m-0" id="msg_sin_maquinaria" style="display:none;">Ninguna asignada.</p>';
             if(d.maquinarias) {
@@ -533,6 +549,11 @@ function abrirModalTiempos(id, inicio) {
     document.getElementById("id_asignacion_tiempo").value = id;
     document.getElementById("lbl_hora_inicio").innerText = inicio;
     document.getElementById("lbl_hora_fin").innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    // Limpiamos el checkbox por si acaso
+    const cb = document.getElementById("forzar_calidad");
+    if(cb) cb.checked = false;
+    
     abrirModalUI('modalTiempos');
 }
 

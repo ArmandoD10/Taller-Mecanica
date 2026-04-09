@@ -18,7 +18,7 @@ require("../../header.php");
             </div>
         </div>
 
-        <div class="row mb-4">
+        <div class="row mb-4 text-center">
             <div class="col-xl-4 col-md-6">
                 <div class="card bg-primary text-white mb-4 shadow-sm">
                     <div class="card-body fw-bold fs-5"><i class="fas fa-check-double me-2"></i>Vehículos Listos</div>
@@ -52,7 +52,7 @@ require("../../header.php");
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-dark text-center">
                             <tr>
                                 <th>N° Orden</th>
                                 <th>Cliente</th>
@@ -60,10 +60,10 @@ require("../../header.php");
                                 <th>Monto Base</th>
                                 <th>Estado Pago</th>
                                 <th>Estado Orden</th>
-                                <th class="text-center" style="min-width: 140px;">Acción</th>
+                                <th style="min-width: 140px;">Acción</th>
                             </tr>
                         </thead>
-                        <tbody id="cuerpoTablaEntregas"></tbody>
+                        <tbody id="cuerpoTablaEntregas" class="text-center"></tbody>
                     </table>
                 </div>
             </div>
@@ -96,7 +96,13 @@ require("../../header.php");
                                         </div>
                                     </div>
 
-                                    <h6 class="fw-bold border-bottom pb-2 text-secondary mt-3">Detalle y Repuestos Extras</h6>
+                                    <div class="d-flex justify-content-between align-items-center mb-2 mt-3 border-bottom pb-2">
+                                        <h6 class="fw-bold text-secondary m-0">Detalle y Repuestos Extras</h6>
+                                        <button class="btn btn-sm btn-outline-danger border-0 fw-bold" onclick="abrirAuthOferta()" title="Aplicar Ofertas y Descuentos">
+                                            <i class="fas fa-tags me-1"></i> APLICAR OFERTA
+                                        </button>
+                                    </div>
+                                    
                                     <div class="input-group mb-2 shadow-sm position-relative">
                                         <span class="input-group-text bg-white border-end-0"><i class="fas fa-barcode text-muted"></i></span>
                                         <input type="text" id="buscar_prod_entrega" class="form-control border-start-0" placeholder="Buscar repuestos extras..." oninput="buscarProductoEntrega(this)">
@@ -112,7 +118,8 @@ require("../../header.php");
                                                     <th class="text-center">Cant.</th>
                                                     <th class="text-end">Precio</th>
                                                     <th class="text-end">Total</th>
-                                                    <th class="text-center"></th> </tr>
+                                                    <th class="text-center"></th> 
+                                                </tr>
                                             </thead>
                                             <tbody id="fac_tabla_detalles">
                                                 <tr><td colspan="5" class="text-center text-muted py-3">Cargando detalles...</td></tr>
@@ -129,19 +136,24 @@ require("../../header.php");
                                     <h6 class="fw-bold border-bottom pb-2 text-secondary">Resumen Financiero</h6>
                                     
                                     <div class="mb-3">
-                                        <label class="small fw-bold">NCF (Comprobante Fiscal)</label>
+                                        <label class="small fw-bold">NCF Comprobante</label>
                                         <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)">
                                     </div>
 
                                     <div class="bg-light p-3 rounded mb-3 border">
                                         <div class="d-flex justify-content-between mb-1 small text-muted">
-                                            <span>Sub-Total Gravado:</span>
+                                            <span>Sub-Total Bruto:</span>
                                             <span id="fac_subtotal" class="fw-bold text-dark">RD$ 0.00</span>
                                         </div>
-                                        <div class="d-flex justify-content-between mb-2 small text-muted border-bottom pb-2">
-                                            <span>ITBIS (18%):</span>
-                                            <span id="fac_itbis" class="fw-bold text-danger">RD$ 0.00</span>
+                                        
+                                        <div id="fila_ofertas" class="d-flex justify-content-between mb-2 small d-none border-top pt-2">
+                                            <span class="text-danger fw-bold">Descuento Ofertas:</span>
+                                            <span id="ofertas_valor" class="text-danger fw-bold">- RD$ 0.00</span>
                                         </div>
+
+                                        <div id="desglose_impuestos_dinamico" class="border-top pt-2 border-bottom pb-2">
+                                            </div>
+                                        
                                         <div class="d-flex justify-content-between align-items-center mt-2">
                                             <span class="fw-bold text-uppercase">Total a Cobrar:</span>
                                             <h4 class="fw-bold text-success mb-0" id="fac_total_final">RD$ 0.00</h4>
@@ -190,26 +202,66 @@ require("../../header.php");
         </div>
     </div>
 
+    <div class="modal fade" id="modalAuthAdmin" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-sm modal-dialog-centered" style="z-index: 1060;">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white py-2">
+                    <h6 class="modal-title fw-bold small"><i class="fas fa-shield-alt me-2"></i>AUTORIZACIÓN REQUERIDA</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted text-center mb-3">Ingrese credenciales de administrador para aplicar ofertas.</p>
+                    <div class="mb-2">
+                        <input type="text" id="auth_user" class="form-control text-center" placeholder="Usuario">
+                    </div>
+                    <div class="mb-3">
+                        <input type="password" id="auth_pass" class="form-control text-center" placeholder="Contraseña">
+                    </div>
+                    <button class="btn btn-danger w-100 fw-bold" onclick="validarAccesoOfertas()">VALIDAR ACCESO</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalSeleccionOfertas" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1060;">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white py-3">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-tags me-2 text-warning"></i>Ofertas Disponibles</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="lista_ofertas_disponibles" class="list-group list-group-flush">
+                        <div class="p-5 text-center text-muted">
+                            <div class="spinner-border spinner-border-sm me-2"></div> Buscando ofertas vigentes...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button class="btn btn-dark w-100 fw-bold py-2 shadow" onclick="aplicarOfertasSeleccionadas()">
+                        APLICAR BENEFICIOS A LA ORDEN
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalAzulTaller" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 overflow-hidden shadow-lg">
-                <div class="bg-primary p-4 text-center">
-                    <img src="/Taller/Taller-Mecanica/img/azul.webp" alt="Azul" style="filter: brightness(0) invert(1); height: 45px;">
-                    <div class="mt-2 text-white small fw-bold">PASARELA BANCO POPULAR</div>
+            <div class="modal-content border-0 shadow-lg overflow-hidden">
+                <div class="bg-primary p-4 text-center text-white">
+                    <h5 class="fw-bold mb-0">PASARELA AZUL</h5>
+                    <small>BANCO POPULAR</small>
                 </div>
                 <div class="p-4" id="azul_formulario_taller">
-                    <div class="text-center mb-4">
-                        <h2 class="fw-bold text-dark" id="azul_monto_display">RD$ 0.00</h2>
-                    </div>
-                    <label class="small fw-bold text-muted mb-1">Número de Tarjeta del Cliente</label>
-                    <input type="text" class="form-control form-control-lg text-center mb-4 border-primary" id="azul_tarjeta_taller" placeholder="•••• •••• •••• ••••" maxlength="16">
-                    <button class="btn btn-primary w-100 py-3 fw-bold" onclick="procesarAzulTaller()"><i class="fas fa-lock me-2"></i>AUTORIZAR PAGO</button>
+                    <h2 class="text-center fw-bold mb-4" id="azul_monto_display">RD$ 0.00</h2>
+                    <input type="text" class="form-control form-control-lg text-center mb-4 border-primary" id="azul_tarjeta_taller" placeholder="Número de Tarjeta" maxlength="16">
+                    <button class="btn btn-primary w-100 py-3 fw-bold shadow" onclick="procesarAzulTaller()">AUTORIZAR PAGO</button>
                     <button class="btn btn-link text-muted w-100 mt-2" onclick="cerrarModalAzul()">Cancelar</button>
                 </div>
                 <div id="azul_cargando_taller" class="text-center py-5 d-none">
-                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
-                    <h5 class="fw-bold text-dark">Procesando Transacción...</h5>
-                    <p class="text-muted small">Comunicando con Banco Popular</p>
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                    <p class="mt-2 text-muted">Comunicando con el Banco...</p>
                 </div>
             </div>
         </div>
@@ -218,42 +270,34 @@ require("../../header.php");
     <div class="modal fade" id="modalCalidad" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-info border-2">
-                <div class="modal-header bg-info text-dark">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Auditoría de Control de Calidad</h5>
+                <div class="modal-header bg-info">
+                    <h5 class="modal-title fw-bold">Control de Calidad</h5>
                     <button type="button" class="btn-close" onclick="cerrarModalCalidad()"></button>
                 </div>
                 <form id="formCalidad">
                     <div class="modal-body bg-light">
                         <input type="hidden" id="id_orden_calidad" name="id_orden_calidad">
-                        <div class="mb-3 text-center">
-                            <h4 class="text-primary fw-bold" id="lbl_calidad_orden"></h4>
-                            <p class="text-muted mb-0" id="lbl_calidad_vehiculo"></p>
+                        
+                        <div class="text-center mb-4">
+                            <h4 class="fw-bold text-primary mb-0" id="lbl_calidad_orden"></h4>
+                            <p class="text-muted small fw-bold mb-0" id="lbl_calidad_vehiculo"></p>
                         </div>
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">Veredicto de la Revisión <span class="text-danger">*</span></label>
+                        
+                        <div class="mb-3">
+                            <label class="fw-bold small">Veredicto de Revisión</label>
                             <select class="form-select border-info border-2" name="decision_calidad" required>
-                                <option value="">Seleccione el resultado...</option>
-                                <option value="Aprobado" class="text-success fw-bold">✅ APROBADO: Vehículo Listo para Entrega</option>
-                                <option value="Rechazado" class="text-danger fw-bold">❌ RECHAZADO: Devolver a los Mecánicos (Reparación)</option>
+                                <option value="">Seleccione...</option>
+                                <option value="Aprobado">✅ Aprobado</option>
+                                <option value="Rechazado">❌ Rechazado</option>
                             </select>
                         </div>
-                        <div class="card border-0 shadow-sm mt-3">
-                            <div class="card-body bg-white rounded">
-                                <label class="form-label fw-bold text-dark"><i class="fas fa-shield-alt text-info me-1"></i> Firma del Supervisor / Admin <span class="text-danger">*</span></label>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
-                                    <input type="text" class="form-control" name="admin_username" placeholder="Usuario" required>
-                                </div>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="fas fa-key"></i></span>
-                                    <input type="password" class="form-control" name="admin_password" placeholder="Contraseña" required>
-                                </div>
-                            </div>
+                        <div class="bg-white p-3 rounded border shadow-sm">
+                            <input type="text" class="form-control mb-2" name="admin_username" placeholder="Usuario Supervisor" required>
+                            <input type="password" class="form-control" name="admin_password" placeholder="Contraseña" required>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary" onclick="cerrarModalCalidad()">Cancelar</button>
-                        <button type="submit" class="btn btn-info text-dark fw-bold"><i class="fas fa-save me-2"></i>Guardar Veredicto</button>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-info w-100 fw-bold shadow text-dark">Guardar Veredicto</button>
                     </div>
                 </form>
             </div>
@@ -264,32 +308,18 @@ require("../../header.php");
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-success border-2">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="fas fa-car-side me-2"></i>Confirmar Entrega de Vehículo</h5>
+                    <h5 class="modal-title">Confirmar Entrega de Vehículo</h5>
                     <button type="button" class="btn-close btn-close-white" onclick="cerrarModalEntrega()"></button>
                 </div>
                 <form id="formEntrega">
-                    <div class="modal-body bg-light">
+                    <div class="modal-body text-center py-4 bg-light">
                         <input type="hidden" id="id_orden_entrega" name="id_orden_entrega">
-                        <div class="mb-3">
-                            <ul class="list-group list-group-flush shadow-sm">
-                                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
-                                    <span class="text-muted fw-bold">Orden:</span>
-                                    <span class="fw-bold fs-5 text-primary" id="lbl_orden"></span>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
-                                    <span class="text-muted fw-bold">Cliente:</span>
-                                    <span class="fw-bold" id="lbl_cliente"></span>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
-                                    <span class="text-muted fw-bold">Vehículo:</span>
-                                    <span class="fw-bold" id="lbl_vehiculo"></span>
-                                </li>
-                            </ul>
-                        </div>
+                        <h2 class="text-primary fw-bold mb-1" id="lbl_orden"></h2>
+                        <h5 class="text-dark fw-bold" id="lbl_cliente"></h5>
+                        <p class="mb-0 text-muted" id="lbl_vehiculo"></p>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary" onclick="cerrarModalEntrega()">Cancelar</button>
-                        <button type="submit" class="btn btn-success fw-bold"><i class="fas fa-check-circle me-2"></i>Entregar Vehículo</button>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-success w-100 fw-bold shadow">Confirmar Entrega de Llaves</button>
                     </div>
                 </form>
             </div>
@@ -297,62 +327,43 @@ require("../../header.php");
     </div>
 
     <div class="modal fade" id="modalComprobante" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-success border-2">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="fas fa-certificate me-2"></i>Acta de Entrega de Vehículo</h5>
+                    <h5 class="modal-title">Acta de Entrega de Vehículo</h5>
                     <button type="button" class="btn-close btn-close-white" onclick="cerrarModalComprobante()"></button>
                 </div>
-                <div class="modal-body bg-white" id="areaImpresionEntrega">
-                    
+                <div class="modal-body bg-white p-4" id="areaImpresionEntrega">
                     <div class="text-center mb-4 border-bottom pb-3">
-                        <h3 class="text-dark fw-bold mb-0">Mecánica Automotriz Díaz Pantaleón (SIG)</h3>
-                        <p class="text-muted mb-0">Comprobante de Salida y Entrega Conforme</p>
+                        <h4 class="fw-bold mb-0">MECÁNICA DÍAZ PANTALEÓN (SIG)</h4>
+                        <small class="text-muted">Santiago de los Caballeros, R.D.</small>
                     </div>
-
-                    <div class="row mb-4">
-                        <div class="col-6">
-                            <h6 class="fw-bold text-secondary border-bottom pb-1">DATOS DE LA ORDEN</h6>
-                            <p class="mb-1"><strong>N° de Orden:</strong> <span id="acta_orden" class="text-primary fw-bold"></span></p>
-                            <p class="mb-1"><strong>Fecha de Ingreso:</strong> <span id="acta_ingreso"></span></p>
-                            <p class="mb-1"><strong>Fecha de Entrega:</strong> <span id="acta_salida" class="text-success fw-bold"></span></p>
-                            <p class="mb-1"><strong>Responsable Entrega:</strong> <span id="acta_usuario"></span></p>
+                    <div class="row mb-3">
+                        <div class="col-6 small">
+                            <b>N° Orden:</b> <span id="acta_orden" class="text-primary fw-bold"></span><br>
+                            <b>Fecha Ingreso:</b> <span id="acta_ingreso"></span><br>
+                            <b>Fecha Salida:</b> <span id="acta_salida" class="text-success fw-bold"></span><br>
+                            <b>Entregado Por:</b> <span id="acta_usuario"></span>
                         </div>
-                        <div class="col-6">
-                            <h6 class="fw-bold text-secondary border-bottom pb-1">DATOS DEL VEHÍCULO Y CLIENTE</h6>
-                            <p class="mb-1"><strong>Propietario:</strong> <span id="acta_cliente"></span></p>
-                            <p class="mb-1"><strong>Vehículo:</strong> <span id="acta_vehiculo"></span></p>
-                            <p class="mb-1"><strong>Placa:</strong> <span id="acta_placa"></span></p>
-                            <p class="mb-1"><strong>VIN/Chasis:</strong> <span id="acta_vin"></span></p>
+                        <div class="col-6 small">
+                            <b>Cliente:</b> <span id="acta_cliente"></span><br>
+                            <b>Vehículo:</b> <span id="acta_vehiculo"></span><br>
+                            <b>Placa:</b> <span id="acta_placa"></span><br>
+                            <b>VIN/Chasis:</b> <span id="acta_vin"></span>
                         </div>
                     </div>
-
-                    <div class="card bg-light border-0 mb-4">
-                        <div class="card-body text-center">
-                            <h4 class="fw-bold mb-1">Monto Total Facturado: <span id="acta_monto" class="text-success"></span></h4>
-                            <p class="text-muted small mb-0">La factura fiscal y detalles impositivos fueron entregados por caja.</p>
-                        </div>
+                    <div class="bg-light p-3 text-center mb-4 rounded border">
+                        <h6 class="text-muted small mb-1">Monto Total Liquidado</h6>
+                        <h3 id="acta_monto" class="text-success fw-bold mb-0"></h3>
                     </div>
-
-                    <div class="row mt-5 pt-4 text-center">
-                        <div class="col-6">
-                            <div class="border-top border-dark mx-4 pt-2">
-                                <p class="fw-bold mb-0">Firma del Cliente</p>
-                                <small class="text-muted">Recibe conforme a satisfacción</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="border-top border-dark mx-4 pt-2">
-                                <p class="fw-bold mb-0">Firma Taller</p>
-                                <small class="text-muted">Autoriza Salida</small>
-                            </div>
-                        </div>
+                    <div class="row mt-5 text-center small">
+                        <div class="col-5 border-top pt-1">Firma del Cliente</div>
+                        <div class="col-2"></div>
+                        <div class="col-5 border-top pt-1">Firma del Taller</div>
                     </div>
-
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" onclick="cerrarModalComprobante()">Cerrar</button>
-                    <button type="button" class="btn btn-success" onclick="imprimirComprobante()"><i class="fas fa-print me-2"></i>Imprimir Acta</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success px-4 fw-bold" onclick="imprimirComprobante()"><i class="fas fa-print me-2"></i>Imprimir Acta</button>
                 </div>
             </div>
         </div>

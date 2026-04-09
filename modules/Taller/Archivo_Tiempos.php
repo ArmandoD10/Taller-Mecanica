@@ -13,6 +13,7 @@ switch ($action) {
     case 'obtener_asignacion': obtener_asignacion($conexion); break;
     case 'iniciar_tiempo': iniciar_tiempo($conexion); break;
     case 'finalizar_tiempo': finalizar_tiempo($conexion); break;
+    case 'eliminar_asignacion': eliminar_asignacion($conexion); break;
     default: echo json_encode(['success' => false, 'message' => 'Acción no válida']); break;
 }
 
@@ -37,9 +38,6 @@ function listar($conexion) {
 function cargar_dependencias($conexion) {
     $data = [];
     
-    // =========================================================================================
-    // AÑADIDO: Extracción de datos del Cliente y Vehículo para mostrarlos en el Frontend
-    // =========================================================================================
     $sqlOrdenes = "SELECT DISTINCT o.id_orden, o.descripcion,
                     (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
                      WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) as ultimo_estado,
@@ -77,10 +75,30 @@ function cargar_dependencias($conexion) {
 
 function cargar_servicios_orden($conexion) {
     $id = (int)$_GET['id_orden'];
+    $id_asig_edit = isset($_GET['id_asig']) ? (int)$_GET['id_asig'] : 0;
+    
+    $sqlEstado = "SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado WHERE oe.id_orden = $id ORDER BY oe.fecha_creacion DESC LIMIT 1";
+    $resEst = $conexion->query($sqlEstado)->fetch_assoc();
+    $estadoOrden = $resEst ? $resEst['nombre'] : '';
+    
+    $rework_states = ['Reparación', 'En Proceso', 'En Reparación', 'Revisión', 'Rechazado'];
+    $is_rework = in_array($estadoOrden, $rework_states);
+    
+    $exclude_sql = "";
+    if (!$is_rework) {
+        $exclude_sql = " AND os.id_tipo_servicio NOT IN (
+            SELECT ap.id_tipo_servicio 
+            FROM asignacion_orden ao 
+            JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+            WHERE ao.id_orden = $id AND ap.estado != 'eliminado' AND ap.id_asignacion != $id_asig_edit
+        )";
+    }
+    
     $sql = "SELECT os.id_tipo_servicio, ts.nombre AS nombre_servicio, ts.precio 
             FROM Orden_Servicio os 
             JOIN Tipo_Servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio 
-            WHERE os.id_orden = $id AND os.estado = 'activo'";
+            WHERE os.id_orden = $id AND os.estado = 'activo' $exclude_sql";
+            
     echo json_encode(['success' => true, 'data' => $conexion->query($sql)->fetch_all(MYSQLI_ASSOC)]);
 }
 
@@ -134,9 +152,34 @@ function guardar_asignacion($conexion) {
 
     $excludeAsig = !empty($id_asignacion) ? "AND ap.id_asignacion != $id_asignacion" : "";
 
-    $sqlCheckBahia = "SELECT ap.id_asignacion FROM taller t JOIN asignacion_orden ao ON t.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE t.id_bahia = $id_bahia AND ap.estado_asignacion IN ('Pendiente', 'En Curso') $excludeAsig";
+    $sqlCheckServicio = "SELECT 1 FROM asignacion_orden ao 
+                         JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+                         WHERE ao.id_orden = $id_orden AND ap.id_tipo_servicio = $id_tipo_serv 
+                         AND ap.estado != 'eliminado' $excludeAsig LIMIT 1";
+                         
+    if ($conexion->query($sqlCheckServicio)->num_rows > 0) {
+        $sqlEstadoOrden = "SELECT e.nombre FROM Orden_Estado oe 
+                           JOIN Estado e ON oe.id_estado = e.id_estado 
+                           WHERE oe.id_orden = $id_orden 
+                           ORDER BY oe.fecha_creacion DESC LIMIT 1";
+        $resEstado = $conexion->query($sqlEstadoOrden)->fetch_assoc();
+        $estadoActual = $resEstado ? $resEstado['nombre'] : '';
+        
+        if (!in_array($estadoActual, ['Reparación', 'En Proceso', 'En Reparación', 'Revisión', 'Rechazado'])) {
+            echo json_encode(['success' => false, 'message' => "Este servicio ya fue asignado a esta orden. Solo puedes volver a asignarlo si la orden fue devuelta por Control de Calidad."]); 
+            return;
+        }
+    }
+
+    $sqlCheckBahia = "SELECT 1 FROM taller t 
+                      JOIN asignacion_orden ao ON t.id_orden = ao.id_orden 
+                      JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+                      WHERE t.id_bahia = $id_bahia 
+                      AND ap.estado_asignacion IN ('Pendiente', 'En Curso') 
+                      AND ao.id_orden != $id_orden LIMIT 1";
+                      
     if ($conexion->query($sqlCheckBahia)->num_rows > 0) {
-        echo json_encode(['success' => false, 'message' => "La Bahía seleccionada ya está reservada o en uso."]); return;
+        echo json_encode(['success' => false, 'message' => "La Bahía seleccionada está siendo ocupada por OTRO vehículo."]); return;
     }
 
     foreach ($mecanicos as $id_emp) {
@@ -160,7 +203,7 @@ function guardar_asignacion($conexion) {
         $resD = $conexion->query($sqlDisp)->fetch_assoc();
         
         if ($resD['ocupado'] > 0) {
-            echo json_encode(['success' => false, 'message' => "El empleado {$resH['nombre']} ya tiene un trabajo EN CURSO actualmente."]); 
+            echo json_encode(['success' => false, 'message' => "El empleado {$resH['nombre']} ya tiene un trabajo EN CURSO."]); 
             return;
         }
     }
@@ -174,18 +217,24 @@ function guardar_asignacion($conexion) {
             $stmtA->bind_param("issi", $id_tipo_serv, $fp, $hora_prog, $usuario);
             $stmtA->execute(); $id_asig = $conexion->insert_id;
 
-            $conexion->query("INSERT INTO asignacion_orden (id_orden, id_asignacion, estado) VALUES ($id_orden, $id_asig, 'activo')");
-            $conexion->query("INSERT INTO taller (id_orden, id_bahia, id_precio, estado, usuario_creacion) VALUES ($id_orden, $id_bahia, $id_precio, 'activo', $usuario)");
+            $conexion->query("INSERT IGNORE INTO asignacion_orden (id_orden, id_asignacion, estado) VALUES ($id_orden, $id_asig, 'activo')");
+            
+            $checkTaller = $conexion->query("SELECT 1 FROM taller WHERE id_orden = $id_orden");
+            if($checkTaller->num_rows > 0) {
+                $conexion->query("UPDATE taller SET id_bahia = $id_bahia, id_precio = $id_precio WHERE id_orden = $id_orden");
+            } else {
+                $conexion->query("INSERT INTO taller (id_orden, id_bahia, id_precio, estado, usuario_creacion) VALUES ($id_orden, $id_bahia, $id_precio, 'activo', $usuario)");
+            }
             
             if(!empty($maquinarias)) {
-                $stmtMaq = $conexion->prepare("INSERT INTO Orden_Maquinaria (id_orden, id_maquinaria, tiempo_estimado, estado) VALUES (?, ?, '01:00:00', 'activo')");
+                $stmtMaq = $conexion->prepare("INSERT INTO Orden_Maquinaria (id_orden, id_maquinaria, tiempo_estimado, estado) VALUES (?, ?, '01:00:00', 'activo') ON DUPLICATE KEY UPDATE estado='activo'");
                 foreach($maquinarias as $m) { $stmtMaq->bind_param("ii", $id_orden, $m); $stmtMaq->execute(); }
             }
             
-            $resEstRep = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Reparación' LIMIT 1");
+            $resEstRep = $conexion->query("SELECT id_estado FROM Estado WHERE nombre IN ('Reparación', 'En Proceso', 'Proceso', 'En Reparación') LIMIT 1");
             if($resEstRep->num_rows > 0) {
                 $id_est = $resEstRep->fetch_assoc()['id_estado'];
-                $conexion->query("INSERT IGNORE INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_est, $usuario)");
+                $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_est, $usuario) ON DUPLICATE KEY UPDATE fecha_creacion = CURRENT_TIMESTAMP");
             }
             
             $msg = 'Asignación creada exitosamente.';
@@ -196,10 +245,10 @@ function guardar_asignacion($conexion) {
             $stmtU->execute();
 
             $conexion->query("UPDATE taller SET id_bahia = $id_bahia, id_precio = $id_precio WHERE id_orden = $id_orden");
-            $conexion->query("DELETE FROM Orden_Maquinaria WHERE id_orden = $id_orden");
             
+            $conexion->query("DELETE FROM Orden_Maquinaria WHERE id_orden = $id_orden");
             if(!empty($maquinarias)) {
-                $stmtMaq = $conexion->prepare("INSERT INTO Orden_Maquinaria (id_orden, id_maquinaria, tiempo_estimado, estado) VALUES (?, ?, '01:00:00', 'activo')");
+                $stmtMaq = $conexion->prepare("INSERT INTO Orden_Maquinaria (id_orden, id_maquinaria, tiempo_estimado, estado) VALUES (?, ?, '01:00:00', 'activo') ON DUPLICATE KEY UPDATE estado='activo'");
                 foreach($maquinarias as $m) { $stmtMaq->bind_param("ii", $id_orden, $m); $stmtMaq->execute(); }
             }
 
@@ -241,6 +290,7 @@ function iniciar_tiempo($conexion) {
 function finalizar_tiempo($conexion) {
     $id_asignacion = $_POST['id_asignacion_tiempo']; 
     $notas = $_POST['notas_hallazgos'];
+    $forzar_calidad = isset($_POST['forzar_calidad']) ? $_POST['forzar_calidad'] : '0'; 
     
     $conexion->begin_transaction();
     try {
@@ -262,13 +312,56 @@ function finalizar_tiempo($conexion) {
             $conexion->query("UPDATE Maquinaria SET estado_maquina = 'Activo' WHERE id_maquinaria = {$row['id_maquinaria']}");
         }
 
-        $sqlCheck = "SELECT COUNT(*) as pendientes FROM asignacion_orden ao JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE ao.id_orden = $id_orden AND ap.estado_asignacion != 'Completado'";
-        $resCheck = $conexion->query($sqlCheck)->fetch_assoc();
+        $sqlTotalServicios = "SELECT COUNT(DISTINCT id_tipo_servicio) as total FROM Orden_Servicio WHERE id_orden = $id_orden AND estado = 'activo'";
+        $totalServicios = (int)$conexion->query($sqlTotalServicios)->fetch_assoc()['total'];
 
-        if ($resCheck['pendientes'] == 0) {
+        $sqlFechaEstado = "SELECT fecha_creacion FROM Orden_Estado WHERE id_orden = $id_orden ORDER BY fecha_creacion DESC LIMIT 1";
+        $resFecha = $conexion->query($sqlFechaEstado)->fetch_assoc();
+        $fecha_estado_actual = $resFecha ? $resFecha['fecha_creacion'] : '2000-01-01 00:00:00';
+
+        $sqlPendientes = "SELECT COUNT(*) as activos FROM asignacion_orden ao 
+                          JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+                          WHERE ao.id_orden = $id_orden AND ap.estado_asignacion IN ('Pendiente', 'En Curso') AND ap.estado != 'eliminado'";
+        $activos = (int)$conexion->query($sqlPendientes)->fetch_assoc()['activos'];
+
+        $sqlCompletadosFase = "SELECT COUNT(DISTINCT ap.id_tipo_servicio) as completados 
+                               FROM asignacion_orden ao 
+                               JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+                               JOIN registro_tiempos rt ON ap.id_asignacion = rt.id_asignacion
+                               WHERE ao.id_orden = $id_orden AND ap.estado_asignacion = 'Completado' AND ap.estado != 'eliminado' 
+                               AND rt.hora_fin >= '$fecha_estado_actual'";
+        $completados_fase = (int)$conexion->query($sqlCompletadosFase)->fetch_assoc()['completados'];
+
+        if ($forzar_calidad === '1' || ($activos == 0 && $completados_fase >= $totalServicios)) {
             
-            $sqlSum = "SELECT SUM(p.monto) as total_monto FROM taller t JOIN Precio p ON t.id_precio = p.id_precio WHERE t.id_orden = $id_orden AND t.estado = 'activo'";
-            $monto_total = (float)$conexion->query($sqlSum)->fetch_assoc()['total_monto'];
+            // MAGIA ANTI-DOBLE COBRO (Solo aplica a servicios. Los repuestos se suman todos)
+            $sqlServicios = "SELECT ap.id_tipo_servicio 
+                             FROM asignacion_orden ao 
+                             JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+                             WHERE ao.id_orden = $id_orden AND ap.estado != 'eliminado' ORDER BY ap.id_asignacion ASC";
+            $resServicios = $conexion->query($sqlServicios)->fetch_all(MYSQLI_ASSOC);
+            
+            $sqlPrecios = "SELECT p.monto FROM taller t JOIN Precio p ON t.id_precio = p.id_precio WHERE t.id_orden = $id_orden AND t.estado = 'activo' ORDER BY t.id_taller ASC";
+            $resPrecios = $conexion->query($sqlPrecios)->fetch_all(MYSQLI_ASSOC);
+            
+            $monto_servicios = 0;
+            $vistos = [];
+            foreach ($resServicios as $index => $serv) {
+                $id_serv = $serv['id_tipo_servicio'];
+                // Filtramos servicios duplicados
+                if (!in_array($id_serv, $vistos)) {
+                    $vistos[] = $id_serv;
+                    $monto_servicios += isset($resPrecios[$index]) ? (float)$resPrecios[$index]['monto'] : 0;
+                }
+            }
+
+            // Sumamos TODOS los repuestos sin filtrar
+            $sqlRepuestos = "SELECT SUM(cantidad * precio_base) as total_repuestos FROM Orden_Repuesto WHERE id_orden = $id_orden AND estado = 'activo'";
+            $resRep = $conexion->query($sqlRepuestos)->fetch_assoc();
+            $monto_repuestos = $resRep ? (float)$resRep['total_repuestos'] : 0;
+
+            // Total Final para la Orden
+            $monto_total = $monto_servicios + $monto_repuestos;
 
             $stmtUpd = $conexion->prepare("UPDATE Orden SET monto_total = ? WHERE id_orden = ?");
             $stmtUpd->bind_param("di", $monto_total, $id_orden);
@@ -277,18 +370,61 @@ function finalizar_tiempo($conexion) {
             $usuario = $_SESSION['id_usuario'] ?? 1;
             
             $resEstCC = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Control Calidad' LIMIT 1");
-            
             if($resEstCC->num_rows > 0) {
                 $id_estado_cc = $resEstCC->fetch_assoc()['id_estado'];
-                $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_cc, $usuario)");
+                $checkEstCC = $conexion->query("SELECT 1 FROM Orden_Estado WHERE id_orden = $id_orden AND id_estado = $id_estado_cc");
+                if($checkEstCC->num_rows > 0) {
+                    $conexion->query("UPDATE Orden_Estado SET fecha_creacion = CURRENT_TIMESTAMP WHERE id_orden = $id_orden AND id_estado = $id_estado_cc");
+                } else {
+                    $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_cc, $usuario)");
+                }
             }
         }
 
         $conexion->commit(); 
-        echo json_encode(['success' => true, 'message' => 'Finalizado. Las dependencias fueron liberadas.']);
+        echo json_encode(['success' => true, 'message' => 'Servicio Finalizado exitosamente.']);
     } catch (Exception $e) { 
         $conexion->rollback(); 
         echo json_encode(['success' => false, 'message' => $e->getMessage()]); 
+    }
+}
+
+function eliminar_asignacion($conexion) {
+    $id = (int)$_POST['id_asignacion'];
+    $conexion->begin_transaction();
+    try {
+        $conexion->query("UPDATE asignacion_personal SET estado = 'eliminado', estado_asignacion = 'Eliminado' WHERE id_asignacion = $id");
+        
+        $sqlOrden = "SELECT id_orden FROM asignacion_orden WHERE id_asignacion = $id LIMIT 1";
+        $resOrden = $conexion->query($sqlOrden)->fetch_assoc();
+        if($resOrden) {
+            $id_orden = $resOrden['id_orden'];
+            
+            $sqlActivas = "SELECT COUNT(*) as quedan FROM asignacion_orden ao 
+                           JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion 
+                           WHERE ao.id_orden = $id_orden AND ap.estado_asignacion IN ('Pendiente', 'En Curso') 
+                           AND ap.estado != 'eliminado'";
+            $quedan = (int)$conexion->query($sqlActivas)->fetch_assoc()['quedan'];
+            
+            if ($quedan == 0) {
+                $sqlBahia = "SELECT id_bahia FROM taller WHERE id_orden = $id_orden LIMIT 1";
+                $resB = $conexion->query($sqlBahia)->fetch_assoc();
+                if($resB && $resB['id_bahia']) {
+                    $conexion->query("UPDATE Bahia SET estado_bahia = 'Disponible' WHERE id_bahia = {$resB['id_bahia']}");
+                }
+                $sqlMaq = "SELECT id_maquinaria FROM Orden_Maquinaria WHERE id_orden = $id_orden AND id_maquinaria IS NOT NULL";
+                $resM = $conexion->query($sqlMaq);
+                while($row = $resM->fetch_assoc()) {
+                    $conexion->query("UPDATE Maquinaria SET estado_maquina = 'Activo' WHERE id_maquinaria = {$row['id_maquinaria']}");
+                }
+            }
+        }
+        
+        $conexion->commit();
+        echo json_encode(['success' => true, 'message' => 'Asignación eliminada y recursos liberados correctamente.']);
+    } catch(Exception $e) {
+        $conexion->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 ?>

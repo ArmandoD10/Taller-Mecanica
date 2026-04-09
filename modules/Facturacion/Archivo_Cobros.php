@@ -129,7 +129,6 @@ function obtener_detalle_factura($conexion) {
     $id_factura = (int)$_GET['id_factura'];
     $detalles = [];
 
-    // 1. Buscamos primero si la factura viene del POS (Tabla Detalle_Factura)
     $sqlPOS = "SELECT ra.nombre as descripcion, df.cantidad, df.precio, df.subtotal 
                FROM Detalle_Factura df 
                JOIN Repuesto_Articulo ra ON df.id_articulo = ra.id_articulo 
@@ -140,28 +139,48 @@ function obtener_detalle_factura($conexion) {
             $detalles[] = $row;
         }
     } 
-    // 2. Si no hay en POS, verificamos si es una Factura de Taller (Asociada a id_orden)
     else {
         $sqlFac = "SELECT id_orden FROM Factura_Central WHERE id_factura = $id_factura LIMIT 1";
         $resFac = $conexion->query($sqlFac);
         if($resFac && $resFac->num_rows > 0) {
             $id_orden = $resFac->fetch_assoc()['id_orden'];
             if($id_orden) {
-                // A. Buscar Servicios del Taller
-                $sqlServ = "SELECT ts.nombre AS descripcion, 1 AS cantidad, p.monto AS precio, p.monto AS subtotal
+                // ========================================================
+                // MAGIA ANTI-DOBLE COBRO EN EL DETALLE DE CUENTAS POR COBRAR
+                // ========================================================
+                $sqlServ = "SELECT ap.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad
                             FROM asignacion_orden ao
                             JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
                             JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio
-                            LEFT JOIN taller t ON t.id_orden = ao.id_orden AND t.estado='activo'
-                            LEFT JOIN Precio p ON t.id_precio = p.id_precio
-                            WHERE ao.id_orden = $id_orden AND ap.estado != 'eliminado' GROUP BY ap.id_asignacion";
+                            WHERE ao.id_orden = $id_orden AND ap.estado != 'eliminado' ORDER BY ap.id_asignacion ASC";
                 $resServ = $conexion->query($sqlServ);
+                
                 if($resServ) {
-                    while($r = $resServ->fetch_assoc()) {
-                        if($r['precio'] > 0) $detalles[] = $r;
+                    $servs = $resServ->fetch_all(MYSQLI_ASSOC);
+                    $sqlPrecios = "SELECT p.monto AS precio FROM taller t JOIN Precio p ON t.id_precio = p.id_precio WHERE t.id_orden = $id_orden AND t.estado = 'activo' ORDER BY t.id_taller ASC";
+                    $precios = $conexion->query($sqlPrecios)->fetch_all(MYSQLI_ASSOC);
+                    
+                    $vistos = []; // Array de control EXCLUSIVO para servicios
+                    foreach($servs as $idx => $s) {
+                        $id_serv = $s['id_tipo_servicio'];
+                        
+                        // Si el servicio ya se cobró, lo ignoramos para que no salga doble en la tabla.
+                        if(in_array($id_serv, $vistos)) continue; 
+                        $vistos[] = $id_serv;
+                        
+                        $precio = isset($precios[$idx]) ? (float)$precios[$idx]['precio'] : 0;
+                        if($precio > 0) {
+                            $detalles[] = [
+                                'descripcion' => $s['descripcion'],
+                                'cantidad' => 1,
+                                'precio' => $precio,
+                                'subtotal' => $precio
+                            ];
+                        }
                     }
                 }
-                // B. Buscar Repuestos del Taller
+                
+                // B. Buscar Repuestos del Taller (ESTOS NO SE FILTRAN, VAN COMPLETOS)
                 $sqlRep = "SELECT ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal
                            FROM Orden_Repuesto orp 
                            JOIN Repuesto_Articulo ra ON orp.id_articulo = ra.id_articulo

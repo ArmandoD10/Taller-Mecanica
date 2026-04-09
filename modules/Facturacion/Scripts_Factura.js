@@ -10,6 +10,8 @@ let subtotalGlobal = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Sistema de Facturación POS inicializado...");
+
+    cargarImpuestosAuto();
     
     // Ya no usamos cargarImpuestosAuto() porque el 18% está fijo en la lógica DGII
 
@@ -24,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
 
 // ==========================================
 // 2. BUSCADOR DE PRODUCTOS E INVENTARIO
@@ -143,26 +146,77 @@ function actualizarInterfaz() {
     calcularTotales();
 }
 
-function calcularTotales() {
-    let itbis = subtotalGlobal * 0.18; 
-    let totalFinal = subtotalGlobal + itbis;
+// Variable global para guardar impuestos de la DB
+// Variable global al inicio del archivo
+let listaImpuestosDB = []; 
 
-    document.getElementById("subtotal_valor").innerText = `RD$ ${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    document.getElementById("itbis_valor").innerText = `RD$ ${itbis.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+// Función para cargar los impuestos de la base de datos
+function cargarImpuestosAuto() {
+    fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=listar_impuestos_automaticos")
+        .then(res => res.json())
+        .then(res => { 
+            if(res.success) {
+                listaImpuestosDB = res.data; 
+                console.log("Impuestos cargados desde DB:", listaImpuestosDB);
+                calcularTotales(); // Forzar primer cálculo al cargar
+            }
+        });
+}
+
+// FUNCIÓN ÚNICA DE CÁLCULO (Sustituye a las otras dos)
+function calcularTotales() {
+    const desgloseCont = document.getElementById("desglose_impuestos_dinamico");
     
+    // Validamos que el contenedor exista para evitar el error "null" de tu consola
+    if (!desgloseCont) {
+        console.warn("Contenedor 'desglose_impuestos_dinamico' no encontrado en el HTML.");
+        return; 
+    }
+    
+    desgloseCont.innerHTML = ""; // Limpiamos para redibujar
+    let totalImpuestosCalculados = 0;
+
+    // 1. Calculamos el subtotal base restando el descuento de ofertas si existe
+    let subtotalConDescuento = subtotalGlobal - descuentoTotalOfertas;
+
+    // 2. Dibujamos cada impuesto dinámico (ITBIS 18%, etc.) sobre el monto con descuento
+    listaImpuestosDB.forEach(imp => {
+        let valorCalculado = subtotalConDescuento * (parseFloat(imp.porcentaje) / 100);
+        totalImpuestosCalculados += valorCalculado;
+
+        desgloseCont.innerHTML += `
+            <div class="d-flex justify-content-between mb-1 small text-muted">
+                <span>${imp.nombre_impuesto} (${imp.porcentaje}%):</span>
+                <span class="text-dark fw-bold">RD$ ${valorCalculado.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            </div>`;
+    });
+
+    // 3. Calculamos el Total Neto final
+    let totalFinal = subtotalConDescuento + totalImpuestosCalculados;
+
+    // 4. Actualizamos los campos generales del HTML
+    document.getElementById("subtotal_valor").innerText = `RD$ ${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    
+    // Mostramos u ocultamos la fila de ofertas
+    const filaOf = document.getElementById("fila_ofertas");
+    if (descuentoTotalOfertas > 0) {
+        filaOf.classList.remove("d-none");
+        document.getElementById("ofertas_valor").innerText = `- RD$ ${descuentoTotalOfertas.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    } else {
+        filaOf.classList.add("d-none");
+    }
+
+    // Actualizamos el gran total y el indicador de arriba
     const totalStr = totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById("total_final_valor").innerText = `RD$ ${totalStr}`;
     document.getElementById("total_general_display").innerText = `RD$ ${totalStr}`;
-    document.getElementById("monto_azul_display").innerText = totalStr;
-}
-
-function eliminarItem(index) {
-    if (confirm("¿Remover este producto de la factura?")) {
-        listaItemsFactura.splice(index, 1);
-        actualizarInterfaz();
+    
+    // Actualizamos el monto en el modal de la pasarela Azul si está definido
+    const montoAzul = document.getElementById("monto_azul_display");
+    if(montoAzul) {
+        montoAzul.innerText = totalStr;
     }
 }
-
 // ==========================================
 // 4. CLIENTES Y CRÉDITO
 // ==========================================
@@ -362,3 +416,139 @@ function guardarFacturaFinal(refAzul, esCredito) {
         }
     });
 }
+
+//Logica de ofertas.
+let ofertasSeleccionadasParaFactura = [];
+let descuentoTotalOfertas = 0;
+
+function abrirAuthOferta() {
+    new bootstrap.Modal(document.getElementById('modalAuthAdmin')).show();
+}
+
+function validarAccesoOfertas() {
+    const user = document.getElementById("auth_user").value;
+    const pass = document.getElementById("auth_pass").value;
+
+    const fd = new FormData();
+    fd.append('usuario', user);
+    fd.append('password', pass);
+
+    fetch(`/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=validar_admin`, {
+        method: 'POST',
+        body: fd
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalAuthAdmin')).hide();
+            cargarOfertasVigentes();
+        } else {
+            alert("Acceso denegado. Solo administradores.");
+        }
+    });
+}
+
+/**
+ * Carga las ofertas que están en estado 'activo' y dentro del rango de fecha actual.
+ * Evita la duplicidad visual y separa los beneficios de descuento y regalo.
+ */
+// 1. CARGAR OFERTAS EN EL MODAL
+function cargarOfertasVigentes() {
+    const contenedor = document.getElementById("lista_ofertas_disponibles");
+    contenedor.innerHTML = "";
+
+    fetch(`/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=listar_ofertas_vigentes`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.data.length === 0) {
+            contenedor.innerHTML = "<div class='p-4 text-center'>No hay descuentos disponibles.</div>";
+            return;
+        }
+
+        data.data.forEach(o => {
+            contenedor.innerHTML += `
+                <label class="list-group-item d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <input class="form-check-input me-3 checkbox-oferta" type="checkbox" 
+                               value="${o.id_oferta}" data-valor="${o.porciento}">
+                        <span class="fw-bold">${o.nombre_oferta}</span>
+                    </div>
+                    <span class="badge bg-danger">-${parseFloat(o.porciento)}%</span>
+                </label>`;
+        });
+        new bootstrap.Modal(document.getElementById('modalSeleccionOfertas')).show();
+    });
+}
+
+// 2. APLICAR DESCUENTOS Y RECALCULAR
+function aplicarOfertasSeleccionadas() {
+    const checks = document.querySelectorAll(".checkbox-oferta:checked");
+    ofertasSeleccionadasParaFactura = [];
+    descuentoTotalOfertas = 0;
+
+    checks.forEach(check => {
+        const porciento = parseFloat(check.getAttribute("data-valor"));
+        // El descuento se calcula sobre el subtotal acumulado
+        descuentoTotalOfertas += (subtotalGlobal * (porciento / 100));
+        ofertasSeleccionadasParaFactura.push(check.value);
+    });
+
+    // Cerrar modal y refrescar la pantalla
+    bootstrap.Modal.getInstance(document.getElementById('modalSeleccionOfertas')).hide();
+    actualizarInterfaz(); 
+}
+
+// 3. FUNCIÓN DE CÁLCULO FINAL (Sincronizada con tu HTML)
+function calcularTotales() {
+    const desgloseCont = document.getElementById("desglose_impuestos_dinamico");
+    if (!desgloseCont) return;
+
+    desgloseCont.innerHTML = "";
+    let totalImpuestos = 0;
+
+    // Subtotal neto tras aplicar descuentos
+    let subtotalConDescuento = subtotalGlobal - descuentoTotalOfertas;
+
+    // Calcular impuestos dinámicos (ITBIS, etc.)
+    listaImpuestosDB.forEach(imp => {
+        let valor = subtotalConDescuento * (parseFloat(imp.porcentaje) / 100);
+        totalImpuestos += valor;
+        desgloseCont.innerHTML += `
+            <div class="d-flex justify-content-between mb-1 small text-muted">
+                <span>${imp.nombre_impuesto} (${imp.porcentaje}%):</span>
+                <span class="text-dark fw-bold">RD$ ${valor.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            </div>`;
+    });
+
+    let totalFinal = subtotalConDescuento + totalImpuestos;
+
+    // Actualizar UI
+    document.getElementById("subtotal_valor").innerText = `RD$ ${subtotalGlobal.toLocaleString()}`;
+    
+    const filaOf = document.getElementById("fila_ofertas");
+    if (descuentoTotalOfertas > 0) {
+        filaOf.classList.remove("d-none");
+        document.getElementById("ofertas_valor").innerText = `- RD$ ${descuentoTotalOfertas.toLocaleString()}`;
+    } else {
+        filaOf.classList.add("d-none");
+    }
+
+    document.getElementById("total_final_valor").innerText = `RD$ ${totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    document.getElementById("total_general_display").innerText = `RD$ ${totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+}
+
+function agregarRegaloAlCarrito(id, nombre) {
+    const existe = listaItemsFactura.find(i => i.id == id && i.precio == 0);
+    if (!existe) {
+        listaItemsFactura.push({
+            id: id,
+            nombre: `[OFERTA] ${nombre}`,
+            precio: 0,
+            cantidad: 1
+        });
+    }
+}
+
+
+
+// AL GUARDAR FINAL, ENVIAR ofertasSeleccionadasParaFactura EN EL JSON

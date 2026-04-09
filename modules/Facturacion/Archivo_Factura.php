@@ -30,6 +30,48 @@ switch ($action) {
         guardar_factura_pos($conexion, $id_sucursal, $id_usuario);
         break;
 
+    case 'validar_admin':
+        $user = $_POST['usuario'];
+        $pass = $_POST['password'];
+        // Buscamos usuario con nivel 1 (Administrador)
+        $sql = "SELECT id_usuario FROM Usuario WHERE username = ? AND password_hash = ? AND id_nivel = 1 AND estado = 'activo'";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("ss", $user, $pass);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        echo json_encode(['success' => $res->num_rows > 0]);
+        break;
+
+  case 'listar_ofertas_vigentes':
+        $hoy = date('Y-m-d');
+        // Consulta directa: Solo ofertas activas y vigentes
+        $sql = "SELECT id_oferta, nombre_oferta, porciento 
+                FROM Oferta 
+                WHERE estado = 'activo' AND ? BETWEEN fecha_inicio AND fecha_fin";
+        
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("s", $hoy); 
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        
+        echo json_encode(['success' => true, 'data' => $resultado]);
+        break;
+
+        // ... (Resto del guardado) ...
+
+    case 'validar_stock_oferta':
+        $id_art = $_GET['id_articulo'];
+        $sql = "SELECT SUM(i.cantidad) as stock FROM Inventario i 
+                INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
+                INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
+                WHERE i.id_articulo = ? AND a.id_sucursal = ?";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("ii", $id_art, $id_sucursal);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+        echo json_encode(['success' => true, 'stock' => $res['stock'] ?? 0]);
+        break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
@@ -93,6 +135,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
     $conexion->begin_transaction();
 
     try {
+        // 1. VALIDACIÓN DE CRÉDITO (Si aplica)
         if ($data['es_credito']) {
             $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
@@ -105,6 +148,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             }
         }
 
+        // 2. INSERCIÓN DE CABECERA DE FACTURA
         $sqlF = "INSERT INTO Factura_Central (id_cliente, id_sucursal, id_metodo, id_moneda, NCF, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
                  VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'activo')";
         $id_cliente = $data['id_cliente'] ?? null;
@@ -115,6 +159,18 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
+        // GUARDAR OFERTAS (CON INSERT IGNORE POR SEGURIDAD)
+        if (!empty($data['ofertas_aplicadas'])) {
+            $ofertas_unicas = array_unique($data['ofertas_aplicadas']);
+            foreach ($ofertas_unicas as $id_o) {
+                $sqlO = "INSERT IGNORE INTO Oferta_Factura (id_factura, id_oferta, estado) VALUES (?, ?, 'activo')";
+                $stmtO = $conexion->prepare($sqlO);
+                $stmtO->bind_param("ii", $id_factura, $id_o);
+                $stmtO->execute();
+            }
+        }
+
+        // 4. ACTUALIZACIÓN DE SALDOS DE CRÉDITO
         if ($data['es_credito']) {
             $sqlFC = "INSERT INTO Factura_Credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
             $stmtFC = $conexion->prepare($sqlFC);
@@ -130,13 +186,16 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtUpdC->execute();
         }
 
+        // 5. DETALLE DE PRODUCTOS, INVENTARIO Y MOVIMIENTOS
         foreach ($data['items'] as $item) {
+            // Guardar detalle de factura
             $sqlD = "INSERT INTO Detalle_Factura (id_factura, id_articulo, cantidad, precio, subtotal) VALUES (?, ?, ?, ?, ?)";
             $sub = $item['precio'] * $item['cantidad'];
             $stmtD = $conexion->prepare($sqlD);
             $stmtD->bind_param("iiidd", $id_factura, $item['id'], $item['cantidad'], $item['precio'], $sub);
             $stmtD->execute();
 
+            // Rebajar inventario por sucursal
             $sqlU = "UPDATE Inventario i 
                      INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
                      INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
@@ -146,6 +205,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
             $stmtU->execute();
 
+            // Registrar movimiento de salida (Tipo 2)
             $motivo = "Venta POS #" . $id_factura;
             $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
                        VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
@@ -154,11 +214,14 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtM->execute();
         }
 
-        foreach ($data['impuestos_ids'] as $id_imp) {
-            $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
-            $stmtI = $conexion->prepare($sqlI);
-            $stmtI->bind_param("ii", $id_factura, $id_imp);
-            $stmtI->execute();
+        // 6. GUARDAR IMPUESTOS APLICADOS A LA FACTURA
+        if (!empty($data['impuestos_ids'])) {
+            foreach ($data['impuestos_ids'] as $id_imp) {
+                $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
+                $stmtI = $conexion->prepare($sqlI);
+                $stmtI->bind_param("ii", $id_factura, $id_imp);
+                $stmtI->execute();
+            }
         }
 
         $conexion->commit();

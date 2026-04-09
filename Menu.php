@@ -269,7 +269,7 @@ $stats = [
                 <a href="#"><i class="fas fa-poll-h"></i> Evaluación</a>
                 <?php endif; ?>
                 <?php if (in_array("Ofertas", $modulos)) : ?>
-                <a href="#"><i class="fas fa-percentage"></i> Ofertas</a>
+                <a href="/Taller/Taller-Mecanica/view/Submodulos/ofertas.php"><i class="fas fa-percentage"></i> Ofertas</a>
                 <?php endif; ?>
                 <?php if (in_array("Impuestos", $modulos)) : ?>
                 <a href="/Taller/Taller-Mecanica/view/Submodulos/impuestos.php"><i class="fas fa-file-invoice-dollar"></i> Impuestos</a>

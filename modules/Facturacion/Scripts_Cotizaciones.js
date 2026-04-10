@@ -562,3 +562,79 @@ function cerrarModalUI(id) {
         }
     }
 }
+
+
+//mascara para telefono.
+// 3. Teléfono
+   // Seleccionamos directamente por el ID
+const inputTelefono = document.getElementById('occ_telefono');
+
+// Verificamos que el elemento exista antes de agregar el listener (evita errores en consola)
+if (inputTelefono) {
+    inputTelefono.addEventListener('input', function(e) {
+        // Obtenemos el ID para confirmar (aunque ya sabemos que es id_telefono)
+        let idActual = e.target.id;
+        
+        // Lógica de formateo
+        let num = e.target.value.replace(/\D/g, '').substring(0, 10);
+        let form = "";
+        
+        if (num.length > 0) {
+            form += "(" + num.substring(0, 3);
+            if (num.length > 3) form += ") " + num.substring(3, 6);
+            if (num.length > 6) form += "-" + num.substring(6, 10);
+        }
+        
+        // Aplicamos el formato al valor del input
+        e.target.value = form;
+        
+        // Si necesitas debugear o usar el ID para algo más:
+        console.log("Editando el campo: " + idActual + " | Valor puro: " + num);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Seleccionamos los campos por ID
+    const camposNombres = document.querySelectorAll('#occ_nombre');
+
+    camposNombres.forEach(input => {
+        input.addEventListener('input', function(e) {
+            let valor = e.target.value;
+
+            // 1. ELIMINAR números y caracteres especiales (solo deja letras y espacios)
+            // El Regex [^a-zA-Z...] busca lo que NO sea letra y lo borra
+            valor = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+
+            // 2. FORZAR Primera letra Mayúscula
+            if (valor.length > 0) {
+                valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+            }
+
+            // Aplicar el cambio al input en tiempo real
+            e.target.value = valor;
+        });
+    });
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Seleccionamos los campos por ID
+    const camposNombres = document.querySelectorAll('#occ_vehiculo');
+
+    camposNombres.forEach(input => {
+        input.addEventListener('input', function(e) {
+            let valor = e.target.value;
+
+            // 1. ELIMINAR números y caracteres especiales (solo deja letras y espacios)
+            // El Regex [^a-zA-Z...] busca lo que NO sea letra y lo borra
+           valor = valor.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+
+            // 2. FORZAR Primera letra Mayúscula
+            if (valor.length > 0) {
+                valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+            }
+
+            // Aplicar el cambio al input en tiempo real
+            e.target.value = valor;
+        });
+    });
+});

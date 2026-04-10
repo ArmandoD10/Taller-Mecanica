@@ -138,3 +138,26 @@ if (inputNombreOferta) {
         this.value = this.value.replace(/[^a-zA-Z0-9\s()áéíóúÁÉÍÓÚñÑ]/g, "");
     });
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    const inputPorcentaje = document.getElementById('porciento');
+
+    if (inputPorcentaje) {
+        inputPorcentaje.addEventListener('blur', function(e) {
+            let valor = parseFloat(e.target.value);
+
+            // Si el valor es un número válido
+            if (!isNaN(valor)) {
+                // Forzamos 2 decimales (ej: 2 -> 2.00, 5.5 -> 5.50)
+                e.target.value = valor.toFixed(2);
+            }
+        });
+
+        // Opcional: Evitar que escriban más de 100 si es un descuento
+        inputPorcentaje.addEventListener('input', function(e) {
+            if (e.target.value > 100) {
+                e.target.value = 100;
+            }
+        });
+    }
+});

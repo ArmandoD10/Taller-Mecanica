@@ -48,19 +48,54 @@ function toggleTipoPersona(tipo) {
         cedulaInput.placeholder = "000-0000000-0";
         cedulaInput.maxLength = 13; 
     }
+
+    // --- AGREGAR ESTO ---
+    // Si no estamos en modo edición (registro nuevo) y no hemos validado la cédula,
+    // mantenemos los campos bloqueados al cambiar el tipo.
+    if (!modoEdicion) {
+        bloquearCampos(true); // Esto bloqueará los campos, pero dejará el toggle libre
+    }
 }
 
-function limpiarFormulario() {
-    const campos = document.querySelectorAll("input[type='text'], input[type='email'], input[type='date'], select");
-    campos.forEach(campo => campo.value = "");
+window.limpiarFormulario = function() {
+    // 1. Resetear el HTML del formulario (esto limpia el texto visible)
+    const form = document.getElementById("formulario");
+    if (form) {
+        form.reset();
+    }
 
+    // 2. Limpiar MANUALMENTE los IDs ocultos (importante para que no se queden pegados)
+    const idsParaVaciar = ['id_oculto', 'id_persona_capturado', 'cedula', 'nombre', 'apellido_p', 'apellido_m', 'correo', 'direccion', 'telefono'];
+    idsParaVaciar.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    // 3. Resetear los Selects (País, Prov, Ciudad)
+    const selects = ['pais', 'nacionalidad', 'provincia', 'ciudad', 'sexo'];
+    selects.forEach(id => {
+        const sel = document.getElementById(id);
+        if (sel) sel.selectedIndex = 0; 
+    });
+
+    // 4. Restaurar Radio Buttons y Labels
     document.getElementById("fisica").checked = true;
-    toggleTipoPersona('fisica'); // Restaurar a vista normal
+    toggleTipoPersona('fisica'); // Esto resetea los labels de Cédula/Nombre
+
+    // 5. Bloquear todo excepto Cédula y Tipo de Cliente
+    bloquearCampos(true); 
     
-    document.getElementById("btnGuardar").textContent = "Registrar";
-    modoEdicion = false;
+    // Forzamos el desbloqueo de la cédula y el bloqueo del botón guardar
+    document.getElementById('cedula').disabled = false;
+    document.getElementById('btnGuardar').disabled = true;
+    document.getElementById('btnGuardar').textContent = "Registrar";
+
+    // 6. Ocultar el estado (solo se usa en edición)
     document.getElementById("contenedor-estado").classList.add("d-none");
-}
+    
+    modoEdicion = false;
+    console.log("Formulario reseteado y campos bloqueados.");
+};
 
 function cargarTabla() {
     fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar`)
@@ -216,22 +251,29 @@ window.editarRegistro = function(id) {
 document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
 
-    if (modoEdicion && document.getElementById("inactivo").checked) {
-        if (!confirm("¿Está seguro de que desea inactivar a este cliente?")) return; 
-    }
+    // 1. Habilitar TODOS los campos temporalmente para que FormData capture los IDs
+    const camposBloqueados = this.querySelectorAll(':disabled');
+    camposBloqueados.forEach(campo => campo.disabled = false);
 
     const formData = new FormData(this);
-    let url = modoEdicion ? "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=actualizar" : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=guardar";
+
+    // 2. Opcional: Volver a bloquearlos para mantener la interfaz igual
+    camposBloqueados.forEach(campo => campo.disabled = true);
+
+    let url = modoEdicion 
+        ? "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=actualizar" 
+        : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=guardar";
 
     fetch(url, { method: "POST", body: formData })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
             alert(data.message);
-            limpiarFormulario();
+            window.limpiarFormulario();
             cargarTabla(); 
         } else {
-            alert("Error: " + data.message);
+            // Si sale el error de campos obligatorios, es porque algún ID llegó vacío a PHP
+            alert("Error del Servidor: " + data.message);
         }
     });
 });
@@ -292,3 +334,121 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 });
+
+
+
+//funcion cliente-empleado.
+// Evento del botón de la lupa (Buscar Cédula)
+document.getElementById('btnBuscarCedula').addEventListener('click', async function() {
+    const cedula = document.getElementById('cedula').value;
+    
+    if (cedula.length < 9) {
+        alert("Ingrese una cédula o RNC válido.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=verificar_cedula&cedula=${cedula}`);
+        const res = await response.json();
+
+        if (res.status === 'cliente_existe') {
+            alert("Este número ya pertenece a un Cliente registrado.");
+            bloquearCampos(true);
+            document.getElementById('id_persona_capturado').value = ""; // Limpiar por seguridad
+        } 
+        else if (res.status === 'persona_existe') {
+            alert("Empleado/Persona encontrada. Cargando datos...");
+            
+            // 1. LLENAMOS EL ID OCULTO CON EL ID DE LA PERSONA ENCONTRADA
+            document.getElementById('id_persona_capturado').value = res.data.id_persona;
+            
+            // 2. Cargamos los datos en los inputs (incluyendo cascada de ciudad)
+            await cargarDatosPersona(res.data);
+            
+            // 3. Bloqueamos campos para que no altere datos del empleado
+            bloquearCampos(true);
+            
+            // 4. Habilitamos el botón de registro para que pueda "convertirlo" a cliente
+            document.getElementById('btnGuardar').disabled = false;
+        } 
+        else {
+            alert("No se encontró registro previo. Complete los datos para un nuevo cliente.");
+            
+            // Es un registro nuevo, el ID oculto debe estar vacío
+            document.getElementById('id_persona_capturado').value = "";
+            bloquearCampos(false);
+        }
+    } catch (error) {
+        console.error("Error en la búsqueda:", error);
+    }
+});
+
+// No olvides limpiar el ID oculto en tu función de limpiarFormulario
+function limpiarFormulario() {
+    // ... tu lógica de limpiar campos ...
+    document.getElementById('id_persona_capturado').value = ""; 
+    document.getElementById('id_oculto').value = ""; // Este es el del Cliente (edición)
+    bloquearCampos(true);
+}
+
+function bloquearCampos(estado) {
+    // Seleccionamos todos los inputs y selects
+    const inputs = document.querySelectorAll('#formulario input, #formulario select');
+    
+    inputs.forEach(input => {
+        // EXCEPCIONES: No bloqueamos la cédula, el filtro, ni los radio buttons
+        const esExcepcion = 
+            input.id === 'cedula' || 
+            input.id === 'filtro' || 
+            input.type === 'radio'; // <--- Esta es la clave
+
+        if (!esExcepcion) {
+            input.disabled = estado;
+        }
+    });
+
+    // El botón guardar sigue la lógica del estado (bloqueado si no hay búsqueda)
+    document.getElementById('btnGuardar').disabled = estado;
+}
+
+async function cargarDatosPersona(p) {
+    // Datos de texto básicos
+    document.getElementById('nombre').value = p.nombre;
+    document.getElementById('apellido_p').value = p.apellido_p;
+    document.getElementById('apellido_m').value = p.apellido_m;
+    document.getElementById('correo').value = p.email;
+    document.getElementById('fecha_nacimiento').value = p.fecha_nacimiento;
+    document.getElementById('sexo').value = p.sexo;
+    document.getElementById('direccion').value = p.direccion;
+    document.getElementById('telefono').value = p.telefono || '';
+
+    // Asignar Nacionalidad por ID
+    if (p.nacionalidad) {
+        document.getElementById('nacionalidad').value = p.nacionalidad;
+    }
+
+    // Ubicación por IDs (Sincronizada)
+    if (p.id_pais) {
+        document.getElementById('pais').value = p.id_pais;
+        
+        // Esperar carga de provincias para asignar el ID
+        const resProv = await fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_provincias&id_pais=${p.id_pais}`);
+        const provincias = await resProv.json();
+        const selectProv = document.getElementById("provincia");
+        selectProv.innerHTML = '<option disabled>Seleccione</option>';
+        provincias.forEach(pr => {
+            selectProv.innerHTML += `<option value="${pr.id_provincia}">${pr.nombre}</option>`;
+        });
+        selectProv.value = p.id_provincia; // Asignamos el ID numérico
+
+        // Esperar carga de ciudades para asignar el ID
+        const resCiud = await fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_ciudades&id_provincia=${p.id_provincia}`);
+        const ciudades = await resCiud.json();
+        const selectCiud = document.getElementById("ciudad");
+        selectCiud.innerHTML = '<option disabled>Seleccione</option>';
+        ciudades.forEach(c => {
+            selectCiud.innerHTML += `<option value="${c.id_ciudad}">${c.nombre}</option>`;
+        });
+        selectCiud.value = p.id_ciudad; // Asignamos el ID numérico
+    }
+}

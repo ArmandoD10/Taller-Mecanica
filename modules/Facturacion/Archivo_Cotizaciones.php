@@ -16,6 +16,7 @@ switch ($action) {
     case 'crear_directa': crear_directa($conexion, $id_usuario, $id_sucursal); break;
     case 'guardar_cotizacion': guardar_cotizacion($conexion); break;
     case 'aprobar_cotizacion': aprobar_cotizacion($conexion, $id_usuario, $id_sucursal); break;
+    case 'aprobar_pos': aprobar_pos($conexion, $id_usuario, $id_sucursal); break;
     case 'rechazar_cotizacion': rechazar_cotizacion($conexion); break;
     case 'obtener_detalle': obtener_detalle($conexion); break;
     default: echo json_encode(['success' => false, 'message' => 'Acción no válida']); break;
@@ -23,7 +24,8 @@ switch ($action) {
 
 function listar_pendientes($conexion, $id_sucursal) {
     $sql = "SELECT id_cotizacion, DATE_FORMAT(fecha_creacion, '%d/%m/%Y %h:%i %p') as fecha, 
-                   nombre_cliente as cliente, vehiculo_desc as vehiculo, monto_total, estado 
+                   nombre_cliente as cliente, vehiculo_desc as vehiculo, monto_total, estado,
+                   tipo_cotizacion, IF(id_cliente IS NULL, 1, 0) as es_ocasional
             FROM cotizacion 
             WHERE estado = 'Pendiente' AND id_sucursal = $id_sucursal 
             ORDER BY id_cotizacion DESC";
@@ -71,9 +73,7 @@ function buscar_vehiculos($conexion) {
     $sql = "SELECT v.sec_vehiculo as id_vehiculo, c.id_cliente, v.placa, 
                    CONCAT(m.nombre, ' ', IFNULL(v.modelo, ''), ' [', v.placa, ']') as vehiculo_desc,
                    CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, '')) as cliente,
-                   (SELECT tel.numero FROM telefono tel 
-                    JOIN cliente_telefono ct ON tel.id_telefono = ct.id_telefono 
-                    WHERE ct.id_cliente = c.id_cliente LIMIT 1) as telefono
+                   (SELECT tel.numero FROM telefono tel JOIN cliente_telefono ct ON tel.id_telefono = ct.id_telefono WHERE ct.id_cliente = c.id_cliente LIMIT 1) as telefono
             FROM vehiculo v
             JOIN marca m ON v.id_marca = m.id_marca
             JOIN cliente c ON v.id_cliente = c.id_cliente
@@ -88,6 +88,7 @@ function buscar_vehiculos($conexion) {
 
 function crear_directa($conexion, $id_usuario, $id_sucursal) {
     $tipo_cliente = $_POST['tipo_cliente'] ?? 'registrado';
+    $tipo_cotizacion = $_POST['tipo_cotizacion'] ?? 'Taller';
     
     $conexion->begin_transaction();
     try {
@@ -98,18 +99,18 @@ function crear_directa($conexion, $id_usuario, $id_sucursal) {
             $vehiculo = $_POST['vehiculo_desc'];
             $telefono = $_POST['telefono_cliente'];
 
-            $sql = "INSERT INTO cotizacion (id_cliente, id_vehiculo, nombre_cliente, telefono_cliente, vehiculo_desc, usuario_creacion, id_sucursal) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO cotizacion (id_cliente, id_vehiculo, tipo_cotizacion, nombre_cliente, telefono_cliente, vehiculo_desc, usuario_creacion, id_sucursal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("iisssii", $id_cliente, $id_vehiculo, $nombre, $telefono, $vehiculo, $id_usuario, $id_sucursal);
+            $stmt->bind_param("iisssssi", $id_cliente, $id_vehiculo, $tipo_cotizacion, $nombre, $telefono, $vehiculo, $id_usuario, $id_sucursal);
             $stmt->execute();
         } else {
             $nombre = $_POST['nombre_ocasional'] ?? 'Cliente Ocasional';
             $telefono = $_POST['telefono_ocasional'] ?? '';
             $vehiculo = $_POST['vehiculo_ocasional'] ?? 'Vehículo no especificado';
 
-            $sql = "INSERT INTO cotizacion (nombre_cliente, telefono_cliente, vehiculo_desc, usuario_creacion, id_sucursal) VALUES (?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO cotizacion (tipo_cotizacion, nombre_cliente, telefono_cliente, vehiculo_desc, usuario_creacion, id_sucursal) VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("sssii", $nombre, $telefono, $vehiculo, $id_usuario, $id_sucursal);
+            $stmt->bind_param("ssssii", $tipo_cotizacion, $nombre, $telefono, $vehiculo, $id_usuario, $id_sucursal);
             $stmt->execute();
         }
         
@@ -154,58 +155,28 @@ function aprobar_cotizacion($conexion, $id_usuario, $id_sucursal) {
     $conexion->begin_transaction();
     try {
         $cot = $conexion->query("SELECT * FROM cotizacion WHERE id_cotizacion = $id_cotizacion")->fetch_assoc();
-        $detalles = $conexion->query("SELECT * FROM cotizacion_detalle WHERE id_cotizacion = $id_cotizacion")->fetch_all(MYSQLI_ASSOC);
+        if ($cot['tipo_cotizacion'] === 'POS') {
+            throw new Exception("Error: Una cotización POS no puede ser enviada a Taller.");
+        }
 
+        $detalles = $conexion->query("SELECT * FROM cotizacion_detalle WHERE id_cotizacion = $id_cotizacion")->fetch_all(MYSQLI_ASSOC);
         $id_vehiculo = $cot['id_vehiculo'];
 
         if (!$id_vehiculo) {
-            // 1. Crear Persona
-            $stmtP = $conexion->prepare("INSERT INTO persona (nombre, id_direccion, nacionalidad, estado, fecha_nacimiento) VALUES (?, 1, 1, 'activo', '2000-01-01')");
-            $stmtP->bind_param("s", $cot['nombre_cliente']);
-            $stmtP->execute();
-            $id_persona = $conexion->insert_id;
-            
-            // 2. Crear Cliente
-            $conexion->query("INSERT INTO cliente (id_persona, usuario_creacion, estado) VALUES ($id_persona, $id_usuario, 'activo')");
-            $id_cliente = $conexion->insert_id;
-
-            // 3. Crear Teléfono y vincularlo
-            if(!empty($cot['telefono_cliente'])) {
-                $conexion->query("INSERT INTO telefono (numero, estado) VALUES ('{$cot['telefono_cliente']}', 'activo')");
-                $id_tel = $conexion->insert_id;
-                $conexion->query("INSERT INTO cliente_telefono (id_cliente, id_telefono, estado) VALUES ($id_cliente, $id_tel, 'activo')");
-            }
-
-            // 4. Crear Vehículo
-            $resMarca = $conexion->query("SELECT id_marca FROM marca LIMIT 1");
-            $id_marca = $resMarca->num_rows > 0 ? $resMarca->fetch_assoc()['id_marca'] : 1;
-            $resColor = $conexion->query("SELECT id_color FROM color LIMIT 1");
-            $id_color = $resColor->num_rows > 0 ? $resColor->fetch_assoc()['id_color'] : 1;
-            
-            $placa = strtoupper(uniqid('COT-'));
-            $vin = strtoupper(uniqid('VIN-'));
-            $stmtV = $conexion->prepare("INSERT INTO vehiculo (id_cliente, id_marca, id_color, modelo, placa, vin_chasis, estado, usuario_creacion) VALUES (?, ?, ?, ?, ?, ?, 'activo', ?)");
-            $stmtV->bind_param("iiisssi", $id_cliente, $id_marca, $id_color, $cot['vehiculo_desc'], $placa, $vin, $id_usuario);
-            $stmtV->execute();
-            $id_vehiculo = $conexion->insert_id;
-            
-            $conexion->query("UPDATE cotizacion SET id_cliente = $id_cliente, id_vehiculo = $id_vehiculo WHERE id_cotizacion = $id_cotizacion");
+            throw new Exception("Error: Cliente Ocasional no tiene vehículo registrado. Archive esta cotización o registre al cliente formalmente.");
         }
 
-        // 5. Crear Inspección
         $resEmp = $conexion->query("SELECT id_empleado FROM empleado WHERE estado = 'activo' LIMIT 1");
         $id_empleado = $resEmp->num_rows > 0 ? $resEmp->fetch_assoc()['id_empleado'] : 1;
         $conexion->query("INSERT INTO inspeccion (id_vehiculo, id_empleado, usuario_creacion, id_sucursal, kilometraje_recepcion, nivel_combustible, estado) VALUES ($id_vehiculo, $id_empleado, $id_usuario, $id_sucursal, 0, '1/4', 'activo')");
         $id_inspeccion = $conexion->insert_id;
 
-        // 6. Crear Orden oficial
         $descOrd = "Orden desde Cotización COT-" . $id_cotizacion;
         $stmtOrd = $conexion->prepare("INSERT INTO orden (id_inspeccion, id_sucursal, descripcion, monto_total, estado, usuario_creacion) VALUES (?, ?, ?, ?, 'activo', ?)");
         $stmtOrd->bind_param("iisdi", $id_inspeccion, $id_sucursal, $descOrd, $cot['monto_total'], $id_usuario);
         $stmtOrd->execute();
         $id_orden = $conexion->insert_id;
 
-        // 7. Transferir Detalles a Orden_Servicio y Orden_Repuesto
         foreach ($detalles as $d) {
             if ($d['tipo_item'] === 'servicio') {
                 $conexion->query("INSERT INTO orden_servicio (id_orden, id_tipo_servicio, estado) VALUES ($id_orden, {$d['id_item']}, 'activo')");
@@ -214,19 +185,69 @@ function aprobar_cotizacion($conexion, $id_usuario, $id_sucursal) {
             }
         }
 
-        // 8. Establecer fase inicial: Diagnóstico (ID 1)
         $resEst = $conexion->query("SELECT id_estado FROM estado WHERE nombre = 'Diagnóstico' LIMIT 1");
         if($resEst->num_rows > 0) {
             $id_est = $resEst->fetch_assoc()['id_estado'];
             $conexion->query("INSERT INTO orden_estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_est, $id_usuario)");
         }
 
-        // 9. Finalizar Cotización
         $conexion->query("UPDATE cotizacion SET estado = 'Aprobada' WHERE id_cotizacion = $id_cotizacion");
 
         $conexion->commit();
-        // AQUI SE AGREGO EL ID_ORDEN AL JSON DE RESPUESTA
-        echo json_encode(['success' => true, 'id_orden' => $id_orden, 'message' => "Aprobada exitosamente. Se generó la Orden ORD-$id_orden y pasó a Inspección (Diagnóstico)."]);
+        echo json_encode(['success' => true, 'id_orden' => $id_orden, 'message' => "Aprobada. Se generó la Orden ORD-$id_orden."]);
+    } catch (Exception $e) {
+        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function aprobar_pos($conexion, $id_usuario, $id_sucursal) {
+    $id_cotizacion = (int)$_POST['id_cotizacion'];
+    $ncf = $_POST['ncf'] ?? 'B0200000001';
+    $metodo_pago = (int)$_POST['metodo_pago'];
+
+    $conexion->begin_transaction();
+    try {
+        $cot = $conexion->query("SELECT * FROM cotizacion WHERE id_cotizacion = $id_cotizacion")->fetch_assoc();
+        $detalles = $conexion->query("SELECT * FROM cotizacion_detalle WHERE id_cotizacion = $id_cotizacion")->fetch_all(MYSQLI_ASSOC);
+
+        // CORRECCIÓN MAGISTRAL: Evitar Error de Llave Foránea con Clientes Ocasionales (NULL)
+        if (!empty($cot['id_cliente'])) {
+            $sqlF = "INSERT INTO factura_central (id_cliente, id_sucursal, id_cotizacion, id_metodo, id_moneda, NCF, monto_total, estado_pago, usuario_creacion, estado) VALUES (?, ?, ?, ?, 1, ?, ?, 'Pagado', ?, 'activo')";
+            $stmtF = $conexion->prepare($sqlF);
+            $stmtF->bind_param("iiiisdi", $cot['id_cliente'], $id_sucursal, $id_cotizacion, $metodo_pago, $ncf, $cot['monto_total'], $id_usuario);
+        } else {
+            // Si no hay cliente (Ocasional), lo insertamos sin esa columna para que la BD asuma el NULL natural sin pelear.
+            $sqlF = "INSERT INTO factura_central (id_sucursal, id_cotizacion, id_metodo, id_moneda, NCF, monto_total, estado_pago, usuario_creacion, estado) VALUES (?, ?, ?, 1, ?, ?, 'Pagado', ?, 'activo')";
+            $stmtF = $conexion->prepare($sqlF);
+            $stmtF->bind_param("iiisdi", $id_sucursal, $id_cotizacion, $metodo_pago, $ncf, $cot['monto_total'], $id_usuario);
+        }
+        $stmtF->execute();
+        $id_factura = $conexion->insert_id;
+
+        $conexion->query("INSERT IGNORE INTO tipo_movimiento (id_tipo_m, nombre, estado, usuario_creacion) VALUES (2, 'Venta POS', 'activo', $id_usuario)");
+
+        $stmtD = $conexion->prepare("INSERT INTO detalle_factura (id_factura, id_articulo, cantidad, precio, subtotal) VALUES (?, ?, ?, ?, ?)");
+        $stmtU = $conexion->prepare("UPDATE inventario i INNER JOIN gondola g ON i.id_gondola = g.id_gondola INNER JOIN almacen a ON g.id_almacen = a.id_almacen SET i.cantidad = i.cantidad - ? WHERE i.id_articulo = ? AND a.id_sucursal = ?");
+        $stmtM = $conexion->prepare("INSERT INTO movimiento_inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) VALUES (?, 2, ?, ?, NOW(), 'activo', ?)");
+
+        foreach ($detalles as $d) {
+            if ($d['tipo_item'] === 'repuesto') {
+                $stmtD->bind_param("iiidd", $id_factura, $d['id_item'], $d['cantidad'], $d['precio_unitario'], $d['subtotal']);
+                $stmtD->execute();
+
+                $stmtU->bind_param("iii", $d['cantidad'], $d['id_item'], $id_sucursal);
+                $stmtU->execute();
+
+                $motivo = "Venta POS desde Cotización COT-" . $id_cotizacion;
+                $stmtM->bind_param("iisi", $d['id_item'], $d['cantidad'], $motivo, $id_usuario);
+                $stmtM->execute();
+            }
+        }
+
+        $conexion->query("UPDATE cotizacion SET estado = 'Aprobada' WHERE id_cotizacion = $id_cotizacion");
+
+        $conexion->commit();
+        echo json_encode(['success' => true, 'message' => "Facturado con éxito. N° Factura: FAC-$id_factura"]);
     } catch (Exception $e) {
         $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
@@ -235,9 +256,9 @@ function aprobar_cotizacion($conexion, $id_usuario, $id_sucursal) {
 function rechazar_cotizacion($conexion) {
     $id_cotizacion = (int)$_POST['id_cotizacion'];
     if($conexion->query("UPDATE cotizacion SET estado = 'Rechazada' WHERE id_cotizacion = $id_cotizacion")) {
-        echo json_encode(['success' => true, 'message' => 'Cotización marcada como Rechazada.']);
+        echo json_encode(['success' => true, 'message' => 'Cotización Archivada/Rechazada.']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error al procesar el rechazo.']);
+        echo json_encode(['success' => false, 'message' => 'Error al archivar.']);
     }
 }
 

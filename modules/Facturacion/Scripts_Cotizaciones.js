@@ -20,11 +20,7 @@ function filtrarCotizaciones() {
     
     filas.forEach(fila => {
         const contenido = fila.innerText.toLowerCase();
-        if(contenido.includes(texto)) {
-            fila.style.display = "";
-        } else {
-            fila.style.display = "none";
-        }
+        fila.style.display = contenido.includes(texto) ? "" : "none";
     });
 }
 
@@ -39,15 +35,19 @@ function listarPendientes() {
                 const tr = document.createElement("tr");
                 tr.className = "fila-cotizacion"; 
                 tr.style.cursor = "pointer";
+                
+                const badge = o.tipo_cotizacion === 'POS' ? '<span class="badge bg-success">POS</span>' : '<span class="badge bg-primary">Taller</span>';
+                const warningOc = o.es_ocasional == 1 ? '<span class="badge bg-warning text-dark ms-1" title="Ocasional"><i class="fas fa-exclamation-triangle"></i></span>' : '';
+
                 tr.innerHTML = `
-                    <td class="fw-bold text-primary">COT-${o.id_cotizacion}</td>
+                    <td class="fw-bold text-dark">COT-${o.id_cotizacion}</td>
                     <td>
                         <span class="d-block fw-bold text-dark small">${o.vehiculo}</span>
-                        <span class="text-muted small"><i class="fas fa-user me-1"></i>${o.cliente}</span>
+                        <span class="text-muted small"><i class="fas fa-user me-1"></i>${o.cliente} ${warningOc}</span>
                     </td>
-                    <td class="text-center fw-bold text-success">RD$ ${parseFloat(o.monto_total).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+                    <td class="text-center">${badge}</td>
                 `;
-                tr.onclick = () => cargarCotizacion(o.id_cotizacion, o.vehiculo, o.cliente);
+                tr.onclick = () => cargarCotizacion(o.id_cotizacion, o.vehiculo, o.cliente, o.tipo_cotizacion, o.es_ocasional);
                 tbody.appendChild(tr);
             });
         } else {
@@ -56,15 +56,54 @@ function listarPendientes() {
     });
 }
 
-function cargarCotizacion(id_cotizacion, vehiculo, cliente) {
-    document.getElementById("id_cotizacion_actual").value = id_cotizacion;
-    document.getElementById("lbl_orden_activa").innerText = `COT-${id_cotizacion} | ${cliente}`;
-    document.getElementById("capa_bloqueo").classList.add("d-none");
-    
+function limpiarConstructor() {
     cotizacionItems = [];
-    document.getElementById("buscador_items").value = "";
-    document.getElementById("cantidad_item").value = 1;
-    document.getElementById("cuerpoDetalleCotizacion").innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>';
+    cotizacionTotal = 0;
+    document.getElementById("id_cotizacion_actual").value = "";
+    document.getElementById("tipo_cotizacion_activa").value = "";
+    document.getElementById("es_ocasional_activa").value = "";
+    document.getElementById("lbl_orden_activa").innerText = "Seleccione una Cotización";
+    
+    const buscador = document.getElementById("buscador_items");
+    if(buscador) buscador.value = "";
+    const cantItem = document.getElementById("cantidad_item");
+    if(cantItem) cantItem.value = 1;
+    const resItems = document.getElementById("res_items");
+    if(resItems) resItems.classList.add("d-none");
+
+    document.getElementById("cuerpoDetalleCotizacion").innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Agregue servicios o repuestos al presupuesto.</td></tr>';
+    document.getElementById('cot_subtotal').innerText = "RD$ 0.00";
+    document.getElementById('cot_itbis').innerText = "RD$ 0.00";
+    document.getElementById('cot_total').innerText = "RD$ 0.00";
+    document.getElementById("panel_botones_accion").innerHTML = "";
+    document.getElementById("capa_bloqueo").classList.remove("d-none");
+}
+
+function cargarCotizacion(id_cotizacion, vehiculo, cliente, tipo_cotizacion, es_ocasional) {
+    limpiarConstructor(); 
+    
+    document.getElementById("id_cotizacion_actual").value = id_cotizacion;
+    document.getElementById("tipo_cotizacion_activa").value = tipo_cotizacion;
+    document.getElementById("es_ocasional_activa").value = es_ocasional;
+    document.getElementById("lbl_orden_activa").innerText = `COT-${id_cotizacion} | ${cliente} [${tipo_cotizacion}]`;
+    document.getElementById("capa_bloqueo").classList.add("d-none");
+
+    let btnHtml = `<div class="col-md-3"><button class="btn btn-outline-dark w-100 fw-bold shadow-sm" onclick="guardarBorrador()"><i class="fas fa-save me-1"></i> Guardar</button></div>`;
+
+    if (tipo_cotizacion === 'POS') {
+        btnHtml += `<div class="col-md-5"><button class="btn btn-success w-100 fw-bold shadow-sm" onclick="abrirModalCobroPOS()"><i class="fas fa-cash-register me-1"></i> Facturar POS</button></div>`;
+    } else {
+        if (es_ocasional == 1) {
+            btnHtml += `<div class="col-md-5"><button class="btn btn-secondary w-100 fw-bold shadow-sm" disabled title="Un cliente ocasional no puede generar una orden de taller."><i class="fas fa-ban me-1"></i> Taller Bloqueado</button></div>`;
+        } else {
+            btnHtml += `<div class="col-md-5"><button class="btn btn-primary w-100 fw-bold shadow-sm" onclick="aprobarCotizacion()"><i class="fas fa-tools me-1"></i> Aprobar a Taller</button></div>`;
+        }
+    }
+    
+    btnHtml += `<div class="col-md-4"><button class="btn btn-danger w-100 fw-bold shadow-sm" onclick="rechazarCotizacion()"><i class="fas fa-archive me-1"></i> Archivar / Anular</button></div>`;
+    document.getElementById("panel_botones_accion").innerHTML = btnHtml;
+
+    document.getElementById("cuerpoDetalleCotizacion").innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Cargando detalles...</td></tr>';
 
     fetch(`../../modules/Facturacion/Archivo_Cotizaciones.php?action=obtener_detalle&id_cotizacion=${id_cotizacion}`)
     .then(res => res.json())
@@ -77,6 +116,8 @@ function cargarCotizacion(id_cotizacion, vehiculo, cliente) {
                 cantidad: parseInt(item.cantidad),
                 tipo: item.tipo
             }));
+        } else {
+            cotizacionItems = [];
         }
         renderizarTabla();
     });
@@ -85,6 +126,8 @@ function cargarCotizacion(id_cotizacion, vehiculo, cliente) {
 function buscarItems(input) {
     const term = input.value.trim();
     const resDiv = document.getElementById("res_items");
+    const tipoCot = document.getElementById("tipo_cotizacion_activa").value;
+
     if (term.length < 2) { resDiv.classList.add("d-none"); return; }
 
     Promise.all([
@@ -95,7 +138,7 @@ function buscarItems(input) {
         resDiv.innerHTML = "";
         let found = false;
 
-        if (resServicios.success && resServicios.data.length > 0) {
+        if (tipoCot !== 'POS' && resServicios.success && resServicios.data.length > 0) {
             found = true;
             resServicios.data.forEach(s => {
                 const btn = document.createElement("button");
@@ -130,9 +173,8 @@ function agregarItem(itemData) {
     }
 
     const existe = cotizacionItems.find(i => i.id === itemData.id && i.tipo === itemData.tipo);
-    if(existe) {
-        existe.cantidad += cant;
-    } else {
+    if(existe) existe.cantidad += cant;
+    else {
         cotizacionItems.push({
             id: itemData.id,
             descripcion: itemData.descripcion,
@@ -165,7 +207,7 @@ function renderizarTabla() {
             const lineaTotal = item.precio * item.cantidad;
             subtotal += lineaTotal;
             
-            const badge = item.tipo === 'servicio' ? '<span class="badge bg-secondary">Mano de Obra</span>' : '<span class="badge bg-primary">Repuesto</span>';
+            const badge = item.tipo === 'servicio' ? '<span class="badge bg-secondary">Mano Obra</span>' : '<span class="badge bg-success">Repuesto</span>';
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -192,6 +234,7 @@ function renderizarTabla() {
 
 function abrirModalNuevaCotizacion() {
     document.getElementById("tipo_reg").checked = true;
+    document.getElementById("tipo_taller").checked = true;
     toggleTipoClienteExpress();
     document.getElementById("buscador_vehiculo_express").value = "";
     document.getElementById("id_cliente_express").value = "";
@@ -200,15 +243,12 @@ function abrirModalNuevaCotizacion() {
     document.getElementById("res_vehiculos_express").classList.add("d-none");
     
     document.getElementById("occ_nombre").value = "";
-    document.getElementById("occ_telefono").value = "";
     document.getElementById("occ_vehiculo").value = "";
     
     abrirModalUI('modalNuevaCotizacion');
 }
 
-function cerrarModalNuevaCotizacion() {
-    cerrarModalUI('modalNuevaCotizacion');
-}
+function cerrarModalNuevaCotizacion() { cerrarModalUI('modalNuevaCotizacion'); }
 
 function toggleTipoClienteExpress() {
     const esReg = document.getElementById("tipo_reg").checked;
@@ -241,8 +281,7 @@ function buscarVehiculosExpress(input) {
                     document.getElementById("buscador_vehiculo_express").value = "";
                     document.getElementById("id_cliente_express").value = v.id_cliente;
                     document.getElementById("id_vehiculo_express").value = v.id_vehiculo;
-                    document.getElementById("tel_cliente_express").value = v.telefono;
-                    
+                    document.getElementById("tel_cliente_express").value = v.telefono || '';
                     document.getElementById("lbl_exp_cliente").innerText = v.cliente;
                     document.getElementById("lbl_exp_vehiculo").innerText = v.vehiculo_desc;
                     document.getElementById("info_vehiculo_express").classList.remove("d-none");
@@ -250,119 +289,197 @@ function buscarVehiculosExpress(input) {
                 };
                 resDiv.appendChild(li);
             });
-        } else {
-            resDiv.classList.add("d-none");
-        }
+        } else resDiv.classList.add("d-none");
     });
 }
 
 function crearCotizacionExpress() {
-    const tipo = document.getElementById("tipo_reg").checked ? 'registrado' : 'ocasional';
+    const tipoCli = document.getElementById("tipo_reg").checked ? 'registrado' : 'ocasional';
+    const tipoCot = document.getElementById("tipo_taller").checked ? 'Taller' : 'POS';
     const fd = new FormData();
-    fd.append("tipo_cliente", tipo);
+    fd.append("tipo_cliente", tipoCli);
+    fd.append("tipo_cotizacion", tipoCot); 
 
-    let clienteName = "";
-    let vehiculoDesc = "";
+    let clienteName = "", vehiculoDesc = "";
 
-    if(tipo === 'registrado') {
+    if(tipoCli === 'registrado') {
         const id_vehiculo = document.getElementById("id_vehiculo_express").value;
         const id_cliente = document.getElementById("id_cliente_express").value;
-        
-        if(!id_vehiculo) return alert("Debe seleccionar un vehículo de la lista.");
+        if(!id_vehiculo) return alert("Debe seleccionar un vehículo.");
         
         fd.append("id_vehiculo", id_vehiculo);
         fd.append("id_cliente", id_cliente);
-        
         clienteName = document.getElementById("lbl_exp_cliente").innerText;
         vehiculoDesc = document.getElementById("lbl_exp_vehiculo").innerText;
         fd.append("nombre_cliente", clienteName);
         fd.append("vehiculo_desc", vehiculoDesc);
         fd.append("telefono_cliente", document.getElementById("tel_cliente_express").value);
-        
     } else {
         const nom = document.getElementById("occ_nombre").value.trim();
-        const tel = document.getElementById("occ_telefono").value.trim();
         const veh = document.getElementById("occ_vehiculo").value.trim();
-        
-        if(!nom || !veh) return alert("El Nombre y el Vehículo son obligatorios para un cliente ocasional.");
+        if(!nom) return alert("El Nombre es obligatorio para un cliente ocasional.");
         
         fd.append("nombre_ocasional", nom);
-        fd.append("telefono_ocasional", tel);
-        fd.append("vehiculo_ocasional", veh);
-        
+        fd.append("vehiculo_ocasional", veh || 'Vehículo no especificado');
         clienteName = nom;
         vehiculoDesc = veh;
     }
 
-    fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=crear_directa", {
-        method: "POST", body: fd
+    const btn = document.querySelector("#modalNuevaCotizacion .btn-success");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+    btn.disabled = true;
+
+    fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=crear_directa", { method: "POST", body: fd })
+    .then(async res => {
+        const text = await res.text(); 
+        try { return JSON.parse(text); } 
+        catch (e) { throw new Error(text); }
     })
-    .then(res => res.json())
     .then(data => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        
         if(data.success) {
             cerrarModalNuevaCotizacion();
             listarPendientes();
-            cargarCotizacion(data.id_cotizacion, vehiculoDesc, clienteName);
+            cargarCotizacion(data.id_cotizacion, vehiculoDesc, clienteName, tipoCot, tipoCli === 'ocasional' ? 1 : 0);
         } else {
-            alert("Error al crear: " + data.message);
+            alert("Error de Base de Datos: " + data.message);
         }
     })
-    .catch(err => alert("Error de conexión al intentar crear la cotización."));
+    .catch(err => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert("Error fatal del servidor. Consulta la consola o avisa al administrador.\nDetalle: " + err.message.substring(0, 100));
+    });
 }
 
 function guardarBorrador() {
     const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
-    if(!id_cotizacion) return alert("Seleccione una cotización.");
+    if(!id_cotizacion) return;
 
-    const data = { id_cotizacion: id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal };
+    const btn = document.querySelector("button[onclick='guardarBorrador()']");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
 
     fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
-        method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
-    }).then(res => res.json()).then(res => {
-        if(res.success) { alert(res.message); listarPendientes(); }
-        else alert("Error: " + res.message);
+        method: "POST", headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ id_cotizacion: id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal })
+    })
+    .then(async r => {
+        const text = await r.text();
+        try { return JSON.parse(text); } catch(e) { throw new Error(text); }
+    })
+    .then(res => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        if(res.success) { 
+            // Mostramos una alerta visual sutil o nativa y recargamos la tabla de la izquierda, 
+            // PERO NO LIMPIAMOS LA PANTALLA para que el usuario siga trabajando.
+            listarPendientes(); 
+        } else {
+            alert("Error al guardar borrador: " + res.message);
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert("Error de Conexión: " + err.message);
     });
 }
 
 function aprobarCotizacion() {
     const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
-    if(!id_cotizacion) return alert("Seleccione una cotización.");
-    if(cotizacionItems.length === 0) return alert("El presupuesto está vacío.");
+    if(!id_cotizacion || cotizacionItems.length === 0) return alert("Presupuesto vacío o inválido.");
 
-    if(confirm("¿Está seguro que el cliente APROBÓ este presupuesto?\nSe creará una Orden oficial y pasará a Inspección (Diagnóstico).")) {
-        const data = { id_cotizacion: id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal };
-        
+    if(confirm("¿Aprobar y pasar vehículo al Taller (Diagnóstico)?")) {
         fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
-            method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+            method: "POST", headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal })
         }).then(() => {
             const fd = new FormData(); fd.append("id_cotizacion", id_cotizacion);
             fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=aprobar_cotizacion", { method: "POST", body: fd })
-            .then(res => res.json()).then(res => {
+            .then(async res => {
+                const text = await res.text();
+                try { return JSON.parse(text); } catch(e) { throw new Error(text); }
+            })
+            .then(res => {
                 if(res.success) { 
                     alert(res.message); 
-                    
-                    // AQUI SE AGREGO LA REDIRECCION A INSPECCION
+                    limpiarConstructor(); 
                     window.location.href = `../Taller/MInspeccion.php?id_orden=${res.id_orden}`;
-                    
-                } else {
-                    alert("Error: " + res.message);
-                }
-            });
+                } else alert("Error al Aprobar: " + res.message);
+            })
+            .catch(err => alert("Error fatal del servidor: " + err.message));
         });
     }
 }
 
-function rechazarCotizacion() {
-    const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
-    if(!id_cotizacion) return alert("Seleccione una cotización.");
+function abrirModalCobroPOS() {
+    if(cotizacionItems.length === 0) return alert("El presupuesto está vacío.");
+    
+    // Guardamos borrador en silencio antes de abrir el modal POS
+    fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
+        method: "POST", headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ id_cotizacion: document.getElementById("id_cotizacion_actual").value, items: cotizacionItems, total_final: cotizacionTotal })
+    }).then(() => {
+        abrirModalUI('modalCobroPOS');
+    });
+}
 
-    if(confirm("¿Está seguro que desea RECHAZAR/ANULAR esta cotización?")) {
+function procesarCobroPOS() {
+    const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
+    const metodo = document.getElementById("pos_metodo_pago").value;
+    const ncf = document.getElementById("pos_ncf").value;
+
+    const fd = new FormData();
+    fd.append("id_cotizacion", id_cotizacion);
+    fd.append("metodo_pago", metodo);
+    fd.append("ncf", ncf);
+
+    const btn = document.querySelector("#modalCobroPOS .btn-success");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Facturando...';
+    btn.disabled = true;
+
+    fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=aprobar_pos", { method: "POST", body: fd })
+    .then(async res => {
+        const text = await res.text();
+        try { return JSON.parse(text); } catch(e) { throw new Error(text); }
+    })
+    .then(res => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        
+        if(res.success) { 
+            alert(res.message); 
+            cerrarModalUI('modalCobroPOS');
+            limpiarConstructor(); 
+            listarPendientes();
+        } else {
+            alert("Error crítico POS: " + res.message);
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert("Error de base de datos: " + err.message);
+    });
+}
+
+function rechazarCotizacion(ocultarAlerta = false) {
+    const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
+    if(!id_cotizacion) return;
+
+    if(ocultarAlerta || confirm("¿Está seguro de Archivar/Anular esta cotización para quitarla de los pendientes?")) {
         const fd = new FormData(); fd.append("id_cotizacion", id_cotizacion);
         fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=rechazar_cotizacion", { method: "POST", body: fd })
-        .then(res => res.json()).then(res => {
+        .then(r => r.json()).then(res => {
             if(res.success) { 
-                alert(res.message); 
-                document.getElementById("capa_bloqueo").classList.remove("d-none");
+                if(!ocultarAlerta) alert(res.message); 
+                limpiarConstructor();
                 listarPendientes(); 
             }
         });
@@ -371,6 +488,7 @@ function rechazarCotizacion() {
 
 function imprimirCotizacion() {
     if(cotizacionItems.length === 0) return alert("El presupuesto está vacío.");
+    const esOcasional = document.getElementById("es_ocasional_activa").value;
     
     let htmlItems = "";
     cotizacionItems.forEach(i => {
@@ -385,17 +503,26 @@ function imprimirCotizacion() {
     v.document.write(`
         <html><head><style>body{font-family:monospace;}</style></head>
         <body style="padding:20px;">
-            <h3 style="text-align:center;">PRESUPUESTO DE SERVICIO</h3>
+            <h3 style="text-align:center;">PRESUPUESTO ESTIMADO</h3>
             <p style="text-align:center;">${document.getElementById("lbl_orden_activa").innerText}</p>
             <hr>
             ${htmlItems}
             <hr>
             <h4>TOTAL ESTIMADO: ${document.getElementById("cot_total").innerText}</h4>
-            <p style="text-align:center; font-size:10px; margin-top:20px;">Este documento es un presupuesto estimado. Los precios pueden variar.</p>
         </body></html>
     `);
     v.document.close();
-    setTimeout(() => { v.print(); v.close(); }, 500);
+    setTimeout(() => { 
+        v.print(); 
+        v.close(); 
+        if (esOcasional == 1) {
+            setTimeout(() => {
+                if(confirm("El presupuesto ha sido impreso. Como es un cliente ocasional, ¿Desea archivar (cerrar) esta cotización para que no siga en pendientes?")) {
+                    rechazarCotizacion(true); 
+                }
+            }, 1000);
+        }
+    }, 500);
 }
 
 function abrirModalUI(id) {

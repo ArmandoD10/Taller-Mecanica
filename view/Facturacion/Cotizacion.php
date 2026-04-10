@@ -3,7 +3,7 @@ require("../../layout.php");
 require("../../header.php");
 ?>
 
-<main class="contenido">
+<main class="contenido mb-5">
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
             <h2><i class="fas fa-file-invoice me-2 text-primary"></i>Módulo de Cotizaciones</h2>
@@ -35,9 +35,9 @@ require("../../header.php");
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light sticky-top">
                                     <tr>
-                                        <th>N° Cotización</th>
+                                        <th>N° Cot.</th>
                                         <th>Cliente / Vehículo</th>
-                                        <th class="text-center">Monto</th>
+                                        <th class="text-center">Tipo</th>
                                     </tr>
                                 </thead>
                                 <tbody id="cuerpoTablaPendientes"></tbody>
@@ -60,6 +60,8 @@ require("../../header.php");
                         </div>
 
                         <input type="hidden" id="id_cotizacion_actual">
+                        <input type="hidden" id="tipo_cotizacion_activa">
+                        <input type="hidden" id="es_ocasional_activa">
                         
                         <div class="row g-2 mb-3">
                             <div class="col-md-9 position-relative">
@@ -110,19 +112,10 @@ require("../../header.php");
                             </div>
                         </div>
 
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <button class="btn btn-outline-dark w-100 fw-bold shadow-sm" onclick="guardarBorrador()"><i class="fas fa-save me-1"></i> Guardar Cambios</button>
-                            </div>
-                            <div class="col-md-4">
-                                <button class="btn btn-success w-100 fw-bold shadow-sm" onclick="aprobarCotizacion()"><i class="fas fa-check-circle me-1"></i> Aprobar a Inspección</button>
-                            </div>
-                            <div class="col-md-4">
-                                <button class="btn btn-danger w-100 fw-bold shadow-sm" onclick="rechazarCotizacion()"><i class="fas fa-times-circle me-1"></i> Rechazar/Anular</button>
-                            </div>
-                        </div>
+                        <div class="row g-2 mb-2" id="panel_botones_accion"></div>
+                        
                         <div class="mt-2">
-                            <button class="btn btn-info text-dark w-100 fw-bold shadow-sm" onclick="imprimirCotizacion()"><i class="fas fa-print me-1"></i> Imprimir PDF / Documento</button>
+                            <button class="btn btn-info text-dark w-100 fw-bold shadow-sm" onclick="imprimirCotizacion()"><i class="fas fa-print me-1"></i> Imprimir Presupuesto</button>
                         </div>
                     </div>
                 </div>
@@ -139,14 +132,27 @@ require("../../header.php");
                 </div>
                 <div class="modal-body bg-light">
                     
+                    <div class="mb-3 border-bottom pb-2 text-center">
+                        <p class="fw-bold small text-muted mb-1">TIPO DE COTIZACIÓN</p>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="rd_tipo_cot" id="tipo_taller" value="Taller" checked>
+                            <label class="form-check-label text-dark fw-bold" for="tipo_taller"><i class="fas fa-tools text-primary me-1"></i>Servicios (Taller)</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="rd_tipo_cot" id="tipo_pos" value="POS">
+                            <label class="form-check-label text-dark fw-bold" for="tipo_pos"><i class="fas fa-box text-success me-1"></i>Solo Repuestos (POS)</label>
+                        </div>
+                    </div>
+
                     <div class="mb-3 border-bottom pb-3 text-center">
+                        <p class="fw-bold small text-muted mb-1">TIPO DE CLIENTE</p>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="tipo_cliente_express" id="tipo_reg" value="registrado" checked onchange="toggleTipoClienteExpress()">
-                            <label class="form-check-label fw-bold text-dark" for="tipo_reg" style="cursor: pointer;">Cliente Registrado</label>
+                            <label class="form-check-label fw-bold text-dark" for="tipo_reg" style="cursor: pointer;">Registrado</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="tipo_cliente_express" id="tipo_oca" value="ocasional" onchange="toggleTipoClienteExpress()">
-                            <label class="form-check-label fw-bold text-dark" for="tipo_oca" style="cursor: pointer;">Cliente Ocasional (Nuevo)</label>
+                            <label class="form-check-label fw-bold text-dark" for="tipo_oca" style="cursor: pointer;">Ocasional (Rápido)</label>
                         </div>
                     </div>
 
@@ -170,23 +176,46 @@ require("../../header.php");
                     <div id="seccion_ocasional" class="d-none bg-white p-3 rounded border shadow-sm mb-3">
                         <div class="mb-2">
                             <label class="small fw-bold text-dark">Nombre del Cliente <span class="text-danger">*</span></label>
-                            <input type="text" id="occ_nombre" class="form-control form-control-sm" placeholder="Ej: Juan Perez">
+                            <input type="text" id="occ_nombre" class="form-control form-control-sm" placeholder="Ej: Cliente Mostrador">
                         </div>
                         <div class="mb-2">
-                            <label class="small fw-bold text-dark">Teléfono</label>
-                            <input type="text" id="occ_telefono" class="form-control form-control-sm" placeholder="Ej: 809-555-5555">
-                        </div>
-                        <div class="mb-2">
-                            <label class="small fw-bold text-dark">Vehículo (Marca/Modelo) <span class="text-danger">*</span></label>
-                            <input type="text" id="occ_vehiculo" class="form-control form-control-sm" placeholder="Ej: Toyota Corolla Blanco">
+                            <label class="small fw-bold text-dark">Vehículo (Opcional)</label>
+                            <input type="text" id="occ_vehiculo" class="form-control form-control-sm" placeholder="Ej: No aplica">
                         </div>
                     </div>
-
                 </div>
                 <div class="modal-footer bg-light border-top">
                     <button class="btn btn-secondary fw-bold" onclick="cerrarModalNuevaCotizacion()">Cancelar</button>
                     <button class="btn btn-success fw-bold shadow-sm" onclick="crearCotizacionExpress()">
-                        <i class="fas fa-arrow-right me-1"></i> Continuar a Cotizar
+                        <i class="fas fa-arrow-right me-1"></i> Iniciar Cotización
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCobroPOS" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-success text-white py-2">
+                    <h6 class="modal-title fw-bold"><i class="fas fa-cash-register me-2"></i>Facturar Cotización POS</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">Método de Pago</label>
+                        <select id="pos_metodo_pago" class="form-select border-success fw-bold">
+                            <option value="1">Efectivo</option>
+                            <option value="2">Tarjeta</option>
+                            <option value="3">Transferencia</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">NCF Comprobante</label>
+                        <input type="text" id="pos_ncf" class="form-control fw-bold" value="B0200000001">
+                    </div>
+                    <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" onclick="procesarCobroPOS()">
+                        CONFIRMAR PAGO
                     </button>
                 </div>
             </div>

@@ -10,6 +10,48 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("res_items").classList.add("d-none");
         });
     }
+
+    // ==============================================================
+    // VALIDACIONES Y MÁSCARAS EN TIEMPO REAL PARA CLIENTE OCASIONAL
+    // ==============================================================
+    
+    const inputTelefono = document.getElementById('occ_telefono');
+    if (inputTelefono) {
+        inputTelefono.addEventListener('input', function(e) {
+            let num = e.target.value.replace(/\D/g, '').substring(0, 10);
+            let form = "";
+            if (num.length > 0) {
+                form += "(" + num.substring(0, 3);
+                if (num.length > 3) form += ") " + num.substring(3, 6);
+                if (num.length > 6) form += "-" + num.substring(6, 10);
+            }
+            e.target.value = form;
+        });
+    }
+
+    const inputNombre = document.getElementById('occ_nombre');
+    if (inputNombre) {
+        inputNombre.addEventListener('input', function(e) {
+            let valor = e.target.value;
+            valor = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+            if (valor.length > 0) {
+                valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+            }
+            e.target.value = valor;
+        });
+    }
+
+    const inputVehiculo = document.getElementById('occ_vehiculo');
+    if (inputVehiculo) {
+        inputVehiculo.addEventListener('input', function(e) {
+            let valor = e.target.value;
+            valor = valor.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+            if (valor.length > 0) {
+                valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+            }
+            e.target.value = valor;
+        });
+    }
 });
 
 function filtrarCotizaciones() {
@@ -243,6 +285,7 @@ function abrirModalNuevaCotizacion() {
     document.getElementById("res_vehiculos_express").classList.add("d-none");
     
     document.getElementById("occ_nombre").value = "";
+    document.getElementById("occ_telefono").value = "";
     document.getElementById("occ_vehiculo").value = "";
     
     abrirModalUI('modalNuevaCotizacion');
@@ -316,10 +359,12 @@ function crearCotizacionExpress() {
         fd.append("telefono_cliente", document.getElementById("tel_cliente_express").value);
     } else {
         const nom = document.getElementById("occ_nombre").value.trim();
+        const tel = document.getElementById("occ_telefono").value.trim();
         const veh = document.getElementById("occ_vehiculo").value.trim();
         if(!nom) return alert("El Nombre es obligatorio para un cliente ocasional.");
         
         fd.append("nombre_ocasional", nom);
+        fd.append("telefono_ocasional", tel);
         fd.append("vehiculo_ocasional", veh || 'Vehículo no especificado');
         clienteName = nom;
         vehiculoDesc = veh;
@@ -376,8 +421,6 @@ function guardarBorrador() {
         btn.innerHTML = originalText;
         btn.disabled = false;
         if(res.success) { 
-            // Mostramos una alerta visual sutil o nativa y recargamos la tabla de la izquierda, 
-            // PERO NO LIMPIAMOS LA PANTALLA para que el usuario siga trabajando.
             listarPendientes(); 
         } else {
             alert("Error al guardar borrador: " + res.message);
@@ -417,55 +460,17 @@ function aprobarCotizacion() {
     }
 }
 
+// --- REDIRECCIÓN AL MÓDULO POS ---
 function abrirModalCobroPOS() {
-    if(cotizacionItems.length === 0) return alert("El presupuesto está vacío.");
+    const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
+    if(!id_cotizacion || cotizacionItems.length === 0) return alert("El presupuesto está vacío.");
     
-    // Guardamos borrador en silencio antes de abrir el modal POS
+    // Guardamos borrador en silencio antes de redirigir
     fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
         method: "POST", headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ id_cotizacion: document.getElementById("id_cotizacion_actual").value, items: cotizacionItems, total_final: cotizacionTotal })
+        body: JSON.stringify({ id_cotizacion: id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal })
     }).then(() => {
-        abrirModalUI('modalCobroPOS');
-    });
-}
-
-function procesarCobroPOS() {
-    const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
-    const metodo = document.getElementById("pos_metodo_pago").value;
-    const ncf = document.getElementById("pos_ncf").value;
-
-    const fd = new FormData();
-    fd.append("id_cotizacion", id_cotizacion);
-    fd.append("metodo_pago", metodo);
-    fd.append("ncf", ncf);
-
-    const btn = document.querySelector("#modalCobroPOS .btn-success");
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Facturando...';
-    btn.disabled = true;
-
-    fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=aprobar_pos", { method: "POST", body: fd })
-    .then(async res => {
-        const text = await res.text();
-        try { return JSON.parse(text); } catch(e) { throw new Error(text); }
-    })
-    .then(res => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        
-        if(res.success) { 
-            alert(res.message); 
-            cerrarModalUI('modalCobroPOS');
-            limpiarConstructor(); 
-            listarPendientes();
-        } else {
-            alert("Error crítico POS: " + res.message);
-        }
-    })
-    .catch(err => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        alert("Error de base de datos: " + err.message);
+        window.location.href = `Factura.php?id_cotizacion=${id_cotizacion}`;
     });
 }
 
@@ -562,79 +567,3 @@ function cerrarModalUI(id) {
         }
     }
 }
-
-
-//mascara para telefono.
-// 3. Teléfono
-   // Seleccionamos directamente por el ID
-const inputTelefono = document.getElementById('occ_telefono');
-
-// Verificamos que el elemento exista antes de agregar el listener (evita errores en consola)
-if (inputTelefono) {
-    inputTelefono.addEventListener('input', function(e) {
-        // Obtenemos el ID para confirmar (aunque ya sabemos que es id_telefono)
-        let idActual = e.target.id;
-        
-        // Lógica de formateo
-        let num = e.target.value.replace(/\D/g, '').substring(0, 10);
-        let form = "";
-        
-        if (num.length > 0) {
-            form += "(" + num.substring(0, 3);
-            if (num.length > 3) form += ") " + num.substring(3, 6);
-            if (num.length > 6) form += "-" + num.substring(6, 10);
-        }
-        
-        // Aplicamos el formato al valor del input
-        e.target.value = form;
-        
-        // Si necesitas debugear o usar el ID para algo más:
-        console.log("Editando el campo: " + idActual + " | Valor puro: " + num);
-    });
-}
-
-document.addEventListener("DOMContentLoaded", function() {
-    // Seleccionamos los campos por ID
-    const camposNombres = document.querySelectorAll('#occ_nombre');
-
-    camposNombres.forEach(input => {
-        input.addEventListener('input', function(e) {
-            let valor = e.target.value;
-
-            // 1. ELIMINAR números y caracteres especiales (solo deja letras y espacios)
-            // El Regex [^a-zA-Z...] busca lo que NO sea letra y lo borra
-            valor = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
-
-            // 2. FORZAR Primera letra Mayúscula
-            if (valor.length > 0) {
-                valor = valor.charAt(0).toUpperCase() + valor.slice(1);
-            }
-
-            // Aplicar el cambio al input en tiempo real
-            e.target.value = valor;
-        });
-    });
-});
-
-document.addEventListener("DOMContentLoaded", function() {
-    // Seleccionamos los campos por ID
-    const camposNombres = document.querySelectorAll('#occ_vehiculo');
-
-    camposNombres.forEach(input => {
-        input.addEventListener('input', function(e) {
-            let valor = e.target.value;
-
-            // 1. ELIMINAR números y caracteres especiales (solo deja letras y espacios)
-            // El Regex [^a-zA-Z...] busca lo que NO sea letra y lo borra
-           valor = valor.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
-
-            // 2. FORZAR Primera letra Mayúscula
-            if (valor.length > 0) {
-                valor = valor.charAt(0).toUpperCase() + valor.slice(1);
-            }
-
-            // Aplicar el cambio al input en tiempo real
-            e.target.value = valor;
-        });
-    });
-});

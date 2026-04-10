@@ -179,6 +179,10 @@ require("../../header.php");
                             <input type="text" id="occ_nombre" class="form-control form-control-sm" placeholder="Ej: Cliente Mostrador">
                         </div>
                         <div class="mb-2">
+                            <label class="small fw-bold text-dark">Teléfono</label>
+                            <input type="text" id="occ_telefono" class="form-control form-control-sm" placeholder="(000) 000-0000">
+                        </div>
+                        <div class="mb-2">
                             <label class="small fw-bold text-dark">Vehículo (Opcional)</label>
                             <input type="text" id="occ_vehiculo" class="form-control form-control-sm" placeholder="Ej: No aplica">
                         </div>
@@ -188,34 +192,6 @@ require("../../header.php");
                     <button class="btn btn-secondary fw-bold" onclick="cerrarModalNuevaCotizacion()">Cancelar</button>
                     <button class="btn btn-success fw-bold shadow-sm" onclick="crearCotizacionExpress()">
                         <i class="fas fa-arrow-right me-1"></i> Iniciar Cotización
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalCobroPOS" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog modal-sm modal-dialog-centered">
-            <div class="modal-content shadow-lg border-0">
-                <div class="modal-header bg-success text-white py-2">
-                    <h6 class="modal-title fw-bold"><i class="fas fa-cash-register me-2"></i>Facturar Cotización POS</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body bg-light">
-                    <div class="mb-3">
-                        <label class="small fw-bold text-muted">Método de Pago</label>
-                        <select id="pos_metodo_pago" class="form-select border-success fw-bold">
-                            <option value="1">Efectivo</option>
-                            <option value="2">Tarjeta</option>
-                            <option value="3">Transferencia</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="small fw-bold text-muted">NCF Comprobante</label>
-                        <input type="text" id="pos_ncf" class="form-control fw-bold" value="B0200000001">
-                    </div>
-                    <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" onclick="procesarCobroPOS()">
-                        CONFIRMAR PAGO
                     </button>
                 </div>
             </div>

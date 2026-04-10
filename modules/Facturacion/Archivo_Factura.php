@@ -57,8 +57,6 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $resultado]);
         break;
 
-        // ... (Resto del guardado) ...
-
     case 'validar_stock_oferta':
         $id_art = $_GET['id_articulo'];
         $sql = "SELECT SUM(i.cantidad) as stock FROM Inventario i 
@@ -70,6 +68,11 @@ switch ($action) {
         $stmt->execute();
         $res = $stmt->get_result()->fetch_assoc();
         echo json_encode(['success' => true, 'stock' => $res['stock'] ?? 0]);
+        break;
+
+    // === NUEVO: ACCIÓN PARA CARGAR DATOS DE COTIZACIÓN AL POS ===
+    case 'cargar_datos_cotizacion':
+        cargar_datos_cotizacion($conexion);
         break;
 
     default:
@@ -128,6 +131,39 @@ function simular_api_azul($conexion) {
     } else {
         echo json_encode(['success' => false, 'message' => $conexion->error]);
     }
+}
+
+// === NUEVA FUNCIÓN: CARGAR LA COTIZACIÓN AL POS ===
+function cargar_datos_cotizacion($conexion) {
+    $id_cotizacion = (int)($_GET['id_cotizacion'] ?? 0);
+    
+    // Obtener datos de la cotización y el crédito disponible si el cliente está registrado
+    $sqlCot = "SELECT c.id_cotizacion, c.nombre_cliente, c.id_cliente, 
+                      IFNULL(cr.id_credito, 0) as id_credito, IFNULL(cr.saldo_disponible, 0) as disponible
+               FROM cotizacion c
+               LEFT JOIN Cliente cl ON c.id_cliente = cl.id_cliente
+               LEFT JOIN Credito cr ON cl.id_cliente = cr.id_cliente AND cr.estado_credito = 'Activo' AND cr.estado = 'activo'
+               WHERE c.id_cotizacion = ?";
+    $stmtCot = $conexion->prepare($sqlCot);
+    $stmtCot->bind_param("i", $id_cotizacion);
+    $stmtCot->execute();
+    $cotizacion = $stmtCot->get_result()->fetch_assoc();
+
+    if (!$cotizacion) {
+        echo json_encode(['success' => false, 'message' => 'Cotización no encontrada.']);
+        return;
+    }
+
+    // Obtener solo los repuestos de la cotización
+    $sqlDet = "SELECT cd.id_item as id_articulo, cd.descripcion as nombre, cd.precio_unitario as precio_venta, cd.cantidad 
+               FROM cotizacion_detalle cd 
+               WHERE cd.id_cotizacion = ? AND cd.tipo_item = 'repuesto'";
+    $stmtDet = $conexion->prepare($sqlDet);
+    $stmtDet->bind_param("i", $id_cotizacion);
+    $stmtDet->execute();
+    $detalles = $stmtDet->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    echo json_encode(['success' => true, 'cotizacion' => $cotizacion, 'items' => $detalles]);
 }
 
 function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
@@ -222,6 +258,12 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
                 $stmtI->bind_param("ii", $id_factura, $id_imp);
                 $stmtI->execute();
             }
+        }
+
+        // === NUEVO: MARCAR COTIZACIÓN COMO APROBADA SI EXISTE ===
+        $id_cotizacion_vinculada = !empty($data['id_cotizacion']) ? (int)$data['id_cotizacion'] : null;
+        if ($id_cotizacion_vinculada) {
+            $conexion->query("UPDATE cotizacion SET estado = 'Aprobada' WHERE id_cotizacion = $id_cotizacion_vinculada");
         }
 
         $conexion->commit();

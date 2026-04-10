@@ -1,20 +1,21 @@
 /**
  * Scripts_Factura.js - Versión Profesional Completa
- * Manejo de POS, Inventario por Sucursal, Pasarela Azul, ITBIS y Crédito Actualizado.
+ * Manejo de POS, Inventario por Sucursal, Pasarela Azul, ITBIS, Crédito Actualizado y Contexto de Cotizaciones.
  */
 
 let listaItemsFactura = [];
-let listaImpuestos = [];
+let listaImpuestosDB = []; 
 let clienteSeleccionado = null;
 let subtotalGlobal = 0;
+let descuentoTotalOfertas = 0;
+let ofertasSeleccionadasParaFactura = [];
+let cotizacionVinculadaID = null; 
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Sistema de Facturación POS inicializado...");
 
     cargarImpuestosAuto();
     
-    // Ya no usamos cargarImpuestosAuto() porque el 18% está fijo en la lógica DGII
-
     document.getElementById("buscar_producto").addEventListener("search", () => {
         document.getElementById("res_productos").classList.add("d-none");
     });
@@ -25,8 +26,75 @@ document.addEventListener("DOMContentLoaded", () => {
             this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
         });
     }
+
+    // Revisamos si venimos desde el módulo de Cotizaciones
+    setTimeout(revisarContextoCotizacion, 500);
 });
 
+// ==========================================
+// 1. CARGAR DATOS DESDE COTIZACIÓN
+// ==========================================
+function revisarContextoCotizacion() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const idCot = urlParams.get('id_cotizacion');
+
+    if (idCot) {
+        fetch(`/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=cargar_datos_cotizacion&id_cotizacion=${idCot}`)
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                cotizacionVinculadaID = res.cotizacion.id_cotizacion;
+
+                // Bloquear los campos de búsqueda para que no se altere lo aprobado
+                document.getElementById('buscar_producto').disabled = true;
+                document.getElementById('cant_extra').disabled = true;
+                document.getElementById('buscar_cliente').disabled = true;
+                
+                //const btnOfertas = document.querySelector("button[onclick='abrirAuthOferta()']");
+                //if(btnOfertas) btnOfertas.disabled = true;
+                
+                // Mostrar banner indicativo
+                const banner = document.createElement('div');
+                banner.className = "alert alert-success py-2 mb-3 fw-bold border-success text-center shadow-sm";
+                banner.innerHTML = `<i class="fas fa-file-invoice me-2"></i>Facturando Cotización POS: COT-${cotizacionVinculadaID}`;
+                const panelPrincipal = document.querySelector('.card-body') || document.body;
+                panelPrincipal.prepend(banner);
+
+                // Setear el cliente o consumidor ocasional
+                if (res.cotizacion.id_cliente) {
+                    const switchC = document.getElementById("switch_credito");
+                    if(switchC) switchC.disabled = false;
+
+                    clienteSeleccionado = {
+                        id_cliente: res.cotizacion.id_cliente,
+                        nombre: res.cotizacion.nombre_cliente,
+                        id_credito: res.cotizacion.id_credito,
+                        disponible: res.cotizacion.disponible
+                    };
+                    document.getElementById("buscar_cliente").value = res.cotizacion.nombre_cliente;
+                    
+                    if(res.cotizacion.id_credito > 0) {
+                        document.getElementById("info_credito_cliente").classList.remove("d-none");
+                        document.getElementById("c_nombre").innerText = res.cotizacion.nombre_cliente;
+                        document.getElementById("c_disponible").innerText = `RD$ ${parseFloat(res.cotizacion.disponible).toLocaleString()}`;
+                    }
+                } else {
+                    document.getElementById("buscar_cliente").value = res.cotizacion.nombre_cliente + " (Ocasional)";
+                }
+
+                // Llenar el carrito con los repuestos
+                listaItemsFactura = res.items.map(i => ({
+                    id: i.id_articulo,
+                    nombre: i.nombre,
+                    precio: parseFloat(i.precio_venta),
+                    cantidad: parseInt(i.cantidad)
+                }));
+                
+                actualizarInterfaz();
+            }
+        });
+    }
+}
 
 // ==========================================
 // 2. BUSCADOR DE PRODUCTOS E INVENTARIO
@@ -129,6 +197,10 @@ function actualizarInterfaz() {
         let lineaTotal = item.precio * item.cantidad;
         subtotalGlobal += lineaTotal;
 
+        // Ocultar botón de borrar si viene de una cotización cerrada
+        const btnEliminar = cotizacionVinculadaID ? '' : 
+            `<button class="btn btn-sm btn-link text-danger p-0" onclick="eliminarItem(${index})"><i class="fas fa-times-circle"></i></button>`;
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td class="small fw-bold text-dark">${item.nombre}</td>
@@ -136,9 +208,7 @@ function actualizarInterfaz() {
             <td class="text-end text-muted">RD$ ${item.precio.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
             <td class="text-end fw-bold">RD$ ${lineaTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-link text-danger p-0" onclick="eliminarItem(${index})">
-                    <i class="fas fa-times-circle"></i>
-                </button>
+                ${btnEliminar}
             </td>`;
         tbody.appendChild(tr);
     });
@@ -146,40 +216,32 @@ function actualizarInterfaz() {
     calcularTotales();
 }
 
-// Variable global para guardar impuestos de la DB
-// Variable global al inicio del archivo
-let listaImpuestosDB = []; 
+function eliminarItem(index) {
+    listaItemsFactura.splice(index, 1);
+    actualizarInterfaz();
+}
 
-// Función para cargar los impuestos de la base de datos
 function cargarImpuestosAuto() {
     fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=listar_impuestos_automaticos")
         .then(res => res.json())
         .then(res => { 
             if(res.success) {
                 listaImpuestosDB = res.data; 
-                console.log("Impuestos cargados desde DB:", listaImpuestosDB);
-                calcularTotales(); // Forzar primer cálculo al cargar
+                calcularTotales(); 
             }
         });
 }
 
-// FUNCIÓN ÚNICA DE CÁLCULO (Sustituye a las otras dos)
 function calcularTotales() {
     const desgloseCont = document.getElementById("desglose_impuestos_dinamico");
     
-    // Validamos que el contenedor exista para evitar el error "null" de tu consola
-    if (!desgloseCont) {
-        console.warn("Contenedor 'desglose_impuestos_dinamico' no encontrado en el HTML.");
-        return; 
-    }
+    if (!desgloseCont) return; 
     
-    desgloseCont.innerHTML = ""; // Limpiamos para redibujar
+    desgloseCont.innerHTML = ""; 
     let totalImpuestosCalculados = 0;
 
-    // 1. Calculamos el subtotal base restando el descuento de ofertas si existe
     let subtotalConDescuento = subtotalGlobal - descuentoTotalOfertas;
 
-    // 2. Dibujamos cada impuesto dinámico (ITBIS 18%, etc.) sobre el monto con descuento
     listaImpuestosDB.forEach(imp => {
         let valorCalculado = subtotalConDescuento * (parseFloat(imp.porcentaje) / 100);
         totalImpuestosCalculados += valorCalculado;
@@ -191,13 +253,10 @@ function calcularTotales() {
             </div>`;
     });
 
-    // 3. Calculamos el Total Neto final
     let totalFinal = subtotalConDescuento + totalImpuestosCalculados;
 
-    // 4. Actualizamos los campos generales del HTML
     document.getElementById("subtotal_valor").innerText = `RD$ ${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     
-    // Mostramos u ocultamos la fila de ofertas
     const filaOf = document.getElementById("fila_ofertas");
     if (descuentoTotalOfertas > 0) {
         filaOf.classList.remove("d-none");
@@ -206,17 +265,16 @@ function calcularTotales() {
         filaOf.classList.add("d-none");
     }
 
-    // Actualizamos el gran total y el indicador de arriba
     const totalStr = totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById("total_final_valor").innerText = `RD$ ${totalStr}`;
     document.getElementById("total_general_display").innerText = `RD$ ${totalStr}`;
     
-    // Actualizamos el monto en el modal de la pasarela Azul si está definido
     const montoAzul = document.getElementById("monto_azul_display");
     if(montoAzul) {
         montoAzul.innerText = totalStr;
     }
 }
+
 // ==========================================
 // 4. CLIENTES Y CRÉDITO
 // ==========================================
@@ -231,9 +289,11 @@ function toggleModoCredito(checked) {
     } else {
         contenedor.classList.add("d-none");
         selectPago.disabled = false;
-        clienteSeleccionado = null;
-        document.getElementById("info_credito_cliente").classList.add("d-none");
-        document.getElementById("buscar_cliente").value = "";
+        if (!cotizacionVinculadaID) { 
+            clienteSeleccionado = null;
+            document.getElementById("info_credito_cliente").classList.add("d-none");
+            document.getElementById("buscar_cliente").value = "";
+        }
     }
 }
 
@@ -258,7 +318,7 @@ function buscarClienteCredito(input) {
                     btn.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <span class="fw-bold text-dark">${c.nombre} ${c.apellido_p}</span><br>
+                                <span class="fw-bold text-dark">${c.nombre} ${c.apellido_p || ''}</span><br>
                                 <small class="text-muted">ID Cliente: ${c.id_cliente}</small>
                             </div>
                             <div class="text-end">
@@ -279,7 +339,7 @@ function buscarClienteCredito(input) {
 
 function seleccionarCliente(c) {
     clienteSeleccionado = c;
-    document.getElementById("buscar_cliente").value = `${c.nombre} ${c.apellido_p}`;
+    document.getElementById("buscar_cliente").value = `${c.nombre} ${c.apellido_p || ''}`;
     document.getElementById("info_credito_cliente").classList.remove("d-none");
     document.getElementById("c_nombre").innerText = c.nombre;
     document.getElementById("c_limite").innerText = `RD$ ${parseFloat(c.limite).toLocaleString()}`;
@@ -291,8 +351,8 @@ function seleccionarCliente(c) {
 // ==========================================
 function previsualizarVoucher() {
     if (listaItemsFactura.length === 0) return alert("Debe añadir productos al carrito.");
-    if (document.getElementById("switch_credito").checked && !clienteSeleccionado) {
-        return alert("Debe seleccionar un cliente para la venta a crédito.");
+    if (document.getElementById("switch_credito").checked && (!clienteSeleccionado || clienteSeleccionado.id_credito == 0)) {
+        return alert("El cliente seleccionado no tiene crédito activo disponible.");
     }
 
     const modal = new bootstrap.Modal(document.getElementById('modalVoucher'));
@@ -307,7 +367,7 @@ function previsualizarVoucher() {
             </div>`;
     });
 
-    let itbis = subtotalGlobal * 0.18;
+    let itbis = subtotalGlobal * 0.18; // Referencia visual
 
     cont.innerHTML = `
         <div class="text-center mb-3">
@@ -335,7 +395,7 @@ function previsualizarVoucher() {
             <span>ITBIS (18%):</span>
             <span>$${itbis.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
         </div>
-        <div class="d-flex justify-content-between fw-bold h5 mb-0">
+        <div class="d-flex justify-content-between fw-bold h5 mb-0 mt-3">
             <span>TOTAL:</span>
             <span>${document.getElementById("total_final_valor").innerText}</span>
         </div>
@@ -390,15 +450,17 @@ function guardarFacturaFinal(refAzul, esCredito) {
     const totalNum = parseFloat(document.getElementById("total_final_valor").innerText.replace("RD$ ", "").replace(/,/g, ""));
 
     const data = {
+        id_cotizacion: cotizacionVinculadaID,
         id_cliente: clienteSeleccionado ? clienteSeleccionado.id_cliente : null,
         ncf: document.getElementById("ncf_factura").value || 'B0200000001',
         metodo_pago: document.getElementById("metodo_pago").value,
         items: listaItemsFactura,
-        impuestos_ids: [], 
+        impuestos_ids: listaImpuestosDB.map(i => i.id_impuesto), 
         total_final: totalNum,
         referencia_azul: refAzul,
         es_credito: esCredito,
-        id_credito: clienteSeleccionado ? clienteSeleccionado.id_credito : null
+        id_credito: clienteSeleccionado ? clienteSeleccionado.id_credito : null,
+        ofertas_aplicadas: ofertasSeleccionadasParaFactura
     };
 
     fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=guardar_factura_pos", {
@@ -410,17 +472,21 @@ function guardarFacturaFinal(refAzul, esCredito) {
     .then(res => {
         if (res.success) {
             alert("¡OPERACIÓN EXITOSA!\nFactura #" + res.id_factura + " generada.");
-            location.reload();
+            // Si vino de cotización, volver a la pantalla de cotizaciones
+            if (cotizacionVinculadaID) {
+                window.location.href = "Cotizaciones.php";
+            } else {
+                location.reload();
+            }
         } else {
             alert("ERROR CRÍTICO: " + res.message);
         }
     });
 }
 
-//Logica de ofertas.
-let ofertasSeleccionadasParaFactura = [];
-let descuentoTotalOfertas = 0;
-
+// ==========================================
+// 6. GESTIÓN DE OFERTAS Y REGALOS
+// ==========================================
 function abrirAuthOferta() {
     new bootstrap.Modal(document.getElementById('modalAuthAdmin')).show();
 }
@@ -448,11 +514,6 @@ function validarAccesoOfertas() {
     });
 }
 
-/**
- * Carga las ofertas que están en estado 'activo' y dentro del rango de fecha actual.
- * Evita la duplicidad visual y separa los beneficios de descuento y regalo.
- */
-// 1. CARGAR OFERTAS EN EL MODAL
 function cargarOfertasVigentes() {
     const contenedor = document.getElementById("lista_ofertas_disponibles");
     contenedor.innerHTML = "";
@@ -480,7 +541,6 @@ function cargarOfertasVigentes() {
     });
 }
 
-// 2. APLICAR DESCUENTOS Y RECALCULAR
 function aplicarOfertasSeleccionadas() {
     const checks = document.querySelectorAll(".checkbox-oferta:checked");
     ofertasSeleccionadasParaFactura = [];
@@ -488,53 +548,12 @@ function aplicarOfertasSeleccionadas() {
 
     checks.forEach(check => {
         const porciento = parseFloat(check.getAttribute("data-valor"));
-        // El descuento se calcula sobre el subtotal acumulado
         descuentoTotalOfertas += (subtotalGlobal * (porciento / 100));
         ofertasSeleccionadasParaFactura.push(check.value);
     });
 
-    // Cerrar modal y refrescar la pantalla
     bootstrap.Modal.getInstance(document.getElementById('modalSeleccionOfertas')).hide();
     actualizarInterfaz(); 
-}
-
-// 3. FUNCIÓN DE CÁLCULO FINAL (Sincronizada con tu HTML)
-function calcularTotales() {
-    const desgloseCont = document.getElementById("desglose_impuestos_dinamico");
-    if (!desgloseCont) return;
-
-    desgloseCont.innerHTML = "";
-    let totalImpuestos = 0;
-
-    // Subtotal neto tras aplicar descuentos
-    let subtotalConDescuento = subtotalGlobal - descuentoTotalOfertas;
-
-    // Calcular impuestos dinámicos (ITBIS, etc.)
-    listaImpuestosDB.forEach(imp => {
-        let valor = subtotalConDescuento * (parseFloat(imp.porcentaje) / 100);
-        totalImpuestos += valor;
-        desgloseCont.innerHTML += `
-            <div class="d-flex justify-content-between mb-1 small text-muted">
-                <span>${imp.nombre_impuesto} (${imp.porcentaje}%):</span>
-                <span class="text-dark fw-bold">RD$ ${valor.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-            </div>`;
-    });
-
-    let totalFinal = subtotalConDescuento + totalImpuestos;
-
-    // Actualizar UI
-    document.getElementById("subtotal_valor").innerText = `RD$ ${subtotalGlobal.toLocaleString()}`;
-    
-    const filaOf = document.getElementById("fila_ofertas");
-    if (descuentoTotalOfertas > 0) {
-        filaOf.classList.remove("d-none");
-        document.getElementById("ofertas_valor").innerText = `- RD$ ${descuentoTotalOfertas.toLocaleString()}`;
-    } else {
-        filaOf.classList.add("d-none");
-    }
-
-    document.getElementById("total_final_valor").innerText = `RD$ ${totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    document.getElementById("total_general_display").innerText = `RD$ ${totalFinal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 }
 
 function agregarRegaloAlCarrito(id, nombre) {
@@ -546,9 +565,6 @@ function agregarRegaloAlCarrito(id, nombre) {
             precio: 0,
             cantidad: 1
         });
+        actualizarInterfaz();
     }
 }
-
-
-
-// AL GUARDAR FINAL, ENVIAR ofertasSeleccionadasParaFactura EN EL JSON

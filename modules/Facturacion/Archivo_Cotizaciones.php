@@ -34,13 +34,29 @@ function listar_pendientes($conexion, $id_sucursal) {
 }
 
 function listar_historial($conexion, $id_sucursal) {
-    $sql = "SELECT id_cotizacion, DATE_FORMAT(fecha_creacion, '%d/%m/%Y %h:%i %p') as fecha, 
-                   nombre_cliente as cliente, vehiculo_desc as vehiculo, monto_total, estado 
-            FROM cotizacion 
-            WHERE id_sucursal = $id_sucursal 
-            ORDER BY id_cotizacion DESC";
-    $res = $conexion->query($sql);
-    echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
+    // Añadimos filtro de fechas para que no colapse cuando tengas 10,000 cotizaciones
+    $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-m-01');
+    $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-t');
+
+    try {
+        $sql = "SELECT id_cotizacion, DATE_FORMAT(fecha_creacion, '%d/%m/%Y %h:%i %p') as fecha, 
+                       nombre_cliente as cliente, vehiculo_desc as vehiculo, monto_total, estado, 
+                       tipo_cotizacion, IF(id_cliente IS NULL, 1, 0) as es_ocasional
+                FROM cotizacion 
+                WHERE id_sucursal = ? 
+                  AND DATE(fecha_creacion) >= ? 
+                  AND DATE(fecha_creacion) <= ?
+                ORDER BY id_cotizacion DESC";
+                
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("iss", $id_sucursal, $fecha_inicio, $fecha_fin);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        
+        echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
 }
 
 function buscar_servicios($conexion) {

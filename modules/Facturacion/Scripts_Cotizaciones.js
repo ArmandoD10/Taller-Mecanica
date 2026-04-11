@@ -121,6 +121,15 @@ function limpiarConstructor() {
     document.getElementById("capa_bloqueo").classList.remove("d-none");
 }
 
+function vaciarCarritoCotizacion() {
+    if(cotizacionItems.length === 0) return; // Si ya está vacío, no hacemos nada
+
+    if(confirm("¿Está seguro que desea vaciar todos los servicios y repuestos de este presupuesto?")) {
+        cotizacionItems = [];
+        renderizarTabla();
+    }
+}
+
 function cargarCotizacion(id_cotizacion, vehiculo, cliente, tipo_cotizacion, es_ocasional) {
     limpiarConstructor(); 
     
@@ -421,6 +430,13 @@ function guardarBorrador() {
         btn.innerHTML = originalText;
         btn.disabled = false;
         if(res.success) { 
+            // 1. Damos feedback visual al usuario
+            alert("Cotización guardada exitosamente."); 
+            
+            // 2. ¡AQUÍ ESTÁ LA MAGIA! Limpiamos y bloqueamos el panel
+            limpiarConstructor(); 
+            
+            // 3. Actualizamos la lista de la izquierda
             listarPendientes(); 
         } else {
             alert("Error al guardar borrador: " + res.message);

@@ -17,6 +17,9 @@ switch ($action) {
     case 'procesar_calidad':
         procesar_calidad($conexion);
         break;
+    case 'obtener_servicios_calidad':
+        obtener_servicios_calidad($conexion);
+        break;
     case 'obtener_acta':
         obtener_acta($conexion);
         break;
@@ -264,38 +267,21 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
     }
 }
 
+// ==== FUNCIÓN CORREGIDA: Trae los precios directamente de Orden_Servicio ====
 function obtener_detalle_facturacion($conexion) {
     $id_orden = (int)$_GET['id_orden'];
     
-    $sqlServ = "SELECT ap.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad
-                FROM asignacion_orden ao
-                JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
-                JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio
-                WHERE ao.id_orden = $id_orden AND ap.estado != 'eliminado'
-                ORDER BY ap.id_asignacion ASC";
+    // Ahora leemos la información definitiva de Orden_Servicio (incluyendo su precio_estimado real)
+    $sqlServ = "SELECT os.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad, os.precio_estimado AS precio
+                FROM Orden_Servicio os
+                JOIN Tipo_Servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio
+                WHERE os.id_orden = $id_orden AND os.estado = 'activo'";
                 
-    $nombres_servicios = $conexion->query($sqlServ)->fetch_all(MYSQLI_ASSOC);
-
-    $sqlPrecios = "SELECT p.monto AS precio
-                   FROM taller t
-                   JOIN Precio p ON t.id_precio = p.id_precio
-                   WHERE t.id_orden = $id_orden AND t.estado = 'activo'
-                   ORDER BY t.id_taller ASC"; 
-                   
-    $resPrecios = $conexion->query($sqlPrecios);
-    $tarifas_asignadas = $resPrecios ? $resPrecios->fetch_all(MYSQLI_ASSOC) : [];
+    $servicios_db = $conexion->query($sqlServ)->fetch_all(MYSQLI_ASSOC);
 
     $servicios_facturar = [];
-    $servicios_vistos = [];
-    
-    foreach ($nombres_servicios as $index => $serv) {
-        $id_serv = $serv['id_tipo_servicio'];
-        if (in_array($id_serv, $servicios_vistos)) {
-            continue; 
-        }
-        $servicios_vistos[] = $id_serv;
-
-        $precio_real = isset($tarifas_asignadas[$index]) ? (float)$tarifas_asignadas[$index]['precio'] : 0;
+    foreach ($servicios_db as $serv) {
+        $precio_real = (float)$serv['precio'];
         $servicios_facturar[] = [
             'id'          => 0,
             'descripcion' => $serv['descripcion'],
@@ -323,11 +309,23 @@ function obtener_detalle_facturacion($conexion) {
     echo json_encode(['success' => true, 'data' => $detalle_completo]);
 }
 
+function obtener_servicios_calidad($conexion) {
+    $id_orden = (int)($_GET['id_orden'] ?? 0);
+    $sql = "SELECT ap.id_asignacion, ts.nombre 
+            FROM asignacion_personal ap 
+            JOIN asignacion_orden ao ON ap.id_asignacion = ao.id_asignacion 
+            JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio 
+            WHERE ao.id_orden = $id_orden AND ap.estado_asignacion = 'Completado' AND ap.estado = 'activo'";
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
+}
+
 function procesar_calidad($conexion) {
     $id_orden = $_POST['id_orden_calidad'] ?? '';
     $decision = $_POST['decision_calidad'] ?? '';
     $admin_user = $_POST['admin_username'] ?? '';
     $admin_pass = $_POST['admin_password'] ?? '';
+    $servicios_rechazados = isset($_POST['servicios_rechazados']) ? json_decode($_POST['servicios_rechazados'], true) : [];
     $usuario_sesion = $_SESSION['id_usuario'] ?? 1;
 
     if (!verificar_clave_admin($conexion, $admin_user, $admin_pass)) {
@@ -357,6 +355,16 @@ function procesar_calidad($conexion) {
             $conexion->query("UPDATE Orden_Estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario_sesion WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
         } else {
             $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_nuevo, $usuario_sesion)");
+        }
+
+        if ($decision === 'Rechazado') {
+            if (empty($servicios_rechazados)) {
+                throw new Exception("Debe especificar qué servicios serán devueltos a reparación.");
+            }
+            foreach ($servicios_rechazados as $id_asig) {
+                $id_asig = (int)$id_asig;
+                $conexion->query("UPDATE asignacion_personal SET estado_asignacion = 'Pendiente' WHERE id_asignacion = $id_asig");
+            }
         }
 
         $conexion->commit();
@@ -405,7 +413,6 @@ function procesar_entrega($conexion) {
             $codigo_certificado = "GAR-" . $id_orden . "-" . strtoupper(substr(uniqid(), -3));
             $estado_garantia = 'activo';
 
-            // AQUÍ ESTÁ LA CORRECCIÓN: 'iisssisi' PARA QUE EL TEXTO DE LA GARANTÍA NO SE CONVIERTA EN 0
             $sql_gar = "INSERT INTO garantia_servicio 
                         (id_orden, id_vehiculo, codigo_certificado, fecha_vencimiento, terminos_condiciones, kilometraje_limite, estado, usuario_creacion) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)";

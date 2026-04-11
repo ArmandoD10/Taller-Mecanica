@@ -285,13 +285,20 @@ require("../../header.php");
                         
                         <div class="mb-3">
                             <label class="fw-bold small">Veredicto de Revisión</label>
-                            <select class="form-select border-info border-2" name="decision_calidad" required>
+                            <select class="form-select border-info border-2" name="decision_calidad" id="decision_calidad" onchange="toggleServiciosCalidad()" required>
                                 <option value="">Seleccione...</option>
-                                <option value="Aprobado">✅ Aprobado</option>
-                                <option value="Rechazado">❌ Rechazado</option>
+                                <option value="Aprobado">✅ Aprobado (Avanzar a Entrega)</option>
+                                <option value="Rechazado">❌ Rechazado (Devolver a Taller)</option>
                             </select>
                         </div>
-                        <div class="bg-white p-3 rounded border shadow-sm">
+
+                        <div id="contenedor_servicios_calidad" class="mb-3 d-none">
+                            <label class="fw-bold small text-danger"><i class="fas fa-exclamation-triangle me-1"></i> Seleccione qué servicios deben repetirse:</label>
+                            <div id="lista_servicios_calidad" class="list-group mt-1 shadow-sm" style="max-height: 150px; overflow-y: auto;">
+                                </div>
+                        </div>
+
+                        <div class="bg-white p-3 rounded border shadow-sm mt-3">
                             <input type="text" class="form-control mb-2" name="admin_username" placeholder="Usuario Supervisor" required>
                             <input type="password" class="form-control" name="admin_password" placeholder="Contraseña" required>
                         </div>

@@ -27,7 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // FORMULARIO DE ENTREGA Y GARANTÍA INTEGRADO
     const formEntrega = document.getElementById("formEntrega");
     if(formEntrega) {
         formEntrega.addEventListener("submit", function(e) {
@@ -44,9 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     listar(); 
                     mostrarComprobanteInmediato(id_orden_procesada);
                     
-                    // Si la garantía no es tipo D (Sin Garantía), imprimir automáticamente el certificado
                     if (tipoGarantia && tipoGarantia !== 'D') {
-                        // Aquí abrimos la vista del certificado que creamos anteriormente
                         window.open(`../../view/Garantias/CertificadoGarantia.php?id_orden=${id_orden_procesada}`, '_blank');
                     }
                 } else { alert("ERROR:\n" + data.message); }
@@ -60,6 +57,16 @@ document.addEventListener("DOMContentLoaded", () => {
         formCalidad.addEventListener("submit", function(e) {
             e.preventDefault();
             const formData = new FormData(this);
+            
+            const decision = document.getElementById("decision_calidad").value;
+            if (decision === "Rechazado") {
+                const rechazados = Array.from(document.querySelectorAll('.chk-calidad:checked')).map(cb => cb.value);
+                if (rechazados.length === 0) {
+                    alert("⚠️ Debe seleccionar al menos un servicio para devolver a reparación.");
+                    return;
+                }
+                formData.append('servicios_rechazados', JSON.stringify(rechazados));
+            }
             
             fetch("../../modules/Taller/Archivo_Entrega.php?action=procesar_calidad", { method: "POST", body: formData })
             .then(res => res.json())
@@ -109,7 +116,6 @@ function listar() {
                 else if (o.estado_orden === 'Listo') {
                     badgeOrden = `<span class="badge bg-primary">Listo</span>`;
                     if(pagado) {
-                        // Pasamos el kilometraje_inspeccion si viene desde la DB, sino asume 0
                         let km = o.kilometraje_inspeccion ? o.kilometraje_inspeccion : 0;
                         btnAccion = `<button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="prepararEntrega(${o.id_orden}, '${o.cliente}', '${o.vehiculo}', ${km})"><i class="fas fa-key me-1"></i> Entregar y Garantía</button>`;
                     } else {
@@ -167,7 +173,6 @@ function abrirAuthOferta() {
 function validarAccesoOfertas() {
     const user = document.getElementById("auth_user").value;
     const pass = document.getElementById("auth_pass").value;
-
     const fd = new FormData();
     fd.append('usuario', user);
     fd.append('password', pass);
@@ -178,9 +183,7 @@ function validarAccesoOfertas() {
         if (data.success) {
             cerrarModalUI('modalAuthAdmin');
             cargarOfertasVigentes();
-        } else {
-            alert(data.message);
-        }
+        } else { alert(data.message); }
     })
     .catch(err => alert("Error validando administrador."));
 }
@@ -193,7 +196,7 @@ function cargarOfertasVigentes() {
     .then(res => res.json())
     .then(data => {
         if (data.data.length === 0) {
-            contenedor.innerHTML = "<div class='p-4 text-center text-muted'>No hay descuentos activos vigentes en el sistema.</div>";
+            contenedor.innerHTML = "<div class='p-4 text-center text-muted'>No hay descuentos activos vigentes.</div>";
         } else {
             data.data.forEach(o => {
                 contenedor.innerHTML += `
@@ -379,7 +382,6 @@ function renderizarTablaFactura() {
     if(desgloseCont) desgloseCont.innerHTML = "";
     
     subtotalFacturaNum = 0;
-
     const itemsCombinados = [...detallesFacturaActual, ...repuestosExtra];
 
     if(itemsCombinados.length === 0) {
@@ -389,9 +391,7 @@ function renderizarTablaFactura() {
             let subt = parseFloat(d.precio) * parseInt(d.cantidad);
             subtotalFacturaNum += subt;
             
-            let btnEliminar = "";
-            let badgeExtra = "";
-            
+            let btnEliminar = ""; let badgeExtra = "";
             if (d.es_extra) {
                 badgeExtra = `<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">EXTRA</span>`;
                 let indexExtra = index - detallesFacturaActual.length;
@@ -438,7 +438,6 @@ function renderizarTablaFactura() {
     }
 
     totalFacturaFinalNum = subtotalConDescuento + totalImpuestos;
-
     document.getElementById('fac_subtotal').innerText = `RD$ ${subtotalFacturaNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     
     const filaOf = document.getElementById("fila_ofertas");
@@ -710,31 +709,63 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
     setTimeout(() => { ventana.print(); ventana.close(); }, 500);
 }
 
+// ==== LOGICA DEL RECHAZO DE CALIDAD AÑADIDA ====
+function toggleServiciosCalidad() {
+    const decision = document.getElementById("decision_calidad").value;
+    const cont = document.getElementById("contenedor_servicios_calidad");
+    if (decision === "Rechazado") {
+        cont.classList.remove("d-none");
+    } else {
+        cont.classList.add("d-none");
+        document.querySelectorAll('.chk-calidad').forEach(cb => cb.checked = false);
+    }
+}
+
 function abrirModalCalidad(id_orden, vehiculo) {
     document.getElementById("id_orden_calidad").value = id_orden;
     document.getElementById("lbl_calidad_orden").innerText = "ORD-" + id_orden;
     document.getElementById("lbl_calidad_vehiculo").innerText = "Vehículo: " + vehiculo;
     document.getElementById("formCalidad").reset();
+    toggleServiciosCalidad(); // Asegurar que esté oculto al iniciar
+
+    const lista = document.getElementById("lista_servicios_calidad");
+    lista.innerHTML = '<div class="p-2 text-center small text-muted">Cargando servicios...</div>';
+
+    fetch(`../../modules/Taller/Archivo_Entrega.php?action=obtener_servicios_calidad&id_orden=${id_orden}`)
+    .then(res => res.json())
+    .then(data => {
+        lista.innerHTML = "";
+        if(data.success && data.data.length > 0) {
+            data.data.forEach(s => {
+                lista.innerHTML += `
+                    <label class="list-group-item d-flex gap-2 align-items-center small py-2" style="cursor: pointer;">
+                        <input class="form-check-input flex-shrink-0 chk-calidad" type="checkbox" value="${s.id_asignacion}">
+                        <span class="fw-bold">${s.nombre}</span>
+                    </label>
+                `;
+            });
+        } else {
+            lista.innerHTML = '<div class="p-2 text-center small text-muted">No se encontraron servicios completados.</div>';
+        }
+    });
+
     abrirModalUI('modalCalidad');
 }
 
-// ==== AQUÍ ESTÁ LA NUEVA PREPARACIÓN CON GARANTÍA ====
 function prepararEntrega(id_orden, cliente, vehiculo, km_inspeccion = 0) {
     document.getElementById("id_orden_entrega").value = id_orden;
     document.getElementById("lbl_orden").innerText = "ORD-" + id_orden;
     document.getElementById("lbl_cliente").innerText = cliente;
     document.getElementById("lbl_vehiculo").innerText = vehiculo;
 
-    // Configuración para la Garantía
     const inputKm = document.getElementById("km_actual");
     
-    // Si la base de datos nos mandó el kilometraje, lo ponemos y bloqueamos para que no hagan fraude
     if(km_inspeccion && km_inspeccion > 0) {
         inputKm.value = km_inspeccion;
         inputKm.readOnly = true; 
     } else {
         inputKm.value = '';
-        inputKm.readOnly = false; // Permite escribir por si no se guardó en la inspección
+        inputKm.readOnly = false; 
     }
 
     document.getElementById("tipo_garantia").value = "";
@@ -745,7 +776,6 @@ function prepararEntrega(id_orden, cliente, vehiculo, km_inspeccion = 0) {
     abrirModalUI('modalEntrega');
 }
 
-// ==== LA FUNCIÓN MATEMÁTICA QUE CALCULA LAS FECHAS Y KM ====
 function calcularGarantia() {
     const kmActual = parseInt(document.getElementById('km_actual').value);
     const tipo = document.getElementById('tipo_garantia').value;
@@ -754,7 +784,6 @@ function calcularGarantia() {
     const inputKm = document.getElementById('km_limite');
     const inputTerminos = document.getElementById('terminos_resumen');
 
-    // Validar que primero pongan el kilometraje si estaba en blanco
     if (isNaN(kmActual) || kmActual <= 0) {
         alert("Por favor, ingrese el Kilometraje de Inspección primero.");
         document.getElementById('tipo_garantia').value = ""; 
@@ -809,9 +838,6 @@ function imprimirComprobante() {
     setTimeout(() => { ventana.print(); ventana.close(); }, 500);
 }
 
-// ==========================================
-// UTILIDADES MODALES ROBUSTAS
-// ==========================================
 function cerrarModalFacturacion() { cerrarModalUI('modalFacturacion'); }
 function cerrarModalAzul() { 
     cerrarModalUI('modalAzulTaller'); 

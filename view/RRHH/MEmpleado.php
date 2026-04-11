@@ -16,23 +16,23 @@ require("../../header.php");
             <div class="col-md-6 d-flex flex-column">
                 <div class="mb-3">
                     <label for="primer_nombre" class="form-label" style="color: var(--primary-blue)">Primer Nombre</label>
-                    <input type="text" class="form-control" id="nombre1" name="nombre1" placeholder="Ingrese el primer nombre">
+                    <input type="text" class="form-control" id="nombre1" name="nombre1" placeholder="Ingrese el primer nombre" disabled>
                 </div>
                 <div class="mb-3">
                     <label for="segundo_nombre" class="form-label" style="color: var(--primary-blue)">Segundo Nombre</label>
-                    <input type="text" class="form-control" id="nombre2" name="nombre2" placeholder="Ingrese el segundo nombre">
+                    <input type="text" class="form-control" id="nombre2" name="nombre2" placeholder="Ingrese el segundo nombre" disabled>
                 </div>
                 <div class="mb-3">
                     <label for="apellido_p" class="form-label" style="color: var(--primary-blue)">Apellido Paterno</label>
-                    <input type="text" class="form-control" id="apellido_p" name="apellido_p" placeholder="Ingrese el apellido paterno">
+                    <input type="text" class="form-control" id="apellido_p" name="apellido_p" placeholder="Ingrese el apellido paterno" disabled>
                 </div>
                 <div class="mb-3">
                     <label for="apellido_m" class="form-label" style="color: var(--primary-blue)">Apellido Materno</label>
-                    <input type="text" class="form-control" id="apellido_m" name="apellido_m" placeholder="Ingrese el apellido materno">
+                    <input type="text" class="form-control" id="apellido_m" name="apellido_m" placeholder="Ingrese el apellido materno" disabled>
                 </div>
                 <div class="mb-3">
                     <label for="sexo" class="form-label" style="color: var(--primary-blue)">Sexo</label>
-                    <select class="form-select" id="sexo" name="sexo">
+                    <select class="form-select" id="sexo" name="sexo" disabled>
                         <option value="" selected disabled>Seleccione una opción</option>
                         <option value="Masculino">Masculino</option>
                         <option value="Femenino">Femenino</option>
@@ -42,27 +42,32 @@ require("../../header.php");
             </div> 
 
             <div class="col-md-6">
-                <div class="mb-3">
-                    <label for="no_documento" class="form-label" style="color: var(--primary-blue)">No de Documento</label>
-                    <input type="text" class="form-control" id="cedula" name="cedula" placeholder="Ingrese el número de documento">
-                </div>
+                <input type="hidden" id="id_persona_capturado" name="id_persona_capturado">
+
+<label class="form-label" style="color: var(--primary-blue)">No de Documento</label>
+<div class="input-group">
+    <input type="text" class="form-control" id="cedula" name="cedula" placeholder="000-0000000-0">
+    <button class="btn btn-primary" type="button" id="btnBuscarCedula">
+        <i class="fas fa-search"></i>
+    </button>
+</div>
                 <div class="mb-3">
                     <label for="emailempleado" class="form-label" style="color: var(--primary-blue)">Telefono Personal</label>
-                    <input type="text" class="form-control f-telefono" id="telefono" name="telefono" placeholder="Ingrese el teléfono">
+                    <input type="text" class="form-control f-telefono" id="telefono" name="telefono" placeholder="Ingrese el teléfono" disabled>
                 </div>  
                 <div class="mb-3">
                     <label for="nivel" class="form-label" style="color: var(--primary-blue)">fecha de Nacimiento</label>
-                    <input type="date" class="form-control" id="fecha_nacimiento" name="fecha_nacimiento">
+                    <input type="date" class="form-control" id="fecha_nacimiento" name="fecha_nacimiento" disabled>
                 </div>
                 <div class="mb-3">
                     <label for="nacionalidad" class="form-label" style="color: var(--primary-blue)">Nacionalidad</label>
-                    <select class="form-select" id="nacionalidad" name="nacionalidad">
+                    <select class="form-select" id="nacionalidad" name="nacionalidad" disabled>
                         <option value="" selected disabled>Selecciona una opción</option>
                     </select>
                 </div>
                  <div class="mb-3">
                     <label for="correo" class="form-label" style="color: var(--primary-blue)">Correo Electronico</label>
-                    <input type="email" class="form-control" id="correo" name="correo" placeholder="Ingrese el correo electrónico">
+                    <input type="email" class="form-control" id="correo" name="correo" placeholder="Ingrese el correo electrónico" disabled>
                 </div>
             </div>
 
@@ -72,14 +77,14 @@ require("../../header.php");
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label for="puesto" class="form-label" style="color: var(--primary-blue)">Pais</label>
-                            <select class="form-select" id="pais" name="pais">
+                            <select class="form-select" id="pais" name="pais" disabled>
                                 <option value="" selected disabled>Selecciona una opción</option>
                             </select>
                         </div>
 
                         <div class="mb-3">
                             <label for="sueldo" class="form-label" style="color: var(--primary-blue)">Provincia</label>
-                            <select class="form-select" id="provincia" name="provincia">
+                            <select class="form-select" id="provincia" name="provincia" disabled>
                                 <option value="" selected disabled>Selecciona una opción</option>
                             </select>
                         </div>
@@ -88,14 +93,14 @@ require("../../header.php");
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label for="sueldo" class="form-label" style="color: var(--primary-blue)">Ciudad</label>
-                            <select class="form-select" id="ciudad" name="ciudad">
+                            <select class="form-select" id="ciudad" name="ciudad" disabled>
                                 <option value="" selected disabled>Selecciona una opción</option>
                             </select>
                         </div>
 
                         <div class="mb-3">
                             <label for="direccion" class="form-label" style="color: var(--primary-blue)">Direccion</label>
-                            <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Ingrese la dirección">
+                            <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Ingrese la dirección" disabled>
                         </div>
                     </div>
 
@@ -152,7 +157,7 @@ require("../../header.php");
 
             
             <div class="d-flex gap-4 mb-4 mt-0">
-                <button type="submit" class="btn btn-success" style="width: 150px" id="btnGuardar">Registrar</button>
+               <button type="button" class="btn btn-success" style="width: 150px" id="btnGuardar" onclick="enviarFormulario()">Registrar</button>
                 <button type="button" class="btn btn-secondary boton-separado" style="width: 150px" onclick="limpiarFormulario()">Limpiar</button>
             </div>
 

@@ -197,67 +197,92 @@ window.editarRegistro = function(id) {
     const cli = clientesRaw.find(c => c.id_cliente == id);
     if (!cli) return;
 
-    // Detectar si es empresa según el campo de la base de datos
+    modoEdicion = true;
+
+    // 1. Mostrar estado y limpiar IDs ocultos de vinculación
+    document.getElementById("contenedor-estado").classList.remove("d-none");
+    document.getElementById("id_oculto").value = cli.id_cliente;
+    const idPersonaCapturado = document.getElementById("id_persona_capturado");
+    if(idPersonaCapturado) idPersonaCapturado.value = "";
+
+    // 2. Detectar tipo de persona y ajustar labels
     if (cli.tipo_persona && cli.tipo_persona.toLowerCase() === 'juridica') {
         document.getElementById("juridica").checked = true;
         toggleTipoPersona('juridica');
     } else {
         document.getElementById("fisica").checked = true;
         toggleTipoPersona('fisica');
-        document.getElementById("apellido_p").value = cli.apellido_p;
-        document.getElementById("apellido_m").value = cli.apellido_m;
-        document.getElementById("sexo").value = cli.sexo;
+        document.getElementById("apellido_p").value = cli.apellido_p || "";
+        document.getElementById("apellido_m").value = cli.apellido_m || "";
+        document.getElementById("sexo").value = cli.sexo || "";
     }
 
-    document.getElementById("contenedor-estado").classList.remove("d-none");
-    document.getElementById("id_oculto").value = cli.id_cliente;
+    // 3. Llenar campos básicos
     document.getElementById("nombre").value = cli.nombre;
     document.getElementById("cedula").value = cli.cedula;
-    document.getElementById("correo").value = cli.email;
+    document.getElementById("correo").value = cli.email || "";
     document.getElementById("fecha_nacimiento").value = cli.fecha_nacimiento;
     document.getElementById("nacionalidad").value = cli.nacionalidad;
-    document.getElementById("telefono").value = cli.telefono;
+    document.getElementById("telefono").value = cli.telefono || "";
+    document.getElementById("direccion").value = cli.direccion;
 
+    // 4. Estado del radio
     const estado = cli.estado?.toLowerCase();
     if (estado === "activo") document.getElementById("activo").checked = true;
     else if (estado === "inactivo") document.getElementById("inactivo").checked = true;
 
+    // 5. 🔥 CARGAR UBICACIÓN Y DESBLOQUEAR
     document.getElementById("pais").value = cli.id_pais;
+    
+    // Llamamos a una carga de cascada manual para asegurar que se habiliten después de cargar
+    cargarUbicacionEdicionCliente(cli.id_pais, cli.id_provincia, cli.id_ciudad).then(() => {
+        // DESBLOQUEO TOTAL
+        const todosLosInputs = document.querySelectorAll('#formulario input, #formulario select');
+        todosLosInputs.forEach(input => {
+            // No habilitamos los radios de tipo de cliente en edición para evitar inconsistencias
+            if(input.name !== 'tipo_persona') {
+                input.disabled = false;
+            }
+        });
 
-    fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_provincias&id_pais=${cli.id_pais}`)
-    .then(res => res.json())
-    .then(prov => {
-        const provincia = document.getElementById("provincia");
-        provincia.innerHTML = "";
-        prov.forEach(p => provincia.innerHTML += `<option value="${p.id_provincia}">${p.nombre}</option>`);
-        provincia.value = cli.id_provincia;
-        return fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_ciudades&id_provincia=${cli.id_provincia}`);
-    })
-    .then(res => res.json())
-    .then(ciudades => {
-        const ciudad = document.getElementById("ciudad");
-        ciudad.innerHTML = "";
-        ciudades.forEach(c => ciudad.innerHTML += `<option value="${c.id_ciudad}">${c.nombre}</option>`);
-        ciudad.value = cli.id_ciudad;
+        // BLOQUEO DE IDENTIDAD
+        document.getElementById("cedula").disabled = true;
+        const btnLupa = document.getElementById("btnBuscarCedula");
+        if(btnLupa) btnLupa.disabled = true;
     });
 
-    document.getElementById("direccion").value = cli.direccion;
     document.getElementById("btnGuardar").textContent = "Actualizar";
-    modoEdicion = true;
     document.getElementById("formulario").scrollIntoView({ behavior: "smooth" });
 };
+
+// Función auxiliar para la cascada sincronizada
+async function cargarUbicacionEdicionCliente(idPais, idProv, idCiud) {
+    const resProv = await fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_provincias&id_pais=${idPais}`);
+    const provs = await resProv.json();
+    const selProv = document.getElementById("provincia");
+    selProv.innerHTML = "";
+    provs.forEach(p => selProv.innerHTML += `<option value="${p.id_provincia}">${p.nombre}</option>`);
+    selProv.value = idProv;
+
+    const resCiud = await fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=cargar_ciudades&id_provincia=${idProv}`);
+    const ciuds = await resCiud.json();
+    const selCiud = document.getElementById("ciudad");
+    selCiud.innerHTML = "";
+    ciuds.forEach(c => selCiud.innerHTML += `<option value="${c.id_ciudad}">${c.nombre}</option>`);
+    selCiud.value = idCiud;
+}
 
 // Guardar
 document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
 
-    // 1. Habilitar TODOS los campos temporalmente para que FormData capture los IDs
-    const camposBloqueados = this.querySelectorAll(':disabled');
+    // Habilitar temporalmente para capturar los datos
+    const camposBloqueados = this.querySelectorAll('input:disabled, select:disabled');
     camposBloqueados.forEach(campo => campo.disabled = false);
 
     const formData = new FormData(this);
 
-    // 2. Opcional: Volver a bloquearlos para mantener la interfaz igual
+    // Restaurar estado visual
     camposBloqueados.forEach(campo => campo.disabled = true);
 
     let url = modoEdicion 
@@ -269,11 +294,9 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
     .then(data => {
         if (data.success) {
             alert(data.message);
-            window.limpiarFormulario();
-            cargarTabla(); 
+            location.reload(); // Recarga limpia igual que en empleados
         } else {
-            // Si sale el error de campos obligatorios, es porque algún ID llegó vacío a PHP
-            alert("Error del Servidor: " + data.message);
+            alert("Error: " + data.message);
         }
     });
 });

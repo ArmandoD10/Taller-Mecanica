@@ -114,6 +114,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Inventario/RecepcionCompra.php">Recepción de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialCompra.php">Historial de Compra</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialPago.php">Historial de Pagos</a>
+                    <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialMovimientoStock.php">Historial de Mov. de Stock</a>
                     <a href="/Taller/Taller-Mecanica/view/Inventario/MHistorialRecepcion.php">Historial de Recepción</a>
                 </div>
             </div>
@@ -146,6 +147,7 @@ $stats = [
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Factura.php">Nueva Factura (POS)</a>
+                    <a href="/Taller/Taller-Mecanica/view/Facturacion/ACaja.php">Apertura de Caja</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CuentasPorCobrar.php">Cuentas Por Cobrar</a>
@@ -154,8 +156,6 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialCotizacion.php">Historial Cotizacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagos.php">Historial de Pagos</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialDevolucion.php">Historial de Devoluciones</a>
-                    <a href="/Taller/Taller-Mecanica/view/Taller/HistorialGarantias.php">Historial de Garantías</a>
-                    <a href="/Taller/Taller-Mecanica/view/Taller/HistorialAvanzado.php">Historial Avanzado</a>
                 </div>
             </div>
             <?php endif; ?>
@@ -255,7 +255,7 @@ $stats = [
             </button>
             <div class="menu-config-desplegable" id="menuConfig">
                 <?php if (in_array("Perfil", $modulos)) : ?>
-                <a href="#"><i class="fas fa-user-circle"></i> Perfil</a>
+                <a href="#"><i class="fas fa-user-circle"></i> Carnet Digital</a>
                 <?php endif; ?>
                 <?php if (in_array("Whatsapp", $modulos)) : ?>
                 <a href="#"><i class="fas fa-comments"></i>API Whatsapp</a>

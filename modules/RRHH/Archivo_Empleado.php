@@ -11,6 +11,10 @@ switch ($action) {
         cargar_selects($conexion);
         break;
 
+    case 'verificar_cedula_empleado':
+        verificar_cedula_empleado($conexion);
+        break;
+
     case 'cargar':
         cargar($conexion);
         break;
@@ -114,6 +118,44 @@ function cargar($conexion) {
     ]);
 }
 
+// 2. Agrega la función al final del archivo
+function verificar_cedula_empleado($conexion) {
+    $cedula = $_GET['cedula'] ?? '';
+    
+    // 1. Verificación de Empleado existente (bloqueo total)
+    $sqlEmp = "SELECT id_empleado FROM Empleado e JOIN Persona p ON e.id_persona = p.id_persona WHERE p.cedula = ?";
+    $stmt = $conexion->prepare($sqlEmp);
+    $stmt->bind_param("s", $cedula);
+    $stmt->execute();
+    if ($stmt->get_result()->num_rows > 0) {
+        echo json_encode(['status' => 'empleado_existe', 'message' => '¡Error! Esta persona ya es un empleado activo.']);
+        exit;
+    }
+
+    // 2. Verificación de Persona (Cliente/Externo) + Teléfono de Cliente
+    $sqlPer = "SELECT p.*, d.id_ciudad, d.descripcion as direccion, ci.id_provincia, pr.id_pais,
+               (SELECT t.numero 
+                FROM Telefono t 
+                JOIN Cliente_Telefono ct ON t.id_telefono = ct.id_telefono 
+                WHERE ct.id_cliente = (SELECT id_cliente FROM Cliente WHERE id_persona = p.id_persona) 
+                AND ct.estado = 'activo' LIMIT 1) as telefono
+               FROM Persona p 
+               LEFT JOIN Direccion d ON p.id_direccion = d.id_direccion
+               LEFT JOIN Ciudad ci ON d.id_ciudad = ci.id_ciudad
+               LEFT JOIN Provincia pr ON ci.id_provincia = pr.id_provincia
+               WHERE p.cedula = ?";
+    
+    $stmt = $conexion->prepare($sqlPer);
+    $stmt->bind_param("s", $cedula);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($res->num_rows > 0) {
+        echo json_encode(['status' => 'persona_existe', 'data' => $res->fetch_assoc()]);
+    } else {
+        echo json_encode(['status' => 'nuevo']);
+    }
+}
 
 //////////////////////////////////////////////////////////
 // 🔵 CARGAR SELECTS PRINCIPALES
@@ -173,162 +215,95 @@ function cargar_ciudades($conexion) {
 // 🔴 GUARDAR
 //////////////////////////////////////////////////////////
 function guardar($conexion) {
+    $usuario_creacion = $_SESSION['id_usuario'] ?? null;
+    $id_persona_existente = $_POST['id_persona_capturado'] ?? null;
 
-        // 🔐 USUARIO DE SESIÓN
-        $usuario_creacion = $_SESSION['id_usuario'] ?? null;
+    // Captura de datos
+    $nombre1 = $_POST['nombre1'] ?? '';
+    $cedula = $_POST['cedula'] ?? '';
+    $puesto = $_POST['puesto'] ?? '';
+    $sueldo = $_POST['sueldo'] ?? '';
+    $nombre_e = $_POST['nombre_e'] ?? '';
+    $telefono_e = $_POST['telefono_e'] ?? '';
 
-        if (!$usuario_creacion) {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Sesión expirada'
-            ]);
-            return;
-        }
-
-        //////////////////////////////////////////////////
-        // 🔹 PERSONA
-        //////////////////////////////////////////////////
-        $nombre1 = $_POST['nombre1'];
-        $nombre2 = $_POST['nombre2'];
-        $apellido_p = $_POST['apellido_p'];
-        $apellido_m = $_POST['apellido_m'];
-        $sexo = $_POST['sexo'];
-        $cedula = $_POST['cedula'];
-        $correo = $_POST['correo'];
-        $fecha_nacimiento = $_POST['fecha_nacimiento'];
-        $nacionalidad = $_POST['nacionalidad'];
-
-        //////////////////////////////////////////////////
-        // 🔹 DIRECCIÓN
-        //////////////////////////////////////////////////
-        $id_ciudad = $_POST['ciudad'];
-        $direccion = $_POST['direccion'];
-
-        //////////////////////////////////////////////////
-        // 🔹 OTROS
-        //////////////////////////////////////////////////
-        $telefono = $_POST['telefono'];
-        $telefono_e = $_POST['telefono_e'];
-        $nombre_e = $_POST['nombre_e'];
-        $puesto = $_POST['puesto'];
-        $sueldo = $_POST['sueldo'];
-
-        if (
-            $nombre1 === "" ||
-            $apellido_p === "" ||
-            $cedula === "" ||
-            $correo === "" ||
-            $telefono === "" ||
-            $puesto === "" ||
-            $fecha_nacimiento === "" ||
-            $nombre_e === "" ||
-            $telefono_e === "" ||
-            $sueldo === ""
-        ) {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Por favor complete todos los campos obligatorios'
-            ]);
-            exit;
-        }
+    if (empty($nombre1) || empty($cedula) || empty($puesto) || empty($sueldo)) {
+        echo json_encode(['success' => false, 'message' => 'Por favor complete todos los campos obligatorios']);
+        exit;
+    }
 
     try {
-    $conexion->begin_transaction();
-        //////////////////////////////////////////////////
-        // 🏠 DIRECCION
-        //////////////////////////////////////////////////
-        $sql = "INSERT INTO Direccion (id_ciudad, Descripcion, estado)
-                VALUES (?, ?, 'activo')";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("is", $id_ciudad, $direccion);
+        $conexion->begin_transaction();
+
+        if (empty($id_persona_existente)) {
+            // 🏠 INSERT DIRECCIÓN
+            $sqlDir = "INSERT INTO Direccion (id_ciudad, Descripcion, estado) VALUES (?, ?, 'activo')";
+            $stmt = $conexion->prepare($sqlDir);
+            $stmt->bind_param("is", $_POST['ciudad'], $_POST['direccion']);
+            $stmt->execute();
+            $id_direccion = $conexion->insert_id;
+
+            // 👤 INSERT PERSONA NUEVA
+            $sqlPer = "INSERT INTO Persona 
+            (nombre, nombre_dos, apellido_p, apellido_m, sexo, cedula, email, fecha_nacimiento, id_direccion, nacionalidad, estado, fecha_creacion)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo', NOW())";
+            $stmt = $conexion->prepare($sqlPer);
+            $stmt->bind_param("ssssssssii", 
+                $nombre1, $_POST['nombre2'], $_POST['apellido_p'], $_POST['apellido_m'], 
+                $_POST['sexo'], $cedula, $_POST['correo'], $_POST['fecha_nacimiento'], 
+                $id_direccion, $_POST['nacionalidad']
+            );
+            $stmt->execute();
+            $id_persona = $conexion->insert_id;
+        } else {
+            // 🔗 USAR PERSONA EXISTENTE
+            $id_persona = $id_persona_existente;
+            
+            // Actualizar el correo si se proporcionó uno nuevo
+            if (!empty($_POST['correo'])) {
+                $upd = $conexion->prepare("UPDATE Persona SET email=? WHERE id_persona=?");
+                $upd->bind_param("si", $_POST['correo'], $id_persona);
+                $upd->execute();
+            }
+        }
+
+        // 📞 TELÉFONOS
+        $sqlTel = "INSERT INTO telefono (numero, estado) VALUES (?, 'activo')";
+        $stmt = $conexion->prepare($sqlTel);
+        $stmt->bind_param("s", $_POST['telefono']);
         $stmt->execute();
-        $id_direccion = $conexion->insert_id;
+        $id_tel_emp = $conexion->insert_id;
 
-        //////////////////////////////////////////////////
-        // 👤 PERSONA
-        //////////////////////////////////////////////////
-        $sql = "INSERT INTO Persona 
-        (nombre, nombre_dos, apellido_p, apellido_m, sexo, cedula, email, fecha_nacimiento, id_direccion, nacionalidad, estado, fecha_creacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo', NOW())";
-
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("ssssssssii",
-            $nombre1, $nombre2, $apellido_p, $apellido_m, $sexo,
-            $cedula, $correo, $fecha_nacimiento,
-            $id_direccion, $nacionalidad
-        );
-        $stmt->execute();
-        $id_persona = $conexion->insert_id;
-
-        //////////////////////////////////////////////////
-        // 📞 TELEFONO
-        //////////////////////////////////////////////////
-        $sql = "INSERT INTO telefono (numero, estado)
-                VALUES (?, 'activo')";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("s", $telefono);
-        $stmt->execute();
-        $id_telefono = $conexion->insert_id;
-
-        $sql = "INSERT INTO telefono (numero, estado)
-                VALUES (?, 'activo')";
-        $stmt = $conexion->prepare($sql);
         $stmt->bind_param("s", $telefono_e);
         $stmt->execute();
-        $id_telefono_contacto = $conexion->insert_id;
+        $id_tel_cont = $conexion->insert_id;
 
-        //////////////////////////////////////////////////
         // 🧑‍🤝‍🧑 CONTACTO
-        //////////////////////////////////////////////////
-        $sql = "INSERT INTO Contacto (nombre, id_telefono, estado)
-                VALUES (?, ?, 'activo')";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("si", $nombre_e, $id_telefono_contacto);
+        $sqlCont = "INSERT INTO Contacto (nombre, id_telefono, estado) VALUES (?, ?, 'activo')";
+        $stmt = $conexion->prepare($sqlCont);
+        $stmt->bind_param("si", $nombre_e, $id_tel_cont);
         $stmt->execute();
         $id_contacto = $conexion->insert_id;
 
-        //////////////////////////////////////////////////
         // 👷 EMPLEADO
-        //////////////////////////////////////////////////
-        $sql = "INSERT INTO Empleado
-        (id_persona, id_puesto, id_sueldo, id_contacto, fecha_creacion, usuario_creacion, estado)
-        VALUES (?, ?, ?, ?, NOW(), ?, 'activo')";
-
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("iiiii",
-            $id_persona, $puesto, $sueldo, $id_contacto, $usuario_creacion
-        );
+        $sqlEmp = "INSERT INTO Empleado (id_persona, id_puesto, id_sueldo, id_contacto, fecha_creacion, usuario_creacion, estado)
+                   VALUES (?, ?, ?, ?, NOW(), ?, 'activo')";
+        $stmt = $conexion->prepare($sqlEmp);
+        $stmt->bind_param("iiiii", $id_persona, $puesto, $sueldo, $id_contacto, $usuario_creacion);
         $stmt->execute();
         $id_empleado = $conexion->insert_id;
 
-        //////////////////////////////////////////////////
-        // 🔗 RELACIÓN TELEFONO
-        //////////////////////////////////////////////////
-        $sql = "INSERT INTO Empleado_Telefono
-        (id_empleado, id_telefono, fecha_creacion, estado)
-        VALUES (?, ?, NOW(), 'activo')";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("ii", $id_empleado, $id_telefono);
+        // 🔗 RELACIÓN TELÉFONO
+        $sqlRel = "INSERT INTO Empleado_Telefono (id_empleado, id_telefono, fecha_creacion, estado) VALUES (?, ?, NOW(), 'activo')";
+        $stmt = $conexion->prepare($sqlRel);
+        $stmt->bind_param("ii", $id_empleado, $id_tel_emp);
         $stmt->execute();
 
-        //////////////////////////////////////////////////
-        // ✅ CONFIRMAR
-        //////////////////////////////////////////////////
         $conexion->commit();
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Empleado guardado correctamente'
-        ]);
+        echo json_encode(['success' => true, 'message' => 'Empleado guardado correctamente']);
 
     } catch (Exception $e) {
-
         $conexion->rollback();
-
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage()
-        ]);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 

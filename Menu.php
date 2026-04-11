@@ -154,6 +154,7 @@ $stats = [
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialCotizacion.php">Historial Cotizacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialPagos.php">Historial de Pagos</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/HistorialDevolucion.php">Historial de Devoluciones</a>
+                    <a href="/Taller/Taller-Mecanica/view/Taller/HistorialGarantias.php">Historial de Garantías</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialAvanzado.php">Historial Avanzado</a>
                 </div>
             </div>

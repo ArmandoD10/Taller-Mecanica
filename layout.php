@@ -126,6 +126,7 @@ $modulos = $_SESSION['modulos'] ?? [];
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialServicio.php">Historial de Servicios</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialEntrega.php">Historial de Entregas</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/CHistorialInspeccion.php">Historial de Inspecciones</a>
+                    <a href="/Taller/Taller-Mecanica/view/Taller/HistorialGarantias.php">Historial de Garantías</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialAvanzado.php">Historial Avanzado</a>
                 </div>
             </div>

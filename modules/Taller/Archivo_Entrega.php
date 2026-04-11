@@ -267,9 +267,6 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
 function obtener_detalle_facturacion($conexion) {
     $id_orden = (int)$_GET['id_orden'];
     
-    // ========================================================
-    // MAGIA ANTI-DOBLE COBRO EN LA FACTURACIÓN DE ENTREGA
-    // ========================================================
     $sqlServ = "SELECT ap.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad
                 FROM asignacion_orden ao
                 JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion
@@ -289,12 +286,10 @@ function obtener_detalle_facturacion($conexion) {
     $tarifas_asignadas = $resPrecios ? $resPrecios->fetch_all(MYSQLI_ASSOC) : [];
 
     $servicios_facturar = [];
-    $servicios_vistos = []; // Arreglo de control EXCLUSIVO para servicios
+    $servicios_vistos = [];
     
     foreach ($nombres_servicios as $index => $serv) {
         $id_serv = $serv['id_tipo_servicio'];
-        
-        // Si el servicio ya se cobró (está en el arreglo), lo ignoramos.
         if (in_array($id_serv, $servicios_vistos)) {
             continue; 
         }
@@ -311,7 +306,6 @@ function obtener_detalle_facturacion($conexion) {
         ];
     }
 
-    // Los repuestos se extraen COMPLETOS, sin filtrar duplicados
     $repuestos_data = [];
     try {
         $sqlRep = "SELECT ra.id_articulo as id, ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal, false as es_extra
@@ -376,9 +370,16 @@ function procesar_calidad($conexion) {
 function procesar_entrega($conexion) {
     $id_orden = $_POST['id_orden_entrega'] ?? '';
     $usuario = $_SESSION['id_usuario'] ?? 1;
+
+    $tipo_garantia = $_POST['tipo_garantia'] ?? '';
+    $fecha_vencimiento = $_POST['fecha_vencimiento'] ?? null;
+    $km_limite = $_POST['km_limite'] ?? null;
+    $terminos_resumen = $_POST['terminos_resumen'] ?? '';
+
     $conexion->begin_transaction();
     try {
         $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Entregado' LIMIT 1");
+        if(!$resEst || $resEst->num_rows == 0) throw new Exception("Estado 'Entregado' no encontrado en el sistema.");
         $id_estado_entregado = $resEst->fetch_assoc()['id_estado'];
 
         $checkEst = $conexion->query("SELECT 1 FROM Orden_Estado WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
@@ -388,10 +389,40 @@ function procesar_entrega($conexion) {
             $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_entregado, $usuario)");
         }
 
+        if ($tipo_garantia != '') {
+            $sql_veh = "SELECT i.id_vehiculo FROM Orden o JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion WHERE o.id_orden = ?";
+            $stmt_veh = $conexion->prepare($sql_veh);
+            $stmt_veh->bind_param("i", $id_orden);
+            $stmt_veh->execute();
+            $res_veh = $stmt_veh->get_result();
+            $vehiculo = $res_veh->fetch_assoc();
+            
+            if (!$vehiculo) {
+                throw new Exception("No se encontró el vehículo asociado a esta orden para generar la garantía.");
+            }
+            $id_vehiculo = $vehiculo['id_vehiculo'];
+
+            $codigo_certificado = "GAR-" . $id_orden . "-" . strtoupper(substr(uniqid(), -3));
+            $estado_garantia = 'activo';
+
+            // AQUÍ ESTÁ LA CORRECCIÓN: 'iisssisi' PARA QUE EL TEXTO DE LA GARANTÍA NO SE CONVIERTA EN 0
+            $sql_gar = "INSERT INTO garantia_servicio 
+                        (id_orden, id_vehiculo, codigo_certificado, fecha_vencimiento, terminos_condiciones, kilometraje_limite, estado, usuario_creacion) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt_gar = $conexion->prepare($sql_gar);
+            $stmt_gar->bind_param("iisssisi", $id_orden, $id_vehiculo, $codigo_certificado, $fecha_vencimiento, $terminos_resumen, $km_limite, $estado_garantia, $usuario);
+            
+            if (!$stmt_gar->execute()) {
+                throw new Exception("Error al guardar la garantía: " . $stmt_gar->error);
+            }
+        }
+
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Entregado.']);
+        echo json_encode(['success' => true, 'message' => 'Vehículo entregado y garantía procesada.']);
     } catch (Exception $e) {
-        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        $conexion->rollback(); 
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 

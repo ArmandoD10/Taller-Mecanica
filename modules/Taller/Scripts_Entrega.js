@@ -27,12 +27,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // FORMULARIO DE ENTREGA Y GARANTÍA INTEGRADO
     const formEntrega = document.getElementById("formEntrega");
     if(formEntrega) {
         formEntrega.addEventListener("submit", function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             const id_orden_procesada = document.getElementById("id_orden_entrega").value;
+            const tipoGarantia = document.getElementById("tipo_garantia").value;
             
             fetch("../../modules/Taller/Archivo_Entrega.php?action=procesar_entrega", { method: "POST", body: formData })
             .then(res => res.json())
@@ -41,9 +43,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     cerrarModalEntrega(); 
                     listar(); 
                     mostrarComprobanteInmediato(id_orden_procesada);
+                    
+                    // Si la garantía no es tipo D (Sin Garantía), imprimir automáticamente el certificado
+                    if (tipoGarantia && tipoGarantia !== 'D') {
+                        // Aquí abrimos la vista del certificado que creamos anteriormente
+                        window.open(`../../view/Garantias/CertificadoGarantia.php?id_orden=${id_orden_procesada}`, '_blank');
+                    }
                 } else { alert("ERROR:\n" + data.message); }
             })
-            .catch(err => alert("Error de conexión al procesar entrega."));
+            .catch(err => alert("Error de conexión al procesar entrega y garantía."));
         });
     }
 
@@ -101,7 +109,9 @@ function listar() {
                 else if (o.estado_orden === 'Listo') {
                     badgeOrden = `<span class="badge bg-primary">Listo</span>`;
                     if(pagado) {
-                        btnAccion = `<button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="prepararEntrega(${o.id_orden}, '${o.cliente}', '${o.vehiculo}')"><i class="fas fa-key me-1"></i> Entregar</button>`;
+                        // Pasamos el kilometraje_inspeccion si viene desde la DB, sino asume 0
+                        let km = o.kilometraje_inspeccion ? o.kilometraje_inspeccion : 0;
+                        btnAccion = `<button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="prepararEntrega(${o.id_orden}, '${o.cliente}', '${o.vehiculo}', ${km})"><i class="fas fa-key me-1"></i> Entregar y Garantía</button>`;
                     } else {
                         btnAccion = `<button class="btn btn-sm btn-primary fw-bold shadow-sm" onclick="abrirModalFacturacion(${o.id_orden}, '${o.cliente}', '${o.vehiculo}', ${o.id_cliente})"><i class="fas fa-file-invoice-dollar me-1"></i> Facturar / Cobrar</button>`;
                     }
@@ -576,16 +586,12 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
     .catch(err => alert("Error de red al intentar facturar."));
 }
 
-// ==== LA FUNCIÓN "A PRUEBA DE FALLOS" (SOLUCIÓN DEL ERROR) ====
 function mostrarComprobanteInmediato(id_orden) {
     fetch(`../../modules/Taller/Archivo_Entrega.php?action=obtener_acta&id_orden=${id_orden}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {
             const d = data.data;
-            
-            // Esta pequeña función de flecha "blinda" la escritura.
-            // Si el HTML existe, escribe. Si no, lo ignora y no se rompe.
             const setVal = (id, valor) => {
                 const elemento = document.getElementById(id);
                 if(elemento) elemento.innerText = valor || 'N/A';
@@ -606,7 +612,6 @@ function mostrarComprobanteInmediato(id_orden) {
     })
     .catch(err => console.error("Error obteniendo acta:", err));
 }
-// =============================================================
 
 function imprimirFacturaVoucher(id_factura, dataCobro) {
     const cliente = document.getElementById('fac_lbl_cliente').innerText;
@@ -713,12 +718,81 @@ function abrirModalCalidad(id_orden, vehiculo) {
     abrirModalUI('modalCalidad');
 }
 
-function prepararEntrega(id_orden, cliente, vehiculo) {
+// ==== AQUÍ ESTÁ LA NUEVA PREPARACIÓN CON GARANTÍA ====
+function prepararEntrega(id_orden, cliente, vehiculo, km_inspeccion = 0) {
     document.getElementById("id_orden_entrega").value = id_orden;
     document.getElementById("lbl_orden").innerText = "ORD-" + id_orden;
     document.getElementById("lbl_cliente").innerText = cliente;
     document.getElementById("lbl_vehiculo").innerText = vehiculo;
+
+    // Configuración para la Garantía
+    const inputKm = document.getElementById("km_actual");
+    
+    // Si la base de datos nos mandó el kilometraje, lo ponemos y bloqueamos para que no hagan fraude
+    if(km_inspeccion && km_inspeccion > 0) {
+        inputKm.value = km_inspeccion;
+        inputKm.readOnly = true; 
+    } else {
+        inputKm.value = '';
+        inputKm.readOnly = false; // Permite escribir por si no se guardó en la inspección
+    }
+
+    document.getElementById("tipo_garantia").value = "";
+    document.getElementById("fecha_vencimiento").value = "";
+    document.getElementById("km_limite").value = "";
+    document.getElementById("terminos_resumen").value = "";
+
     abrirModalUI('modalEntrega');
+}
+
+// ==== LA FUNCIÓN MATEMÁTICA QUE CALCULA LAS FECHAS Y KM ====
+function calcularGarantia() {
+    const kmActual = parseInt(document.getElementById('km_actual').value);
+    const tipo = document.getElementById('tipo_garantia').value;
+    
+    const inputFecha = document.getElementById('fecha_vencimiento');
+    const inputKm = document.getElementById('km_limite');
+    const inputTerminos = document.getElementById('terminos_resumen');
+
+    // Validar que primero pongan el kilometraje si estaba en blanco
+    if (isNaN(kmActual) || kmActual <= 0) {
+        alert("Por favor, ingrese el Kilometraje de Inspección primero.");
+        document.getElementById('tipo_garantia').value = ""; 
+        return;
+    }
+
+    let fechaCalculada = new Date();
+    let kmCalculado = kmActual;
+    let textoResumen = "";
+
+    switch(tipo) {
+        case 'A': 
+            fechaCalculada.setDate(fechaCalculada.getDate() + 30);
+            kmCalculado += 1500;
+            textoResumen = "GARANTÍA CAT-A (Mantenimiento): Cubre piezas instaladas. No cubre consumos internos del motor por desgaste preexistente.";
+            break;
+        case 'B': 
+            fechaCalculada.setMonth(fechaCalculada.getMonth() + 3);
+            kmCalculado += 5000;
+            textoResumen = "GARANTÍA CAT-B (Mecánica Menor): Excluye ruidos por cristalización de frenos provocados por hábitos de manejo o agua.";
+            break;
+        case 'C': 
+            fechaCalculada.setMonth(fechaCalculada.getMonth() + 6);
+            kmCalculado += 10000;
+            textoResumen = "GARANTÍA CAT-C (Mecánica Mayor): Revisión OBLIGATORIA a los 1,000 km (Ajuste de fluidos/tornillería). Si no asiste, pierde garantía.";
+            break;
+        case 'D': 
+            textoResumen = "SIN GARANTÍA: Aplicado a piezas eléctricas, componentes traídos por el cliente o trabajos de alto riesgo.";
+            break;
+    }
+
+    const year = fechaCalculada.getFullYear();
+    const month = String(fechaCalculada.getMonth() + 1).padStart(2, '0');
+    const day = String(fechaCalculada.getDate()).padStart(2, '0');
+    
+    inputFecha.value = `${year}-${month}-${day}`;
+    inputKm.value = kmCalculado;
+    inputTerminos.value = textoResumen;
 }
 
 function imprimirComprobante() {
@@ -736,7 +810,7 @@ function imprimirComprobante() {
 }
 
 // ==========================================
-// 6. UTILIDADES MODALES ROBUSTAS
+// UTILIDADES MODALES ROBUSTAS
 // ==========================================
 function cerrarModalFacturacion() { cerrarModalUI('modalFacturacion'); }
 function cerrarModalAzul() { 

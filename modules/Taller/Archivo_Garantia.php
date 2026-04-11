@@ -4,22 +4,41 @@ header('Content-Type: application/json');
 session_start();
 
 $action = $_GET['action'] ?? '';
-$id_usuario = $_SESSION['id_usuario'] ?? 1;
+$id_usuario_sesion = $_SESSION['id_usuario'] ?? 1;
 
 switch ($action) {
     case 'listar':
         listar_garantias($conexion);
         break;
     case 'anular':
-        anular_garantia($conexion, $id_usuario);
+        anular_garantia($conexion, $id_usuario_sesion);
         break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
 }
 
+function verificar_acceso_admin($conexion, $user, $pass) {
+    if (empty($user) || empty($pass)) return false;
+    
+    $sql = "SELECT u.password_hash 
+            FROM usuario u 
+            JOIN nivel n ON u.id_nivel = n.id_nivel 
+            WHERE u.username = ? AND n.nombre = 'Administrador' AND u.estado = 'activo' LIMIT 1";
+            
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("s", $user);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    
+    if ($res && $res->num_rows > 0) {
+        $row = $res->fetch_assoc();
+        return (password_verify($pass, $row['password_hash']) || $pass === $row['password_hash']);
+    }
+    return false;
+}
+
 function listar_garantias($conexion) {
-    // Calculamos el "estado_real" dinámicamente cruzando el estado de la BD con la fecha de hoy
     $sql = "SELECT 
                 g.id_garantia, g.codigo_certificado, 
                 DATE_FORMAT(g.fecha_creacion, '%d/%m/%Y') as fecha_emision,
@@ -33,11 +52,11 @@ function listar_garantias($conexion) {
                     ELSE 'Activa'
                 END as estado_real
             FROM garantia_servicio g
-            JOIN Orden o ON g.id_orden = o.id_orden
-            JOIN Vehiculo v ON g.id_vehiculo = v.sec_vehiculo
-            JOIN Marca m ON v.id_marca = m.id_marca
-            JOIN Cliente c ON v.id_cliente = c.id_cliente
-            JOIN Persona p ON c.id_persona = p.id_persona
+            JOIN orden o ON g.id_orden = o.id_orden
+            JOIN vehiculo v ON g.id_vehiculo = v.sec_vehiculo
+            JOIN marca m ON v.id_marca = m.id_marca
+            JOIN cliente c ON v.id_cliente = c.id_cliente
+            JOIN persona p ON c.id_persona = p.id_persona
             WHERE g.estado != 'eliminado'
             ORDER BY g.fecha_creacion DESC";
             
@@ -45,30 +64,35 @@ function listar_garantias($conexion) {
     echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
 }
 
-function anular_garantia($conexion, $id_usuario) {
+function anular_garantia($conexion, $id_usuario_sesion) {
     $id_garantia = (int)($_POST['id_garantia'] ?? 0);
-    $motivo = $_POST['motivo'] ?? 'Anulada por administración';
+    $admin_user = $_POST['admin_user'] ?? '';
+    $admin_pass = $_POST['admin_pass'] ?? '';
+    $motivo = $_POST['motivo'] ?? '';
 
-    if ($id_garantia === 0) {
-        echo json_encode(['success' => false, 'message' => 'ID de garantía no válido.']);
+    if (!verificar_acceso_admin($conexion, $admin_user, $admin_pass)) {
+        echo json_encode(['success' => false, 'message' => 'Credenciales de Administrador incorrectas o cuenta inactiva.']);
         return;
     }
 
     $conexion->begin_transaction();
     try {
-        // Pasamos la garantía a inactiva
         $sql = "UPDATE garantia_servicio SET estado = 'inactivo' WHERE id_garantia = ?";
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param("i", $id_garantia);
         $stmt->execute();
 
-        // Opcional: Podrías guardar el motivo de la anulación en una tabla de auditoría aquí
+        $log_motivo = "\n\n[ANULADA EL " . date('d/m/Y H:i') . " por $admin_user. Motivo: $motivo]";
+        $sql_log = "UPDATE garantia_servicio SET terminos_condiciones = CONCAT(IFNULL(terminos_condiciones,''), ?) WHERE id_garantia = ?";
+        $stmt_log = $conexion->prepare($sql_log);
+        $stmt_log->bind_param("si", $log_motivo, $id_garantia);
+        $stmt_log->execute();
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Garantía anulada correctamente.']);
+        echo json_encode(['success' => true, 'message' => 'Garantía anulada correctamente por nivel administrativo.']);
     } catch (Exception $e) {
         $conexion->rollback();
-        echo json_encode(['success' => false, 'message' => 'Error al anular: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Error de sistema: ' . $e->getMessage()]);
     }
 }
 ?>

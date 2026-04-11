@@ -20,20 +20,18 @@ function generar_reporte($conexion, $id_sucursal) {
     $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-t');
     $tipo_filtro = $_POST['tipo_filtro'] ?? 'todas';
 
-    // Construcción de filtros según la pestaña seleccionada
+    // LÓGICA DE FILTROS BLINDADA:
+    // Si es POS, incluimos las que tienen cotización POS O las que no tienen nada (venta directa).
     $condicion_extra = "";
     if ($tipo_filtro === 'pos') {
-        $condicion_extra = " AND fc.id_cotizacion IS NOT NULL AND c.tipo_cotizacion = 'POS' ";
+        $condicion_extra = " AND (c.tipo_cotizacion = 'POS' OR (fc.id_cotizacion IS NULL AND fc.id_orden IS NULL)) ";
     } elseif ($tipo_filtro === 'taller') {
-        $condicion_extra = " AND (c.tipo_cotizacion = 'Taller' OR (fc.id_cotizacion IS NULL AND fc.estado_pago = 'Pagado')) "; 
+        $condicion_extra = " AND (fc.id_orden IS NOT NULL OR c.tipo_cotizacion = 'Taller') "; 
     } elseif ($tipo_filtro === 'credito') {
         $condicion_extra = " AND fc.estado_pago = 'Pendiente' ";
     }
 
     try {
-        /* CONCAT_WS une nombre, nombre_dos, apellido_p y apellido_m con un espacio.
-           Si algún campo es NULL, lo ignora automáticamente sin romper la cadena.
-        */
         $sql = "SELECT fc.id_factura, 
                        DATE_FORMAT(fc.fecha_emision, '%d/%m/%Y') as fecha, 
                        IFNULL(
@@ -43,7 +41,18 @@ function generar_reporte($conexion, $id_sucursal) {
                        fc.NCF as ncf, 
                        fc.monto_total, 
                        fc.estado_pago,
-                       IF(fc.id_cotizacion IS NOT NULL, 'Venta POS', 'Orden de Servicio') as origen
+                       /* JERARQUÍA DE ORIGEN:
+                          1. Si hay ID_ORDEN -> Es Taller.
+                          2. Si hay Cotización POS -> Es POS.
+                          3. Si no hay NI ORDEN NI COTIZACIÓN -> Es una venta directa POS.
+                          4. De lo contrario -> Taller por defecto.
+                       */
+                       CASE 
+                           WHEN fc.id_orden IS NOT NULL THEN 'Orden de Servicio'
+                           WHEN c.tipo_cotizacion = 'POS' THEN 'Venta POS'
+                           WHEN fc.id_cotizacion IS NULL AND fc.id_orden IS NULL THEN 'Venta POS'
+                           ELSE 'Orden de Servicio'
+                       END as origen
                 FROM factura_central fc
                 LEFT JOIN cliente cl ON fc.id_cliente = cl.id_cliente
                 LEFT JOIN persona p ON cl.id_persona = p.id_persona
@@ -60,7 +69,6 @@ function generar_reporte($conexion, $id_sucursal) {
         $res = $stmt->get_result();
         $data = $res->fetch_all(MYSQLI_ASSOC);
 
-        // Cálculo de totales para las tarjetas superiores
         $total_monto = 0;
         $total_facturas = count($data);
         foreach ($data as $fila) {
@@ -79,4 +87,3 @@ function generar_reporte($conexion, $id_sucursal) {
         echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }
-?>

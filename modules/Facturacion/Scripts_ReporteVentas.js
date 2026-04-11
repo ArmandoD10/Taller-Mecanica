@@ -1,175 +1,134 @@
-let datosReporteActual = [];
-let resumenActual = { total_ventas: 0, cantidad: 0 };
+let filtroActual = 'todas'; 
 
 document.addEventListener("DOMContentLoaded", () => {
-    // En lugar de simular un evento submit (que causa el bucle infinito),
-    // llamamos a la función de cargar datos directamente.
-    ejecutarReporte();
+    cargarReporte(); 
 });
 
-document.getElementById("form_filtros").addEventListener("submit", function(e) {
-    e.preventDefault(); // Detiene la recarga de la página
-    ejecutarReporte();
+document.getElementById("form_filtros_ventas").addEventListener("submit", function(e) {
+    e.preventDefault();
+    cargarReporte();
 });
 
-function ejecutarReporte() {
-    const form = document.getElementById("form_filtros");
-    const formData = new FormData(form);
+function cambiarTab(tipo) {
+    filtroActual = tipo;
     
-    const btn = form.querySelector('button[type="submit"]');
-    const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
-    btn.disabled = true;
+    const titulos = {
+        'todas': 'Mostrando: Todas las Ventas Registradas',
+        'pos': 'Mostrando: Ventas POS (Mostrador)',
+        'taller': 'Mostrando: Órdenes de Servicio (Taller)',
+        'credito': 'Mostrando: Facturas a Crédito (Pendientes de Cobro)'
+    };
+    document.getElementById('lbl_titulo_tabla').innerText = titulos[tipo];
+    
+    // Limpiar buscador al cambiar de pestaña
+    document.getElementById("buscador_cliente").value = "";
+    
+    cargarReporte();
+}
 
-    fetch("../../modules/Facturacion/Archivo_ReporteVentas.php?action=generar_reporte", {
+function cargarReporte() {
+    const form = document.getElementById("form_filtros_ventas");
+    const formData = new FormData(form);
+    formData.append('tipo_filtro', filtroActual); 
+
+    const tbody = document.getElementById("cuerpoTablaVentas");
+    tbody.innerHTML = `<tr><td colspan="7" class="py-5 text-muted fw-bold"><i class="fas fa-spinner fa-spin me-2"></i>Analizando datos...</td></tr>`;
+
+    fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_ReporteVentas.php?action=generar_reporte", {
         method: "POST",
         body: formData
     })
     .then(res => res.json())
     .then(data => {
-        btn.innerHTML = txtOriginal;
-        btn.disabled = false;
-
-        const tbody = document.getElementById("cuerpoReporte");
         tbody.innerHTML = "";
+        
+        if (data.success && data.data.length > 0) {
+            document.getElementById('lbl_total_facturas').innerText = data.resumen.total_facturas;
+            document.getElementById('lbl_monto_total').innerText = `RD$ ${parseFloat(data.resumen.total_monto).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
-        if (data.success) {
-            datosReporteActual = data.data;
-            resumenActual = data.resumen;
+            data.data.forEach(f => {
+                let badgeEstado = f.estado_pago === 'Pagado' ? "bg-success" : "bg-danger";
+                
+                // CAMBIO 1 LÓGICO EN JS PARA COLORES
+                let badgeOrigen = f.origen === 'Venta POS' ? "bg-info text-dark" : "bg-warning text-dark";
 
-            // Actualizar tarjetas
-            document.getElementById("lbl_total_ventas").innerText = `RD$ ${parseFloat(resumenActual.total_ventas).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById("lbl_cantidad_facturas").innerText = resumenActual.cantidad;
-
-            // Llenar tabla
-            if (datosReporteActual.length > 0) {
-                datosReporteActual.forEach(f => {
-                    let badgeClase = "bg-success";
-                    if (f.estado === 'inactivo' || f.estado_pago === 'Cancelado') {
-                        badgeClase = "bg-danger";
-                    }
-
-                    const isCancelada = (f.estado === 'inactivo' || f.estado_pago === 'Cancelado');
-                    const filaEstilo = isCancelada ? 'text-decoration-line-through text-muted' : '';
-
-                    const tr = document.createElement("tr");
-                    tr.className = filaEstilo;
-                    tr.innerHTML = `
-                        <td class="fw-bold">FAC-${f.id_factura}</td>
-                        <td class="fw-bold text-primary">${f.ncf}</td>
-                        <td class="small">${f.fecha}</td>
-                        <td class="text-start">${f.cliente}</td>
-                        <td>${f.rnc_cedula}</td>
-                        <td><span class="badge ${badgeClase}">${f.estado_pago || f.estado}</span></td>
-                        <td class="text-end pe-4 fw-bold">RD$ ${parseFloat(f.monto_total).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } else {
-                tbody.innerHTML = `<tr><td colspan="7" class="py-5 text-muted text-center fw-bold">No se encontraron ventas en este período.</td></tr>`;
-            }
+                const tr = document.createElement("tr");
+                tr.className = "fila-venta"; // Clase agregada para el buscador
+                tr.innerHTML = `
+                    <td class="fw-bold text-dark">FAC-${f.id_factura}</td>
+                    <td class="small">${f.fecha}</td>
+                    <td class="text-start fw-bold text-truncate nombre-cliente-celda" style="max-width: 200px;">${f.cliente}</td>
+                    <td class="small text-muted">${f.ncf || 'N/A'}</td>
+                    <td><span class="badge ${badgeOrigen}">${f.origen}</span></td>
+                    <td><span class="badge ${badgeEstado}">${f.estado_pago}</span></td>
+                    <td class="text-end fw-bold text-primary pe-4">RD$ ${parseFloat(f.monto_total).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Reaplicar filtro por si alguien escribe mientras carga
+            filtrarPorCliente();
+            
         } else {
-            alert("Error: " + data.message);
-            tbody.innerHTML = `<tr><td colspan="7" class="py-5 text-danger text-center">Error al cargar datos.</td></tr>`;
+            document.getElementById('lbl_total_facturas').innerText = "0";
+            document.getElementById('lbl_monto_total').innerText = "RD$ 0.00";
+            tbody.innerHTML = `<tr><td colspan="7" class="py-5 text-muted fw-bold text-center">No se encontraron ventas para este filtro y fecha.</td></tr>`;
         }
     })
     .catch(err => {
-        btn.innerHTML = txtOriginal;
-        btn.disabled = false;
         console.error(err);
-        alert("Error de conexión con el servidor.");
+        tbody.innerHTML = `<tr><td colspan="7" class="py-5 text-danger fw-bold text-center"><i class="fas fa-exclamation-triangle me-2"></i>Error de conexión. Revisa la consola.</td></tr>`;
     });
 }
 
-function imprimirReporte() {
-    if (datosReporteActual.length === 0) {
-        return alert("No hay datos generados para imprimir. Por favor, genere un reporte primero.");
-    }
+// CAMBIO 2: FUNCIÓN PARA FILTRAR POR CLIENTE EN TIEMPO REAL
+function filtrarPorCliente() {
+    const textoBusqueda = document.getElementById("buscador_cliente").value.toLowerCase();
+    const filas = document.querySelectorAll(".fila-venta");
 
-    const fechaIni = document.getElementById("fecha_inicio").value;
-    const fechaFin = document.getElementById("fecha_fin").value;
-
-    let htmlFilas = "";
-    datosReporteActual.forEach(f => {
-        const isCancelada = (f.estado === 'inactivo' || f.estado_pago === 'Cancelado');
-        const colorFila = isCancelada ? 'color: red;' : '';
-        const estadoTexto = isCancelada ? '(ANULADA)' : '';
-
-        htmlFilas += `
-            <tr style="${colorFila}">
-                <td>FAC-${f.id_factura}</td>
-                <td>${f.ncf}</td>
-                <td>${f.fecha}</td>
-                <td>${f.cliente}</td>
-                <td>${f.rnc_cedula}</td>
-                <td style="text-align: right;">RD$ ${parseFloat(f.monto_total).toLocaleString(undefined, {minimumFractionDigits: 2})} ${estadoTexto}</td>
-            </tr>
-        `;
+    filas.forEach(fila => {
+        const nombreCliente = fila.querySelector(".nombre-cliente-celda").textContent.toLowerCase();
+        if (nombreCliente.includes(textoBusqueda)) {
+            fila.style.display = "";
+        } else {
+            fila.style.display = "none";
+        }
     });
+}
 
-    const ventana = window.open('', '_blank');
-    ventana.document.write(`
+function imprimirTabla() {
+    const divToPrint = document.getElementById("tabla_ventas_print");
+    const titulo = document.getElementById('lbl_titulo_tabla').innerText;
+    const fechaIn = document.getElementById('fecha_inicio').value;
+    const fechaOut = document.getElementById('fecha_fin').value;
+    const totalDinero = document.getElementById('lbl_monto_total').innerText;
+
+    const newWin = window.open("");
+    newWin.document.write(`
         <html>
-        <head>
-            <title>Reporte de Ventas por NCF</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-                .header h2 { margin: 0 0 5px 0; }
-                .header p { margin: 0; color: #666; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f4f4f4; font-weight: bold; text-transform: uppercase; }
-                .resumen { display: flex; justify-content: flex-end; margin-top: 20px; }
-                .resumen-box { border: 1px solid #000; padding: 15px; width: 300px; }
-                .resumen-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h2>REPORTE GENERAL DE VENTAS Y NCF</h2>
-                <p>Mecánica Automotriz Díaz Pantaleón</p>
-                <p>Período: ${fechaIni} hasta ${fechaFin}</p>
-            </div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Factura</th>
-                        <th>NCF</th>
-                        <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>RNC / Cédula</th>
-                        <th style="text-align: right;">Monto Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${htmlFilas}
-                </tbody>
-            </table>
-
-            <div class="resumen">
-                <div class="resumen-box">
-                    <div class="resumen-row">
-                        <span>Total Facturas Válidas:</span>
-                        <span>${resumenActual.cantidad}</span>
-                    </div>
-                    <div class="resumen-row" style="border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; font-size: 16px;">
-                        <span>TOTAL VENTAS:</span>
-                        <span>RD$ ${parseFloat(resumenActual.total_ventas).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                    </div>
+            <head>
+                <title>Reporte de Ventas</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    h2 { text-align: center; color: #333; margin-bottom: 5px;}
+                    .sub-header { text-align: center; font-size: 14px; color: #666; margin-bottom: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+                    th { background-color: #f4f4f4; }
+                    .resumen { text-align: right; margin-top: 20px; font-size: 16px; font-weight: bold; border-top: 2px solid #000; padding-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <h2>MECÁNICA DÍAZ & PANTALEÓN</h2>
+                <div class="sub-header">
+                    <b>${titulo}</b><br>
+                    Período: ${fechaIn} al ${fechaOut}
                 </div>
-            </div>
-            
-            <p style="text-align: center; font-size: 10px; margin-top: 50px; color: #999;">
-                Reporte generado el ${new Date().toLocaleString()} por el Sistema Integrado de Gestión (SIG).
-            </p>
-        </body>
+                ${divToPrint.outerHTML}
+                <div class="resumen">TOTAL ACUMULADO: ${totalDinero}</div>
+            </body>
         </html>
     `);
-    
-    ventana.document.close();
-    ventana.focus();
-    // Pequeño delay para asegurar que el HTML renderizó antes de lanzar el menú de impresión
-    setTimeout(() => { ventana.print(); }, 500);
+    newWin.document.close();
+    setTimeout(() => { newWin.print(); newWin.close(); }, 500);
 }

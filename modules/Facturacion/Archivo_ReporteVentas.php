@@ -16,62 +16,67 @@ switch ($action) {
 }
 
 function generar_reporte($conexion, $id_sucursal) {
-    $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-m-01'); // Primer día del mes por defecto
-    $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-t');        // Último día del mes por defecto
+    $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-m-01');
+    $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-t');
+    $tipo_filtro = $_POST['tipo_filtro'] ?? 'todas';
 
-    // Validar fechas
-    if (empty($fecha_inicio) || empty($fecha_fin)) {
-        echo json_encode(['success' => false, 'message' => 'Debe proporcionar un rango de fechas válido.']);
-        return;
+    // Construcción de filtros según la pestaña seleccionada
+    $condicion_extra = "";
+    if ($tipo_filtro === 'pos') {
+        $condicion_extra = " AND fc.id_cotizacion IS NOT NULL AND c.tipo_cotizacion = 'POS' ";
+    } elseif ($tipo_filtro === 'taller') {
+        $condicion_extra = " AND (c.tipo_cotizacion = 'Taller' OR (fc.id_cotizacion IS NULL AND fc.estado_pago = 'Pagado')) "; 
+    } elseif ($tipo_filtro === 'credito') {
+        $condicion_extra = " AND fc.estado_pago = 'Pendiente' ";
     }
 
     try {
-        $sql = "SELECT f.id_factura, 
-                       IFNULL(f.NCF, 'SIN NCF') as ncf, 
-                       DATE_FORMAT(f.fecha_emision, '%d/%m/%Y %h:%i %p') as fecha,
-                       IF(p.tipo_persona = 'Juridica', p.nombre, CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, ''))) as cliente,
-                       IFNULL(p.cedula, 'N/A') as rnc_cedula, 
-                       f.monto_total, 
-                       f.estado, 
-                       f.estado_pago
-                FROM factura_central f
-                LEFT JOIN cliente c ON f.id_cliente = c.id_cliente
-                LEFT JOIN persona p ON c.id_persona = p.id_persona
-                WHERE f.id_sucursal = ? 
-                  AND DATE(f.fecha_emision) >= ? 
-                  AND DATE(f.fecha_emision) <= ?
-                  AND f.estado != 'eliminado'
-                ORDER BY f.fecha_emision ASC";
-
+        /* CONCAT_WS une nombre, nombre_dos, apellido_p y apellido_m con un espacio.
+           Si algún campo es NULL, lo ignora automáticamente sin romper la cadena.
+        */
+        $sql = "SELECT fc.id_factura, 
+                       DATE_FORMAT(fc.fecha_emision, '%d/%m/%Y') as fecha, 
+                       IFNULL(
+                           TRIM(CONCAT_WS(' ', p.nombre, p.nombre_dos, p.apellido_p, p.apellido_m)), 
+                           'Cliente Ocasional'
+                       ) as cliente, 
+                       fc.NCF as ncf, 
+                       fc.monto_total, 
+                       fc.estado_pago,
+                       IF(fc.id_cotizacion IS NOT NULL, 'Venta POS', 'Orden de Servicio') as origen
+                FROM factura_central fc
+                LEFT JOIN cliente cl ON fc.id_cliente = cl.id_cliente
+                LEFT JOIN persona p ON cl.id_persona = p.id_persona
+                LEFT JOIN cotizacion c ON fc.id_cotizacion = c.id_cotizacion
+                WHERE fc.id_sucursal = ? 
+                  AND DATE(fc.fecha_emision) >= ? 
+                  AND DATE(fc.fecha_emision) <= ?
+                  $condicion_extra
+                ORDER BY fc.id_factura DESC";
+                
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param("iss", $id_sucursal, $fecha_inicio, $fecha_fin);
         $stmt->execute();
         $res = $stmt->get_result();
-        
-        $datos = $res->fetch_all(MYSQLI_ASSOC);
-        
-        // Calcular totales en el backend
-        $total_ventas = 0;
-        $cantidad_facturas = 0;
-        
-        foreach($datos as $fila) {
-            // Solo sumamos las facturas que no estén canceladas
-            if($fila['estado'] !== 'inactivo' && $fila['estado_pago'] !== 'Cancelado') {
-                $total_ventas += (float)$fila['monto_total'];
-                $cantidad_facturas++;
-            }
-        }
+        $data = $res->fetch_all(MYSQLI_ASSOC);
 
+        // Cálculo de totales para las tarjetas superiores
+        $total_monto = 0;
+        $total_facturas = count($data);
+        foreach ($data as $fila) {
+            $total_monto += (float)$fila['monto_total'];
+        }
+        
         echo json_encode([
             'success' => true, 
-            'data' => $datos,
+            'data' => $data,
             'resumen' => [
-                'total_ventas' => $total_ventas,
-                'cantidad' => $cantidad_facturas
+                'total_monto' => $total_monto,
+                'total_facturas' => $total_facturas
             ]
         ]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Error al generar reporte: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }
 ?>

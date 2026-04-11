@@ -427,6 +427,7 @@ function actualizarCant(tipo, index, nuevaCant) {
 }
 
 
+// --- AQUÍ ESTÁ LA FUNCIÓN CORREGIDA DEL MONITOR ---
 function cargarMonitorTaller() {
     fetch('/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=listar_monitor_taller')
     .then(res => res.json())
@@ -435,7 +436,29 @@ function cargarMonitorTaller() {
         if(!tbody || !res.success) return;
 
         tbody.innerHTML = '';
+        
+        if(res.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted small">No hay vehículos trabajando actualmente.</td></tr>';
+            return;
+        }
+
         res.data.forEach(o => {
+            // Calcular progreso real
+            const total = parseInt(o.total_servicios) || 0;
+            const listos = parseInt(o.servicios_listos) || 0;
+            const porcentaje = total > 0 ? Math.round((listos / total) * 100) : 0;
+            
+            // Color de la barra según progreso
+            let colorBarra = 'bg-info';
+            if(porcentaje > 50) colorBarra = 'bg-primary';
+            if(porcentaje === 100) colorBarra = 'bg-success';
+
+            // Badge de estado dinámico
+            let badgeEstado = `<span class="badge bg-light text-dark border small"><i class="fas fa-clock me-1"></i> ${o.nombre_proceso}</span>`;
+            if(o.nombre_proceso === 'Reparación' || o.nombre_proceso === 'En Reparación') {
+                badgeEstado = `<span class="badge bg-warning text-dark border-warning small"><i class="fas fa-wrench me-1"></i> ${o.nombre_proceso}</span>`;
+            }
+
             tbody.innerHTML += `
                 <tr>
                     <td class="ps-4 fw-bold text-success">ORD-${o.id_orden}</td>
@@ -444,24 +467,29 @@ function cargarMonitorTaller() {
                         <small class="text-muted">${o.cliente_nombre} | <b>${o.placa}</b></small>
                     </td>
                     <td>
-                        <span class="badge bg-light text-dark border"><i class="fas fa-user-cog me-1"></i> Pendiente Asignar</span>
+                        <div class="small fw-bold text-secondary">
+                            <i class="fas fa-user-cog me-1"></i> ${o.tecnico_principal || 'Pendiente Asignar'}
+                        </div>
                     </td>
                     <td>
-                        <div class="progress" style="height: 8px; width: 100px;">
-                            <div class="progress-bar bg-info" style="width: 25%"></div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress" style="height: 8px; width: 80px; flex-shrink: 0;">
+                                <div class="progress-bar ${colorBarra} progress-bar-striped progress-bar-animated" style="width: ${porcentaje}%"></div>
+                            </div>
+                            <small class="fw-bold" style="font-size: 0.7rem;">${porcentaje}%</small>
                         </div>
-                        <small style="font-size: 0.65rem;">00:00:00</small>
+                        <div class="mt-1">${badgeEstado}</div>
                     </td>
                     <td>
                         <span class="badge bg-soft-primary text-primary" title="Servicios">
-                            <i class="fas fa-concierge-bell me-1"></i> ${o.total_servicios}
+                            <i class="fas fa-concierge-bell me-1"></i> ${listos}/${total}
                         </span>
                         <span class="badge bg-soft-warning text-warning" title="Repuestos">
                             <i class="fas fa-box-open me-1"></i> ${o.total_repuestos}
                         </span>
                     </td>
                     <td class="text-end pe-4">
-                        <button class="btn btn-outline-dark btn-sm" onclick="verDetalleOrden(${o.id_orden})">
+                        <button class="btn btn-outline-dark btn-sm shadow-sm" onclick="verDetalleOrden(${o.id_orden})">
                             <i class="fas fa-eye"></i>
                         </button>
                     </td>
@@ -469,7 +497,6 @@ function cargarMonitorTaller() {
         });
     });
 }
-
 
 /**
  * Abre un modal o muestra la información detallada de una orden guardada

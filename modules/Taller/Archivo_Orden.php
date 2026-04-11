@@ -24,31 +24,40 @@ if ($id_usuario_sesion > 0) {
 // 2. PROCESAMIENTO DE ACCIONES
 switch ($action) {
     case 'listar_inspecciones':
-    $sql = "SELECT 
-                i.id_inspeccion, i.fecha_inspeccion, 'General' as tipo_inspeccion,
-                v.placa, v.modelo,
-                m.nombre as marca,
-                col.nombre as color_nombre, -- Traemos el nombre del color
-                p.nombre as cliente_nombre,
-                (SELECT COUNT(*) FROM inspeccion_detalle idet 
-                 WHERE idet.id_inspeccion = i.id_inspeccion AND idet.estado = 'D') as hallazgos_criticos
-            FROM inspeccion i
-            INNER JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            INNER JOIN cliente c ON v.id_cliente = c.id_cliente
-            INNER JOIN persona p ON c.id_persona = p.id_persona
-            LEFT JOIN marca m ON v.id_marca = m.id_marca
-            LEFT JOIN color col ON v.id_color = col.id_color -- JOIN con tu tabla de colores
-            LEFT JOIN orden o ON i.id_inspeccion = o.id_inspeccion
-            WHERE i.id_sucursal = ? AND i.estado = 'activo' AND o.id_orden IS NULL 
-            ORDER BY i.fecha_inspeccion DESC";
-    // ... resto del código ...
+        // 1. Fallback de seguridad: Si el usuario no tiene sucursal, asumimos la 1 (Principal)
+        if ($id_sucursal_user == 0) {
+            $id_sucursal_user = 1; 
+        }
 
-    $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("i", $id_sucursal_user); // Vinculamos la sucursal de la sesión
-    $stmt->execute();
-    $resultado = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    echo json_encode(['success' => true, 'data' => $resultado]);
-    break;
+        // 2. Cambiamos los JOIN por LEFT JOIN para que no oculte inspecciones aunque falte un dato
+        $sql = "SELECT 
+                    i.id_inspeccion, DATE_FORMAT(i.fecha_inspeccion, '%d/%m/%Y %h:%i %p') as fecha_inspeccion, 
+                    v.placa, v.modelo, m.nombre as marca, col.nombre as color_nombre, 
+                    IFNULL(p.nombre, 'Cliente No Asignado') as cliente_nombre,
+                    (SELECT COUNT(*) FROM inspeccion_detalle idet WHERE idet.id_inspeccion = i.id_inspeccion AND idet.estado = 'D') as hallazgos_criticos
+                FROM inspeccion i
+                LEFT JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+                LEFT JOIN persona p ON c.id_persona = p.id_persona
+                LEFT JOIN marca m ON v.id_marca = m.id_marca
+                LEFT JOIN color col ON v.id_color = col.id_color
+                LEFT JOIN orden o ON i.id_inspeccion = o.id_inspeccion
+                WHERE (i.id_sucursal = ? OR i.id_sucursal IS NULL) 
+                  AND i.estado = 'activo' 
+                  AND o.id_orden IS NULL 
+                ORDER BY i.fecha_inspeccion DESC";
+                
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("i", $id_sucursal_user);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        
+        echo json_encode([
+            'success' => true, 
+            'sucursal_detectada' => $id_sucursal_user, // Te lo mando para debug
+            'data' => $resultado
+        ]);
+        break;
 
 
     case 'obtener_detalle_inspeccion':
@@ -105,10 +114,10 @@ case 'buscar_repuestos_stock':
         if (!empty($data['repuestos'])) {
             foreach ($data['repuestos'] as $r) {
                 $sql_check = "SELECT SUM(i.cantidad) as stock_disponible 
-                             FROM inventario i 
-                             INNER JOIN gondola g ON i.id_gondola = g.id_gondola
-                             INNER JOIN almacen a ON g.id_almacen = a.id_almacen
-                             WHERE i.id_articulo = ? AND a.id_sucursal = ?";
+                              FROM inventario i 
+                              INNER JOIN gondola g ON i.id_gondola = g.id_gondola
+                              INNER JOIN almacen a ON g.id_almacen = a.id_almacen
+                              WHERE i.id_articulo = ? AND a.id_sucursal = ?";
                 $stmt_check = $conexion->prepare($sql_check);
                 $stmt_check->bind_param("ii", $r['id_art'], $id_sucursal_user);
                 $stmt_check->execute();
@@ -187,14 +196,16 @@ case 'buscar_repuestos_stock':
     break;
 
     case 'listar_monitor_taller':
-        // Buscamos órdenes activas y su estado más reciente en el historial
+        // --- AQUÍ ESTÁ LA CONSULTA SQL CORREGIDA ---
         $sql = "SELECT 
                     o.id_orden, o.monto_total,
                     v.placa, m.nombre as marca, v.modelo,
                     p.nombre as cliente_nombre,
                     e.nombre as nombre_proceso,
                     (SELECT COUNT(*) FROM orden_servicio WHERE id_orden = o.id_orden) as total_servicios,
-                    (SELECT COUNT(*) FROM orden_repuesto WHERE id_orden = o.id_orden) as total_repuestos
+                    (SELECT COUNT(*) FROM orden_repuesto WHERE id_orden = o.id_orden) as total_repuestos,
+                    (SELECT COUNT(*) FROM asignacion_orden ao JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE ao.id_orden = o.id_orden AND ap.estado_asignacion = 'Completado') as servicios_listos,
+                    (SELECT per.nombre FROM asignacion_orden ao JOIN detalle_asignacion_p dap ON ao.id_asignacion = dap.id_asignacion JOIN empleado emp ON dap.id_empleado = emp.id_empleado JOIN persona per ON emp.id_persona = per.id_persona WHERE ao.id_orden = o.id_orden LIMIT 1) as tecnico_principal
                 FROM orden o
                 INNER JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
                 INNER JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
@@ -206,6 +217,7 @@ case 'buscar_repuestos_stock':
                 WHERE o.id_sucursal = ? 
                   AND o.estado = 'activo'
                   AND oe.sec_orden_estado = (SELECT MAX(sec_orden_estado) FROM Orden_Estado WHERE id_orden = o.id_orden)
+                  AND e.nombre NOT IN ('Entregado', 'Listo')
                 ORDER BY o.id_orden DESC";
                 
         $stmt = $conexion->prepare($sql);

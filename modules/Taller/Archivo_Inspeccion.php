@@ -36,7 +36,6 @@ function cargar_datos_iniciales($conexion) {
 
 function cargar_datos_orden($conexion) {
     $id_orden = (int)($_GET['id_orden'] ?? 0);
-    // CORRECCIÓN APLICADA: Vehículo -> Cliente -> Persona
     $sql = "SELECT o.id_orden, o.descripcion, v.id_cliente, v.sec_vehiculo as id_vehiculo, 
                    IF(p.tipo_persona = 'Juridica', p.nombre, CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, ''))) AS nombre_cliente,
                    CONCAT(m.nombre, ' ', v.modelo, ' [', v.placa, ']') as vehiculo_desc
@@ -98,7 +97,7 @@ function guardar($conexion) {
         }
 
         if ($id_orden_previa > 0) {
-            // LÓGICA DE TRANSICIÓN: Actualizar inspección fantasma de la cotización
+            // LÓGICA DE TRANSICIÓN: Viene desde Cotización
             $sqlGetIns = "SELECT id_inspeccion FROM orden WHERE id_orden = ?";
             $stmtGet = $conexion->prepare($sqlGetIns);
             $stmtGet->bind_param("i", $id_orden_previa);
@@ -110,15 +109,16 @@ function guardar($conexion) {
             $stmtUpd->bind_param("iissi", $id_empleado, $kilometraje, $combustible, $motivo_visita, $id_inspeccion);
             $stmtUpd->execute();
             
-            // Avanzar el estado de la orden a "Reparación"
+            // Avanzar el estado de la orden a "Reparación" (Pasa directo al monitor)
             $resEst = $conexion->query("SELECT id_estado FROM estado WHERE nombre = 'Reparación' LIMIT 1");
             if($resEst->num_rows > 0) {
                 $id_est_rep = $resEst->fetch_assoc()['id_estado'];
+                // Insertamos el estado "Reparación" en el historial
                 $conexion->query("INSERT INTO orden_estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden_previa, $id_est_rep, $usuario_creacion)");
             }
-            $msg = "Inspección completada. La Orden ORD-$id_orden_previa ha pasado a Reparación.";
+            $msg = "Inspección completada. La Orden ORD-$id_orden_previa ha pasado directo a Reparación.";
         } else {
-            // LÓGICA DIRECTA: Crear desde cero
+            // LÓGICA DIRECTA: Cliente de calle. (SOLO SE CREA LA INSPECCIÓN)
             $sql = "INSERT INTO inspeccion (id_vehiculo, id_empleado, id_sucursal, kilometraje_recepcion, nivel_combustible, observacion, estado, usuario_creacion) 
                     VALUES (?, ?, ?, ?, ?, ?, 'activo', ?)";
             $stmt = $conexion->prepare($sql);
@@ -127,12 +127,10 @@ function guardar($conexion) {
             
             $id_inspeccion = $conexion->insert_id;
 
-            $sqlOrd = "INSERT INTO orden (id_inspeccion, id_sucursal, descripcion, estado, usuario_creacion) VALUES (?, ?, ?, 'activo', ?)";
-            $stmtOrd = $conexion->prepare($sqlOrd);
-            $stmtOrd->bind_param("iisi", $id_inspeccion, $id_sucursal_actual, $motivo_visita, $usuario_creacion);
-            $stmtOrd->execute();
-            
-            $msg = "Inspección guardada exitosamente en sucursal ID: " . $id_sucursal_actual;
+            // ELIMINAMOS la inserción en la tabla `orden` aquí. Eso debe hacerlo el asesor 
+            // en la pantalla de Gestión de Órdenes (Servicio.php).
+
+            $msg = "Inspección guardada. Se encuentra lista para procesar en Gestión de Órdenes.";
         }
 
         // Guardar el Checklist Dinámico

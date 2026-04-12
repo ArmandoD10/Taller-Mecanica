@@ -11,7 +11,9 @@ date_default_timezone_set('America/Santo_Domingo');
     </div>
 
     <div class="header-right">
-        <img src="/Taller/Taller-Mecanica/img/user.png" class="user-img">
+        <a href="/Taller/Taller-Mecanica/view/Submodulos/perfil.php" class="btn-perfil" title="Ver mi Perfil">
+            <img src="/Taller/Taller-Mecanica/img/user.png" class="user-img">
+        </a>
     </div>
 
 </div>

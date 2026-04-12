@@ -25,25 +25,41 @@ function cargarFacturas() {
         if (data.success && data.data.length > 0) {
             data.data.forEach(f => {
                 let badgeEstado = "bg-success";
-                if (f.estado === 'inactivo' || f.estado_pago === 'Cancelado') {
+                let textoEstado = f.estado_pago || f.estado;
+                
+                // --- LÓGICA DE VISUALIZACIÓN PARA DEVOLUCIONES ---
+                const esInactiva = f.estado === 'inactivo';
+
+                if (esInactiva || f.estado_pago === 'Cancelado') {
                     badgeEstado = "bg-danger";
+                    // Si está inactiva es porque se procesó una devolución
+                    textoEstado = esInactiva ? "Devuelta / Inactiva" : f.estado_pago;
                 } else if (f.estado_pago === 'Pendiente') {
                     badgeEstado = "bg-warning text-dark";
                 }
 
                 const tr = document.createElement("tr");
-                tr.className = "fila-factura"; // Clase esencial para el buscador
+                tr.className = "fila-factura"; 
+
+                // Si la factura está inactiva, aplicamos un estilo visual de "anulada"
+                if (esInactiva) {
+                    tr.style.backgroundColor = "#fff5f5"; // Fondo rojo muy tenue
+                    tr.style.color = "#b91c1c";           // Texto en tono rojizo
+                }
+
                 tr.innerHTML = `
-                    <td class="fw-bold text-primary">FAC-${f.id_factura}</td>
+                    <td class="fw-bold ${esInactiva ? 'text-danger' : 'text-primary'}">FAC-${f.id_factura}</td>
                     <td class="small">${f.fecha}</td>
                     <td class="text-start fw-bold">${f.cliente}</td>
-                    <td class="text-start small text-muted">${f.vehiculo}</td>
+                    <td class="text-start small ${esInactiva ? '' : 'text-muted'}">${f.vehiculo}</td>
                     <td class="small">${f.ncf}</td>
-                    <td><span class="badge ${badgeEstado}">${f.estado_pago || f.estado}</span></td>
+                    <td><span class="badge ${badgeEstado}">${textoEstado}</span></td>
                     <td class="text-end fw-bold">RD$ ${parseFloat(f.monto_total).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-outline-primary shadow-sm" onclick="abrirDetalle(${f.id_factura}, '${f.cliente}', '${f.vehiculo}', '${f.fecha}', '${f.ncf}', ${f.monto_total})" title="Ver Detalles y Reimprimir">
-                            <i class="fas fa-eye"></i>
+                        <button class="btn btn-sm ${esInactiva ? 'btn-danger' : 'btn-outline-primary'} shadow-sm" 
+                                onclick="abrirDetalle(${f.id_factura}, '${f.cliente}', '${f.vehiculo}', '${f.fecha}', '${f.ncf}', ${f.monto_total})" 
+                                title="${esInactiva ? 'Factura Inactiva por Devolución' : 'Ver Detalles y Reimprimir'}">
+                            <i class="fas ${esInactiva ? 'fa-undo-alt' : 'fa-eye'}"></i>
                         </button>
                     </td>
                 `;
@@ -53,7 +69,6 @@ function cargarFacturas() {
             tbody.innerHTML = `<tr><td colspan="8" class="py-5 text-muted fw-bold text-center">No hay facturas en este rango de fechas.</td></tr>`;
         }
         
-        // Limpiamos el buscador dinámico si tenía algo
         document.getElementById("buscador_dinamico").value = "";
     })
     .catch(err => {

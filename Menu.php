@@ -255,13 +255,13 @@ $stats = [
             </button>
             <div class="menu-config-desplegable" id="menuConfig">
                 <?php if (in_array("Perfil", $modulos)) : ?>
-                <a href="#"><i class="fas fa-user-circle"></i> Carnet Digital</a>
+                <a href="/Taller/Taller-Mecanica/view/Submodulos/carnet.php"><i class="fas fa-user-circle"></i> Carnet Digital</a>
                 <?php endif; ?>
                 <?php if (in_array("Whatsapp", $modulos)) : ?>
                 <a href="#"><i class="fas fa-comments"></i>API Whatsapp</a>
                 <?php endif; ?>
                 <?php if (in_array("Contrasena", $modulos)) : ?>
-                <a href="#"><i class="fas fa-shield-alt"></i> Seguridad</a>
+                <a href="/Taller/Taller-Mecanica/view/Submodulos/seguridad.php"><i class="fas fa-shield-alt"></i> Seguridad</a>
                 <?php endif; ?>
                 <?php if (in_array("Membresia", $modulos)) : ?>
                 <a href="#"><i class="fas fa-credit-card"></i> Membresías</a>

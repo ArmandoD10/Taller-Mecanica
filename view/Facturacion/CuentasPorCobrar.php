@@ -158,6 +158,6 @@ require("../../header.php");
 
 </main>
 
-<script src="../../modules/Facturacion/Scripts_Cobros.js"></script>
+<script src="/Taller/Taller-Mecanica/modules/Facturacion/Scripts_Cobros.js"></script>
 </body>
 </html>

@@ -177,7 +177,6 @@ $modulos = $_SESSION['modulos'] ?? [];
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/AServicio.php">Servicios de Detailing</a>
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/MPaquete.php">Paquetes de Servicio</a>
-                    <a href="/Taller/Taller-Mecanica/view/Autoadorno/MGarantia.php">Garantías de Instalación</a>
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/HistorialServicio.php">Historial de Servicio</a>
                 </div>
             </div>

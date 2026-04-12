@@ -1,291 +1,150 @@
-let planesGlobales = [];
-
 document.addEventListener("DOMContentLoaded", () => {
-    cargarDependencias();
-    listarPlanes();
-    cargarReporte();
+    listarTipos();
 
-    // Guardar Plan (Mantenimiento)
-    const formPlan = document.getElementById("formPlanMembresia");
-    if (formPlan) {
-        formPlan.addEventListener("submit", function(e) {
+    const form = document.getElementById("formTipoLavado");
+    if (form) {
+        form.addEventListener("submit", function(e) {
             e.preventDefault();
+            
             const btn = this.querySelector('button[type="submit"]');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
             btn.disabled = true;
 
-            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=guardar_plan", {
-                method: "POST", body: new FormData(this)
+            const formData = new FormData(this);
+
+            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=guardar", {
+                method: "POST", body: formData
             })
             .then(res => res.json())
             .then(data => {
-                btn.innerHTML = originalText; btn.disabled = false;
-                if (data.success) {
-                    cerrarModalUI('modalPlanMembresia');
-                    listarPlanes();
-                    cargarDependencias(); // Refrescar listas por si se creó un Tipo nuevo
-                } else alert("Error: " + data.message);
-            }).catch(err => { btn.disabled = false; alert("Error de conexión."); });
-        });
-    }
-
-    // Guardar Asignación (Suscripción)
-    const formAsig = document.getElementById("formAsignarMembresia");
-    if (formAsig) {
-        formAsig.addEventListener("submit", function(e) {
-            e.preventDefault();
-            const btn = this.querySelector('button[type="submit"]');
-            btn.disabled = true;
-
-            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=asignar_membresia", {
-                method: "POST", body: new FormData(this)
-            })
-            .then(res => res.json())
-            .then(data => {
+                btn.innerHTML = originalText;
                 btn.disabled = false;
                 if (data.success) {
-                    alert(data.message);
-                    cerrarModalUI('modalAsignarMembresia');
-                    cargarReporte();
-                } else alert(data.message);
-            }).catch(err => { btn.disabled = false; alert("Error de red."); });
+                    cerrarModalUI('modalTipoLavado');
+                    listarTipos();
+                    // Opcional: mostrar un toast o alerta suave aquí
+                } else {
+                    alert("Error: " + data.message);
+                }
+            })
+            .catch(err => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert("Error de conexión.");
+            });
         });
     }
-
-    // Buscador Rápido del Reporte Principal
-    document.getElementById("buscadorReporte").addEventListener("keyup", function() {
-        let filter = this.value.toLowerCase();
-        let rows = document.querySelectorAll("#tablaReporte tr");
-        rows.forEach(row => {
-            row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
-        });
-    });
 });
 
-// ==== MANTENIMIENTO DE PLANES ====
-function cargarDependencias() {
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=cargar_dependencias")
+function listarTipos() {
+    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=listar")
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById("cuerpoTablaTipos");
+        tbody.innerHTML = "";
+        
+        if (data.success && data.data.length > 0) {
+            data.data.forEach(t => {
+                let badgeEstado = t.estado === 'activo' 
+                    ? `<span class="badge bg-success"><i class="fas fa-check-circle"></i> Activo</span>` 
+                    : `<span class="badge bg-danger"><i class="fas fa-times-circle"></i> Inactivo</span>`;
+
+                let btnEstado = t.estado === 'activo'
+                    ? `<button class="btn btn-sm btn-outline-danger" title="Desactivar" onclick="cambiarEstadoTipo(${t.id_tipo}, 'inactivo')"><i class="fas fa-power-off"></i></button>`
+                    : `<button class="btn btn-sm btn-outline-success" title="Activar" onclick="cambiarEstadoTipo(${t.id_tipo}, 'activo')"><i class="fas fa-check"></i></button>`;
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="fw-bold text-muted">${t.id_tipo}</td>
+                    <td class="text-start fw-bold text-dark">${t.nombre}</td>
+                    <td>${t.fecha}</td>
+                    <td>${badgeEstado}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info text-dark shadow-sm me-1" title="Editar" onclick="editarTipo(${t.id_tipo})">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                        ${btnEstado}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-5">No hay tipos de lavado registrados.</td></tr>`;
+        }
+    });
+}
+
+function abrirModalTipo() {
+    document.getElementById("formTipoLavado").reset();
+    document.getElementById("id_tipo").value = "";
+    document.getElementById("tituloModalTipo").innerHTML = '<i class="fas fa-plus-circle me-2"></i>Nuevo Tipo de Lavado';
+    abrirModalUI('modalTipoLavado');
+}
+
+function editarTipo(id) {
+    fetch(`/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=obtener&id_tipo=${id}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {
-            const dlTipo = document.getElementById("listaTiposMembresia");
-            dlTipo.innerHTML = '';
-            data.data.tipos.forEach(t => { dlTipo.innerHTML += `<option value="${t.nombre}">`; });
-
-            const selPrecio = document.getElementById("id_precio");
-            selPrecio.innerHTML = '<option value="" disabled selected>Seleccione monto...</option>';
-            data.data.precios.forEach(p => { 
-                selPrecio.innerHTML += `<option value="${p.id_precio}">RD$ ${parseFloat(p.monto).toLocaleString()}</option>`; 
-            });
-        }
-    });
-
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=listar_planes")
-    .then(r => r.json()).then(resPlanes => {
-        if(resPlanes.success) {
-            planesGlobales = resPlanes.data;
-            const selAsig = document.getElementById("id_plan_asig");
-            selAsig.innerHTML = '<option value="" disabled selected>Seleccione un plan...</option>';
-            planesGlobales.forEach(p => {
-                if(p.estado === 'activo') {
-                    selAsig.innerHTML += `<option value="${p.id_plan}">${p.tipo_membresia} (RD$ ${parseFloat(p.precio_mensual).toLocaleString()})</option>`;
-                }
-            });
+            document.getElementById("id_tipo").value = data.data.id_tipo;
+            document.getElementById("nombre_tipo").value = data.data.nombre;
+            document.getElementById("tituloModalTipo").innerHTML = '<i class="fas fa-edit me-2"></i>Editar Tipo de Lavado';
+            abrirModalUI('modalTipoLavado');
         }
     });
 }
 
-function listarPlanes() {
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=listar_planes")
+function cambiarEstadoTipo(id, nuevo_estado) {
+    let accion = nuevo_estado === 'activo' ? 'activar' : 'desactivar';
+    if(!confirm(`¿Seguro que desea ${accion} este servicio?`)) return;
+
+    const fd = new FormData();
+    fd.append("id_tipo", id);
+    fd.append("estado", nuevo_estado);
+
+    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=cambiar_estado", {
+        method: "POST", body: fd
+    })
     .then(res => res.json())
     .then(data => {
-        const tbody = document.getElementById("tablaPlanes");
-        tbody.innerHTML = "";
-        if (data.success && data.data.length > 0) {
-            data.data.forEach(p => {
-                let badgeEstado = p.estado === 'activo' ? `<span class="badge bg-success">Activo</span>` : `<span class="badge bg-danger">Inactivo</span>`;
-                let btnEstado = p.estado === 'activo'
-                    ? `<button class="btn btn-sm btn-outline-danger" onclick="cambiarEstadoPlan(${p.id_plan}, 'inactivo')"><i class="fas fa-power-off"></i></button>`
-                    : `<button class="btn btn-sm btn-outline-success" onclick="cambiarEstadoPlan(${p.id_plan}, 'activo')"><i class="fas fa-check"></i></button>`;
-                
-                let lavados = p.limite_lavado == 0 ? '<span class="badge bg-info text-dark shadow-sm"><i class="fas fa-infinity"></i> Ilimitados</span>' : p.limite_lavado;
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="fw-bold text-dark">${p.tipo_membresia}</td>
-                        <td class="fw-bold text-success">RD$ ${parseFloat(p.precio_mensual).toLocaleString('es-DO', {minimumFractionDigits:2})}</td>
-                        <td>${lavados}</td>
-                        <td>${badgeEstado}</td>
-                        <td class="no-print">
-                            <button class="btn btn-sm btn-dark me-1" onclick="editarPlan(${p.id_plan})"><i class="fas fa-pencil-alt"></i></button>
-                            ${btnEstado}
-                        </td>
-                    </tr>`;
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-muted py-4">No hay planes creados.</td></tr>`;
-        }
+        if(data.success) listarTipos();
+        else alert("Error al cambiar estado.");
     });
 }
 
-function abrirModalPlan() {
-    document.getElementById("formPlanMembresia").reset();
-    document.getElementById("id_plan").value = "";
-    document.getElementById("tituloModalPlan").innerHTML = '<i class="fas fa-plus-circle me-2"></i>Nuevo Plan';
-    abrirModalUI('modalPlanMembresia');
-}
-
-function editarPlan(id) {
-    fetch(`/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=obtener_plan&id_plan=${id}`)
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) {
-            document.getElementById("id_plan").value = data.data.id_plan;
-            document.getElementById("nombre_tipo_membresia").value = data.data.nombre_tipo;
-            document.getElementById("id_precio").value = data.data.precio_mensual;
-            document.getElementById("limite_lavado").value = data.data.limite_lavado;
-            document.getElementById("tituloModalPlan").innerHTML = '<i class="fas fa-edit me-2"></i>Editar Plan';
-            abrirModalUI('modalPlanMembresia');
-        }
-    });
-}
-
-function cambiarEstadoPlan(id, estado) {
-    if(!confirm(`¿Desea cambiar el estado a ${estado}?`)) return;
-    const fd = new FormData(); fd.append("id_plan", id); fd.append("estado", estado);
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=cambiar_estado_plan", { method: "POST", body: fd })
-    .then(res => res.json()).then(data => { if(data.success) { listarPlanes(); cargarDependencias(); }});
-}
-
-// ==== ASIGNACIÓN Y REPORTE ====
-function buscarParaAsignar(input) {
-    const term = input.value.trim();
-    const resDiv = document.getElementById("res_busc_asig");
-    if (term.length < 2) { resDiv.classList.add("d-none"); return; }
-
-    fetch(`/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=buscar_clientes&term=${encodeURIComponent(term)}`)
-    .then(res => res.json())
-    .then(data => {
-        resDiv.innerHTML = "";
-        if (data.success && data.data.length > 0) {
-            resDiv.classList.remove("d-none");
-            data.data.forEach(c => {
-                const li = document.createElement("li");
-                li.className = "list-group-item list-group-item-action py-2";
-                li.style.cursor = "pointer";
-                li.innerHTML = `<div class="fw-bold">${c.cliente}</div><small class="text-muted"><i class="fas fa-id-card me-1"></i>${c.num_documento || 'Sin Doc'}</small>`;
-                li.onclick = () => {
-                    document.getElementById("id_cliente_asig").value = c.id_cliente;
-                    document.getElementById("lbl_asig_cliente").innerText = c.cliente;
-                    document.getElementById("lbl_asig_doc").innerText = "Doc: " + (c.num_documento || 'N/A');
-                    document.getElementById("info_asig_seleccionado").classList.remove("d-none");
-                    resDiv.classList.add("d-none");
-                    input.value = "";
-                };
-                resDiv.appendChild(li);
-            });
-        } else resDiv.classList.add("d-none");
-    });
-}
-
-function seleccionarPlanAsig(sel) {
-    const plan = planesGlobales.find(p => p.id_plan == sel.value);
-    if (plan) {
-        document.getElementById("lavados_asig").value = plan.limite_lavado;
-        const hoy = new Date();
-        hoy.setDate(hoy.getDate() + 30);
-        document.getElementById("fecha_vencimiento_asig").value = hoy.toISOString().split('T')[0];
-    }
-}
-
-function abrirModalAsignar() {
-    document.getElementById("formAsignarMembresia").reset();
-    document.getElementById("info_asig_seleccionado").classList.add("d-none");
-    document.getElementById("id_cliente_asig").value = "";
-    abrirModalUI('modalAsignarMembresia');
-}
-
-function cargarReporte() {
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=reporte_suscripciones")
-    .then(res => res.json())
-    .then(data => {
-        const tbody = document.getElementById("tablaReporte");
-        tbody.innerHTML = "";
-        if (data.success && data.data.length > 0) {
-            data.data.forEach(s => {
-                let badge = s.estado === 'activo' ? 'bg-success' : (s.estado === 'inactivo' ? 'bg-danger' : 'bg-secondary');
-                let lavados = s.lavado_restantes == 0 ? '<i class="fas fa-infinity text-muted"></i>' : s.lavado_restantes;
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="text-start fw-bold text-dark"><i class="fas fa-user me-1 text-muted"></i>${s.cliente}</td>
-                        <td><span class="fw-bold">${s.plan_nombre}</span><br><small class="text-success">RD$ ${parseFloat(s.precio).toLocaleString()}</small></td>
-                        <td class="small"><span class="text-muted">Inicia:</span> ${s.inicio}<br><span class="text-dark fw-bold">Vence:</span> ${s.fin}</td>
-                        <td><span class="badge bg-primary fs-6">${lavados}</span></td>
-                        <td><span class="badge ${badge}">${s.estado}</span></td>
-                    </tr>`;
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-muted py-5">No hay suscripciones registradas.</td></tr>`;
-        }
-    });
-}
-
-// =======================================================
-// CONTROL MANUAL DE MODALES Y PESTAÑAS (FUERZA BRUTA)
-// =======================================================
-
+// ==========================================
+// UTILIDADES MODALES ROBUSTAS
+// ==========================================
 function abrirModalUI(id) {
-    const modal = document.getElementById(id); 
-    if(!modal) return;
-    
-    modal.style.display = 'block';
-    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-    modal.style.zIndex = '1055'; 
-    
-    setTimeout(() => {
-        modal.style.opacity = '1';
-        modal.classList.add('show');
-    }, 10);
-    
-    document.body.classList.add('modal-open');
+    const el = document.getElementById(id);
+    if(!el) return;
+    try {
+        if (typeof bootstrap !== 'undefined') {
+            let m = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el); m.show();
+        } else throw new Error();
+    } catch (e) {
+        if (typeof jQuery !== 'undefined') { $('#' + id).modal('show'); } 
+        else {
+            el.classList.add('show'); el.style.display = 'block'; document.body.classList.add('modal-open');
+            document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
+            const b = document.createElement('div'); b.id = 'm-bd-' + id; b.className = 'modal-backdrop fade show'; document.body.appendChild(b);
+        }
+    }
 }
 
 function cerrarModalUI(id) {
-    const modal = document.getElementById(id); 
-    if(!modal) return;
-    
-    modal.style.opacity = '0';
-    modal.classList.remove('show');
-    
-    setTimeout(() => {
-        modal.style.display = 'none';
-        modal.style.backgroundColor = 'transparent';
-    }, 300);
-    
-    document.body.classList.remove('modal-open');
-}
-
-document.querySelectorAll('.nav-tabs .nav-link').forEach(boton => {
-    boton.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        document.querySelectorAll('.nav-tabs .nav-link').forEach(b => {
-            b.classList.remove('active');
-        });
-        
-        document.querySelectorAll('.tab-pane').forEach(p => {
-            p.style.display = 'none';
-            p.classList.remove('show', 'active');
-        });
-        
-        this.classList.add('active');
-        
-        let objetivo = this.getAttribute('href');
-        if (objetivo) {
-            let panel = document.querySelector(objetivo);
-            panel.style.display = 'block';
-            panel.classList.add('show', 'active');
+    const el = document.getElementById(id);
+    if(!el) return;
+    try { 
+        if (typeof bootstrap !== 'undefined') { let m = bootstrap.Modal.getInstance(el); if (m) m.hide(); } 
+        else throw new Error();
+    } catch (e) {
+        if (typeof jQuery !== 'undefined') { $('#' + id).modal('hide'); } 
+        else {
+            el.classList.remove('show'); el.style.display = 'none'; document.body.classList.remove('modal-open');
+            const b = document.getElementById('m-bd-' + id); if(b) b.remove();
+            document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
         }
-    });
-});
+    }
+}

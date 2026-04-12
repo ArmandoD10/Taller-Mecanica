@@ -258,6 +258,10 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
         $stmtUpdO->bind_param("di", $data['total_final'], $id_orden);
         $stmtUpdO->execute();
 
+        // --- INYECCIÓN AUTOLAVADO: Quitar de la pista al facturar ---
+        $conexion->query("UPDATE orden_lavado SET estado_lavado = 'Entregado' WHERE id_orden = " . (int)$id_orden);
+        // ------------------------------------------------------------
+
         $conexion->commit();
         echo json_encode(['success' => true, 'id_factura' => $id_factura]);
 
@@ -267,11 +271,11 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
     }
 }
 
-// ==== FUNCIÓN CORREGIDA: Trae los precios directamente de Orden_Servicio ====
+// --- FUNCIÓN AÑADIDA CON LA INTEGRACIÓN DEL LAVADO ---
 function obtener_detalle_facturacion($conexion) {
     $id_orden = (int)$_GET['id_orden'];
     
-    // Ahora leemos la información definitiva de Orden_Servicio (incluyendo su precio_estimado real)
+    // 1. Servicios del Taller
     $sqlServ = "SELECT os.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad, os.precio_estimado AS precio
                 FROM Orden_Servicio os
                 JOIN Tipo_Servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio
@@ -291,7 +295,30 @@ function obtener_detalle_facturacion($conexion) {
             'es_extra'    => false
         ];
     }
+    
+    // 2. INYECCIÓN AUTOLAVADO: Buscar lavado pendiente
+    $sqlLav = "SELECT ol.id_orden_lavado, tl.nombre AS descripcion, ol.monto_total AS precio
+               FROM orden_lavado ol
+               JOIN tipo_lavado tl ON ol.id_tipo_lavado = tl.id_tipo
+               WHERE ol.id_orden = $id_orden AND ol.estado = 'activo' AND ol.estado_lavado != 'Entregado'";
+               
+    $lavado_db = $conexion->query($sqlLav);
+    if ($lavado_db) {
+        $lavados = $lavado_db->fetch_all(MYSQLI_ASSOC);
+        foreach ($lavados as $lav) {
+            $precio_real = (float)$lav['precio'];
+            $servicios_facturar[] = [
+                'id'          => 0,
+                'descripcion' => "Servicio de Autolavado: " . $lav['descripcion'],
+                'cantidad'    => 1,
+                'precio'      => $precio_real,
+                'subtotal'    => $precio_real,
+                'es_extra'    => false
+            ];
+        }
+    }
 
+    // 3. Repuestos
     $repuestos_data = [];
     try {
         $sqlRep = "SELECT ra.id_articulo as id, ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal, false as es_extra

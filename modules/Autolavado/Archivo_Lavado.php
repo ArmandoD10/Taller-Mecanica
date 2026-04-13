@@ -84,11 +84,11 @@ function registrar_lavado($conexion, $id_usuario, $id_sucursal) {
     $tipo_cliente_lav = $_POST['tipo_cliente_lav'] ?? 'registrado';
     $sec_vehiculo = !empty($_POST['id_vehiculo_express']) ? (int)$_POST['id_vehiculo_express'] : null;
     
-    $nombre_oca = !empty($_POST['occ_nombre_lav']) ? $_POST['occ_nombre_lav'] : null;
-    $vehiculo_oca = !empty($_POST['occ_vehiculo_lav']) ? $_POST['occ_vehiculo_lav'] : null;
+    $nombre_oca = !empty($_POST['occ_nombre_lav']) ? trim($_POST['occ_nombre_lav']) : null;
+    $vehiculo_oca = !empty($_POST['occ_vehiculo_lav']) ? trim($_POST['occ_vehiculo_lav']) : null;
     
     $id_tipo = (int)$_POST['id_tipo_lavado'];
-    $id_precio = isset($_POST['id_precio']) ? (int)$_POST['id_precio'] : null;
+    $id_precio = !empty($_POST['id_precio']) ? (int)$_POST['id_precio'] : null;
     $nivel_suciedad = $_POST['nivel_suciedad'] ?? 'Medio';
 
     // VARIABLES DE MEMBRESÍA
@@ -97,13 +97,14 @@ function registrar_lavado($conexion, $id_usuario, $id_sucursal) {
 
     $conexion->begin_transaction();
     try {
-        $resP = $conexion->query("SELECT monto FROM precio WHERE id_precio = $id_precio");
-        $monto_real = $resP->fetch_assoc()['monto'] ?? 0;
+        $monto_real = 0;
+        if ($id_precio) {
+            $resP = $conexion->query("SELECT monto FROM precio WHERE id_precio = $id_precio");
+            $monto_real = $resP->fetch_assoc()['monto'] ?? 0;
+        }
 
-        // Si usa membresía, sale gratis y descontamos el lavado
         if ($usar_membresia && $id_membresia) {
             $monto = 0; 
-            // Descontamos solo si quedan lavados (ignora los ilimitados que tienen límite_lavado = 0)
             $conexion->query("UPDATE membresia_usuario SET lavado_restantes = lavado_restantes - 1 WHERE id_membresia = $id_membresia AND lavado_restantes > 0");
         } else {
             $id_membresia = null; 
@@ -125,13 +126,17 @@ function registrar_lavado($conexion, $id_usuario, $id_sucursal) {
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'En Cola', 'activo', ?)";
                    
         $stmtLav = $conexion->prepare($sqlLav);
-        $stmtLav->bind_param("iiisssssiiisdi", $id_sucursal, $id_orden, $id_cliente, $vin_chasis, $placa, $nombre_oca, $vehiculo_oca, $id_tipo, $id_precio, $id_membresia, $nivel_suciedad, $monto, $id_usuario);
+        
+        // ¡AQUÍ ESTABA EL ERROR! Cambiado a "iiissssiiisdi" (exactamente 13 letras para 13 variables)
+        $stmtLav->bind_param("iiissssiiisdi", $id_sucursal, $id_orden, $id_cliente, $vin_chasis, $placa, $nombre_oca, $vehiculo_oca, $id_tipo, $id_precio, $id_membresia, $nivel_suciedad, $monto, $id_usuario);
+        
         $stmtLav->execute();
 
         $conexion->commit();
         echo json_encode(['success' => true, 'message' => 'Vehículo en cola de lavado.']);
     } catch (Exception $e) {
-        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        $conexion->rollback(); 
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 

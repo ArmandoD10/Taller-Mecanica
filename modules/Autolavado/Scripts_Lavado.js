@@ -236,16 +236,39 @@ function verificarMembresiaActiva(id_vehiculo) {
 
 function toggleMembresiaLavado() {
     const usar = document.getElementById("usar_membresia").checked;
-    const divPrecio = document.getElementById("id_precio").parentNode;
+    const selectPrecio = document.getElementById("id_precio");
+
+    // 1. SIEMPRE restauramos los textos originales primero (por si se abren y cierran varias ventanas)
+    Array.from(selectPrecio.options).forEach(opt => {
+        if(opt.hasAttribute('data-original-text')) {
+            opt.text = opt.getAttribute('data-original-text');
+        }
+    });
+
     if(usar) {
-        divPrecio.style.opacity = '0.4';
-        divPrecio.style.pointerEvents = 'none'; 
+        // 2. Si el selector está vacío, auto-seleccionamos el primer precio válido para que la Base de Datos no dé error
+        if(selectPrecio.value === "" && selectPrecio.options.length > 1) {
+            selectPrecio.selectedIndex = 1; 
+        }
+
+        // 3. Guardamos su texto real y lo cambiamos a 0.00
+        let opcionSeleccionada = selectPrecio.options[selectPrecio.selectedIndex];
+        opcionSeleccionada.setAttribute('data-original-text', opcionSeleccionada.text);
+        opcionSeleccionada.text = "RD$ 0.00 (Membresía)";
+
+        // 4. Bloqueamos el selector para que no se pueda clickear, dándole aspecto de "Solo Lectura"
+        selectPrecio.style.pointerEvents = 'none';
+        selectPrecio.style.backgroundColor = '#e9ecef'; // Color gris de bloqueado
+        selectPrecio.style.color = '#198754'; // Texto verde
+        selectPrecio.style.fontWeight = 'bold';
     } else {
-        divPrecio.style.opacity = '1';
-        divPrecio.style.pointerEvents = 'auto';
+        // 5. Si apagan la membresía, desbloqueamos el selector a la normalidad
+        selectPrecio.style.pointerEvents = 'auto';
+        selectPrecio.style.backgroundColor = '';
+        selectPrecio.style.color = '';
+        selectPrecio.style.fontWeight = 'normal';
     }
 }
-
 // ==== LIMPIAR Y ABRIR MODAL ====
 function abrirModalNuevoLavado() {
     document.getElementById("formNuevoLavado").reset();

@@ -65,7 +65,7 @@ body {
 }
 
 .modulo.active .modulo-content {
-    max-height: 500px; /* Expansión al hacer clic */
+    max-height: 2000px; /* Expansión al hacer clic */
 }
 
 .modulo.active .modulo-btn { background: var(--hover-blue); font-weight: 600; }

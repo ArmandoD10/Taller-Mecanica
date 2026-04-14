@@ -34,7 +34,6 @@ function listar_pendientes($conexion, $id_sucursal) {
 }
 
 function listar_historial($conexion, $id_sucursal) {
-    // Añadimos filtro de fechas para que no colapse cuando tengas 10,000 cotizaciones
     $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-m-01');
     $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-t');
 
@@ -106,6 +105,9 @@ function crear_directa($conexion, $id_usuario, $id_sucursal) {
     $tipo_cliente = $_POST['tipo_cliente'] ?? 'registrado';
     $tipo_cotizacion = $_POST['tipo_cotizacion'] ?? 'Taller';
     
+    // Variable para guardar el ID generado de forma segura
+    $id_cotizacion_generada = 0;
+
     $conexion->begin_transaction();
     try {
         if ($tipo_cliente === 'registrado') {
@@ -119,6 +121,10 @@ function crear_directa($conexion, $id_usuario, $id_sucursal) {
             $stmt = $conexion->prepare($sql);
             $stmt->bind_param("iisssssi", $id_cliente, $id_vehiculo, $tipo_cotizacion, $nombre, $telefono, $vehiculo, $id_usuario, $id_sucursal);
             $stmt->execute();
+            
+            // CORRECCIÓN: Se captura el ID inmediatamente después del execute()
+            $id_cotizacion_generada = $stmt->insert_id;
+
         } else {
             $nombre = $_POST['nombre_ocasional'] ?? 'Cliente Ocasional';
             $telefono = $_POST['telefono_ocasional'] ?? '';
@@ -128,12 +134,18 @@ function crear_directa($conexion, $id_usuario, $id_sucursal) {
             $stmt = $conexion->prepare($sql);
             $stmt->bind_param("ssssii", $tipo_cotizacion, $nombre, $telefono, $vehiculo, $id_usuario, $id_sucursal);
             $stmt->execute();
+            
+            // CORRECCIÓN: Se captura el ID inmediatamente después del execute()
+            $id_cotizacion_generada = $stmt->insert_id;
         }
         
         $conexion->commit();
-        echo json_encode(['success' => true, 'id_cotizacion' => $conexion->insert_id]);
+        
+        // CORRECCIÓN: Enviamos el ID guardado en lugar de usar $conexion->insert_id post-commit
+        echo json_encode(['success' => true, 'id_cotizacion' => $id_cotizacion_generada]);
     } catch(Exception $e) {
-        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        $conexion->rollback(); 
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 
@@ -152,7 +164,9 @@ function guardar_cotizacion($conexion) {
 
         foreach ($items as $item) {
             $sub = (float)$item['precio'] * (int)$item['cantidad'];
-            $stmtD->bind_param("isssidd", $id_cotizacion, $item['tipo'], $item['id'], $item['descripcion'], $item['cantidad'], $item['precio'], $sub);
+            
+            // CORRECCIÓN: bind_param "isisidd" -> (i)nt, (s)tring, (i)nt, (s)tring, (i)nt, (d)ouble, (d)ouble
+            $stmtD->bind_param("isisidd", $id_cotizacion, $item['tipo'], $item['id'], $item['descripcion'], $item['cantidad'], $item['precio'], $sub);
             $stmtD->execute();
         }
 
@@ -161,7 +175,8 @@ function guardar_cotizacion($conexion) {
         $conexion->commit();
         echo json_encode(['success' => true, 'message' => 'Cotización guardada exitosamente.']);
     } catch (Exception $e) {
-        $conexion->rollback(); echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        $conexion->rollback(); 
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
 
@@ -184,6 +199,7 @@ function aprobar_cotizacion($conexion, $id_usuario, $id_sucursal) {
 
         $resEmp = $conexion->query("SELECT id_empleado FROM empleado WHERE estado = 'activo' LIMIT 1");
         $id_empleado = $resEmp->num_rows > 0 ? $resEmp->fetch_assoc()['id_empleado'] : 1;
+        
         $conexion->query("INSERT INTO inspeccion (id_vehiculo, id_empleado, usuario_creacion, id_sucursal, kilometraje_recepcion, nivel_combustible, estado) VALUES ($id_vehiculo, $id_empleado, $id_usuario, $id_sucursal, 0, '1/4', 'activo')");
         $id_inspeccion = $conexion->insert_id;
 
@@ -226,13 +242,11 @@ function aprobar_pos($conexion, $id_usuario, $id_sucursal) {
         $cot = $conexion->query("SELECT * FROM cotizacion WHERE id_cotizacion = $id_cotizacion")->fetch_assoc();
         $detalles = $conexion->query("SELECT * FROM cotizacion_detalle WHERE id_cotizacion = $id_cotizacion")->fetch_all(MYSQLI_ASSOC);
 
-        // CORRECCIÓN MAGISTRAL: Evitar Error de Llave Foránea con Clientes Ocasionales (NULL)
         if (!empty($cot['id_cliente'])) {
             $sqlF = "INSERT INTO factura_central (id_cliente, id_sucursal, id_cotizacion, id_metodo, id_moneda, NCF, monto_total, estado_pago, usuario_creacion, estado) VALUES (?, ?, ?, ?, 1, ?, ?, 'Pagado', ?, 'activo')";
             $stmtF = $conexion->prepare($sqlF);
             $stmtF->bind_param("iiiisdi", $cot['id_cliente'], $id_sucursal, $id_cotizacion, $metodo_pago, $ncf, $cot['monto_total'], $id_usuario);
         } else {
-            // Si no hay cliente (Ocasional), lo insertamos sin esa columna para que la BD asuma el NULL natural sin pelear.
             $sqlF = "INSERT INTO factura_central (id_sucursal, id_cotizacion, id_metodo, id_moneda, NCF, monto_total, estado_pago, usuario_creacion, estado) VALUES (?, ?, ?, 1, ?, ?, 'Pagado', ?, 'activo')";
             $stmtF = $conexion->prepare($sqlF);
             $stmtF->bind_param("iiisdi", $id_sucursal, $id_cotizacion, $metodo_pago, $ncf, $cot['monto_total'], $id_usuario);

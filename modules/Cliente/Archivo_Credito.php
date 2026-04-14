@@ -121,7 +121,7 @@ function guardar($conexion) {
         exit;
     }
 
-    $sqlCli = "SELECT p.tipo_persona FROM Cliente c JOIN Persona p ON c.id_persona = p.id_persona WHERE c.id_cliente = $id_cliente";
+    $sqlCli = "SELECT p.tipo_persona FROM cliente c JOIN persona p ON c.id_persona = p.id_persona WHERE c.id_cliente = $id_cliente";
     $tipo_persona = $conexion->query($sqlCli)->fetch_assoc()['tipo_persona'] ?? 'Fisica';
 
     // 1. VALIDACIÓN BYPASS
@@ -136,7 +136,7 @@ function guardar($conexion) {
         }
     }
 
-    $sql_check = "SELECT id_credito, monto_credito FROM Credito WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
+    $sql_check = "SELECT id_credito, monto_credito FROM credito WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
     $res_check = $conexion->query($sql_check);
 
     try {
@@ -151,7 +151,6 @@ function guardar($conexion) {
             // LA SUMATORIA MATEMÁTICA
             $nuevo_monto_total = $monto_actual_bd + $monto_ingresado;
 
-            // Al sumar y aumentar, requiere Administrador obligatoriamente
             if (empty($admin_user) || empty($admin_password)) {
                 throw new Exception("Para ampliar una línea de crédito existente se requieren credenciales de Administrador.");
             }
@@ -159,29 +158,30 @@ function guardar($conexion) {
                 throw new Exception("Credenciales incorrectas o sin permisos de Administrador para autorizar el aumento.");
             }
 
-            $sqlUpdate = "UPDATE Credito SET monto_credito = ?, fecha_vencimiento = ?, referencia_datacredito = IF(? != '', ?, referencia_datacredito) WHERE id_credito = ?";
+            // SOLUCIÓN: Sumamos el nuevo monto al saldo disponible también
+            $sqlUpdate = "UPDATE credito SET monto_credito = ?, saldo_disponible = saldo_disponible + ?, fecha_vencimiento = ?, referencia_datacredito = IF(? != '', ?, referencia_datacredito) WHERE id_credito = ?";
             $stmtU = $conexion->prepare($sqlUpdate);
-            $stmtU->bind_param("dsssi", $nuevo_monto_total, $fecha_vencimiento, $referencia, $referencia, $id_credito_existente);
+            $stmtU->bind_param("ddsssi", $nuevo_monto_total, $monto_ingresado, $fecha_vencimiento, $referencia, $referencia, $id_credito_existente);
             $stmtU->execute();
             
             $msg = "Se ha ampliado el crédito del cliente. Nuevo límite total: RD$ " . number_format($nuevo_monto_total, 2);
             
-            // Actualizamos en Cliente el nuevo total
-            $stmtL = $conexion->prepare("UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?");
+            $stmtL = $conexion->prepare("UPDATE cliente SET limite_credito = ? WHERE id_cliente = ?");
             $stmtL->bind_param("di", $nuevo_monto_total, $id_cliente);
             $stmtL->execute();
 
         } else {
             // == CRÉDITO TOTALMENTE NUEVO ==
-            $sqlI = "INSERT INTO Credito (id_cliente, monto_credito, saldo_pendiente, fecha_aprobacion, fecha_vencimiento, estado_credito, referencia_datacredito, usuario_creacion, estado)
-                     VALUES (?, ?, 0.00, NOW(), ?, 'Activo', ?, ?, 'activo')";
+            // SOLUCIÓN: Se inyecta el 'saldo_disponible' igual que el 'monto_credito' inicial
+            $sqlI = "INSERT INTO credito (id_cliente, monto_credito, saldo_disponible, saldo_pendiente, fecha_aprobacion, fecha_vencimiento, estado_credito, referencia_datacredito, usuario_creacion, estado)
+                     VALUES (?, ?, ?, 0.00, NOW(), ?, 'Activo', ?, ?, 'activo')";
             $stmtI = $conexion->prepare($sqlI);
-            $stmtI->bind_param("idssi", $id_cliente, $monto_ingresado, $fecha_vencimiento, $referencia, $usuario_creacion);
+            $stmtI->bind_param("iddssi", $id_cliente, $monto_ingresado, $monto_ingresado, $fecha_vencimiento, $referencia, $usuario_creacion);
             $stmtI->execute();
             
             $msg = 'Línea de crédito inicial aprobada y asignada al cliente correctamente.';
             
-            $stmtL = $conexion->prepare("UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?");
+            $stmtL = $conexion->prepare("UPDATE cliente SET limite_credito = ? WHERE id_cliente = ?");
             $stmtL->bind_param("di", $monto_ingresado, $id_cliente);
             $stmtL->execute();
         }
@@ -217,7 +217,7 @@ function actualizar($conexion) {
             throw new Exception("Credenciales incorrectas o el usuario no tiene rol de Administrador. Edición denegada.");
         }
 
-        $stmtCheck = $conexion->prepare("SELECT saldo_pendiente FROM Credito WHERE id_credito = ?");
+        $stmtCheck = $conexion->prepare("SELECT saldo_pendiente FROM credito WHERE id_credito = ?");
         $stmtCheck->bind_param("i", $id_credito);
         $stmtCheck->execute();
         $saldo_actual = (float)($stmtCheck->get_result()->fetch_assoc()['saldo_pendiente'] ?? 0);
@@ -226,14 +226,15 @@ function actualizar($conexion) {
             throw new Exception("El nuevo límite (RD$ $monto_credito) no puede ser menor a la deuda que ya tiene el cliente (RD$ $saldo_actual).");
         }
 
-        $sql = "UPDATE Credito 
-                SET monto_credito=?, fecha_vencimiento=?, estado_credito=?, referencia_datacredito=? 
+        // SOLUCIÓN: Recalculamos el saldo disponible restándole la deuda al nuevo monto
+        $sql = "UPDATE credito 
+                SET monto_credito=?, saldo_disponible = (? - saldo_pendiente), fecha_vencimiento=?, estado_credito=?, referencia_datacredito=? 
                 WHERE id_credito=?";
         $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("dsssi", $monto_credito, $fecha_vencimiento, $estado_credito, $referencia, $id_credito);
+        $stmt->bind_param("ddsssi", $monto_credito, $monto_credito, $fecha_vencimiento, $estado_credito, $referencia, $id_credito);
         $stmt->execute();
 
-        $sqlCli = "UPDATE Cliente SET limite_credito = ? WHERE id_cliente = ?";
+        $sqlCli = "UPDATE cliente SET limite_credito = ? WHERE id_cliente = ?";
         $stmtCli = $conexion->prepare($sqlCli);
         $stmtCli->bind_param("di", $monto_credito, $id_cliente);
         $stmtCli->execute();
@@ -246,7 +247,6 @@ function actualizar($conexion) {
         echo json_encode(['success' => false, 'message' => 'Error al actualizar: ' . $e->getMessage()]);
     }
 }
-
 function eliminar($conexion) {
     try {
         $conexion->begin_transaction();

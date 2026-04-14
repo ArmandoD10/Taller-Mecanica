@@ -336,7 +336,6 @@ for($i = 6; $i >= 0; $i--) {
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Factura.php">Nueva Factura (POS)</a>
-                    <a href="/Taller/Taller-Mecanica/view/Facturacion/ACaja.php">Apertura de Caja</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Cotizacion.php">Gestión de Cotizaciones</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/Devolucion.php">Gestión de Devolucion</a>
                     <a href="/Taller/Taller-Mecanica/view/Facturacion/CuentasPorCobrar.php">Cuentas Por Cobrar</a>

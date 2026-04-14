@@ -4,7 +4,8 @@ header('Content-Type: application/json');
 session_start();
 
 $action = $_GET['action'] ?? '';
-$id_sucursal = $_SESSION['id_sucursal'] ?? 1;
+// Parche 1: Si la sesión está vacía o es 0, forzamos a que sea 1 por defecto para consultas generales.
+$id_sucursal = (!empty($_SESSION['id_sucursal']) && $_SESSION['id_sucursal'] != 0) ? $_SESSION['id_sucursal'] : 1;
 $id_usuario = $_SESSION['id_usuario'] ?? 1;
 
 switch ($action) {
@@ -24,7 +25,7 @@ switch ($action) {
         obtener_acta($conexion);
         break;
     case 'listar_impuestos':
-        $res = $conexion->query("SELECT id_impuesto, nombre_impuesto, porcentaje FROM Impuestos WHERE estado = 'activo'");
+        $res = $conexion->query("SELECT id_impuesto, nombre_impuesto, porcentaje FROM impuestos WHERE estado = 'activo'");
         echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
         break;
     case 'verificar_credito':
@@ -55,7 +56,7 @@ switch ($action) {
 
 function verificar_clave_admin($conexion, $username, $password_ingresada) {
     if (empty($username) || empty($password_ingresada)) return false;
-    $sql = "SELECT u.password_hash FROM Usuario u JOIN Nivel n ON u.id_nivel = n.id_nivel WHERE u.username = ? AND n.nombre = 'Administrador' AND u.estado = 'activo' LIMIT 1";
+    $sql = "SELECT u.password_hash FROM usuario u JOIN nivel n ON u.id_nivel = n.id_nivel WHERE u.username = ? AND n.nombre = 'Administrador' AND u.estado = 'activo' LIMIT 1";
     $stmt = $conexion->prepare($sql);
     $stmt->bind_param("s", $username);
     $stmt->execute();
@@ -80,7 +81,7 @@ function validar_acceso_admin($conexion) {
 
 function listar_ofertas_vigentes($conexion) {
     $sql = "SELECT id_oferta, nombre_oferta, porciento 
-            FROM Oferta 
+            FROM oferta 
             WHERE estado = 'activo' AND CURDATE() BETWEEN fecha_inicio AND fecha_fin";
     $res = $conexion->query($sql);
     echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
@@ -91,19 +92,19 @@ function listar_entregas($conexion) {
                 o.id_orden, o.descripcion, 
                 IFNULL(o.monto_total, 0) AS monto_total,
                 CONCAT('RD$ ', FORMAT(IFNULL(o.monto_total, 0), 2)) AS monto_total_fmt,
-                (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) AS estado_orden,
+                (SELECT e.nombre FROM orden_estado oe JOIN estado e ON oe.id_estado = e.id_estado WHERE oe.id_orden = o.id_orden ORDER BY oe.fecha_creacion DESC LIMIT 1) AS estado_orden,
                 CONCAT(per.nombre, ' ', IFNULL(per.apellido_p, '')) AS cliente,
                 c.id_cliente,
                 CONCAT(mar.nombre, ' ', IFNULL(v.modelo, ''), ' [', v.placa, ']') AS vehiculo,
                 IFNULL(fc.estado_pago, 'Sin Facturar') AS estado_pago,
                 DATE(o.fecha_creacion) as fecha_orden
-            FROM Orden o
+            FROM orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN Marca mar ON v.id_marca = mar.id_marca
-            JOIN Cliente c ON v.id_cliente = c.id_cliente
-            JOIN Persona per ON c.id_persona = per.id_persona
-            LEFT JOIN Factura_Central fc ON o.id_orden = fc.id_orden AND fc.estado != 'eliminado'
+            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN marca mar ON v.id_marca = mar.id_marca
+            JOIN cliente c ON v.id_cliente = c.id_cliente
+            JOIN persona per ON c.id_persona = per.id_persona
+            LEFT JOIN factura_central fc ON o.id_orden = fc.id_orden AND fc.estado != 'eliminado'
             WHERE o.estado != 'eliminado' 
             HAVING (estado_orden IN ('Control Calidad', 'Listo') OR (estado_orden = 'Entregado' AND fecha_orden = CURDATE()))
             ORDER BY CASE estado_orden WHEN 'Listo' THEN 1 WHEN 'Control Calidad' THEN 2 WHEN 'Entregado' THEN 3 ELSE 4 END, o.id_orden ASC";
@@ -115,10 +116,10 @@ function buscar_productos($conexion, $id_sucursal) {
     $term = "%" . ($_GET['term'] ?? '') . "%";
     $sql = "SELECT ra.id_articulo, ra.nombre, ra.precio_venta, ra.imagen, 
                    SUM(i.cantidad) as stock 
-            FROM Repuesto_Articulo ra
-            INNER JOIN Inventario i ON ra.id_articulo = i.id_articulo
-            INNER JOIN Gondola g ON i.id_gondola = g.id_gondola
-            INNER JOIN Almacen a ON g.id_almacen = a.id_almacen
+            FROM repuesto_articulo ra
+            INNER JOIN inventario i ON ra.id_articulo = i.id_articulo
+            INNER JOIN gondola g ON i.id_gondola = g.id_gondola
+            INNER JOIN almacen a ON g.id_almacen = a.id_almacen
             WHERE (ra.nombre LIKE ? OR ra.num_serie LIKE ?) 
               AND a.id_sucursal = ? 
               AND ra.estado = 'activo'
@@ -133,7 +134,7 @@ function buscar_productos($conexion, $id_sucursal) {
 function verificar_credito($conexion) {
     $id_cliente = (int)$_GET['id_cliente'];
     $sql = "SELECT id_credito, monto_credito, saldo_disponible 
-            FROM Credito 
+            FROM credito 
             WHERE id_cliente = $id_cliente AND estado_credito = 'Activo' AND estado = 'activo' LIMIT 1";
     $res = $conexion->query($sql);
     if ($res && $res->num_rows > 0) {
@@ -154,7 +155,7 @@ function simular_api_azul($conexion) {
     $monto = $_POST['monto'] ?? 0;
     $referencia = "AZL-" . strtoupper(bin2hex(random_bytes(4)));
     $ultimos4 = substr($tarjeta, -4);
-    $sql = "INSERT INTO Api_Azul (referencia_azul, codigo_tarjeta, monto, tipo_tarjeta, ultimos_4_digitos, estado_transaccion, codigo_autorizacion, mensaje_respuesta, estado) 
+    $sql = "INSERT INTO api_azul (referencia_azul, codigo_tarjeta, monto, tipo_tarjeta, ultimos_4_digitos, estado_transaccion, codigo_autorizacion, mensaje_respuesta, estado) 
             VALUES (?, ?, ?, 'Credito', ?, 'Aprobada', 'AUTH-TALLER', 'Aprobado por Popular', 'activo')";
     $stmt = $conexion->prepare($sql);
     $stmt->bind_param("ssds", $referencia, $tarjeta, $monto, $ultimos4);
@@ -165,13 +166,20 @@ function simular_api_azul($conexion) {
     }
 }
 
-function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
+function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
     $data = json_decode(file_get_contents("php://input"), true);
     $conexion->begin_transaction();
 
     try {
+        $id_cliente = (int)$data['id_cliente'];
+        $id_orden = (int)$data['id_orden'];
+        
+        // PARCHE DE SUCURSAL: Averiguamos en qué sucursal se originó esta orden realmente.
+        $qSucursal = $conexion->query("SELECT id_sucursal FROM orden WHERE id_orden = $id_orden LIMIT 1");
+        $id_sucursal_real = ($qSucursal && $rSuc = $qSucursal->fetch_assoc()) ? (int)$rSuc['id_sucursal'] : $id_sucursal_sesion;
+
         if ($data['es_credito']) {
-            $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
+            $sqlC = "SELECT saldo_disponible FROM credito WHERE id_credito = ? FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
             $stmtC->bind_param("i", $data['id_credito']);
             $stmtC->execute();
@@ -182,25 +190,24 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
             }
         }
 
-        $sqlF = "INSERT INTO Factura_Central (id_cliente, id_sucursal, id_orden, id_metodo, id_moneda, NCF, origen_negocio, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
+        $sqlF = "INSERT INTO factura_central (id_cliente, id_sucursal, id_orden, id_metodo, id_moneda, NCF, origen_negocio, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
                  VALUES (?, ?, ?, ?, 1, ?, 'Taller', ?, ?, ?, ?, 'activo')";
                  
-        $id_cliente = $data['id_cliente'];
-        $id_orden = $data['id_orden'];
         $estado_pago = $data['es_credito'] ? 'Pendiente' : 'Pagado';
         
         $stmtF = $conexion->prepare($sqlF);
-        $stmtF->bind_param("iiiisdssi", $id_cliente, $id_sucursal, $id_orden, $data['metodo_pago'], $data['ncf'], $data['total_final'], $data['referencia_azul'], $estado_pago, $id_usuario);
+        // Aquí pasamos el $id_sucursal_real blindando el proceso
+        $stmtF->bind_param("iiiisdssi", $id_cliente, $id_sucursal_real, $id_orden, $data['metodo_pago'], $data['ncf'], $data['total_final'], $data['referencia_azul'], $estado_pago, $id_usuario);
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
         if ($data['es_credito']) {
-            $sqlFC = "INSERT INTO Factura_Credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
+            $sqlFC = "INSERT INTO factura_credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
             $stmtFC = $conexion->prepare($sqlFC);
             $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
             $stmtFC->execute();
 
-            $sqlUpdC = "UPDATE Credito 
+            $sqlUpdC = "UPDATE credito 
                         SET saldo_disponible = saldo_disponible - ?, 
                             saldo_pendiente = saldo_pendiente + ? 
                         WHERE id_credito = ?";
@@ -212,7 +219,7 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
         if (!empty($data['ofertas_ids'])) {
             foreach ($data['ofertas_ids'] as $id_oferta) {
                 try {
-                    $sqlOf = "INSERT INTO Factura_Oferta (id_factura, id_oferta, estado) VALUES (?, ?, 'activo')";
+                    $sqlOf = "INSERT INTO factura_oferta (id_factura, id_oferta, estado) VALUES (?, ?, 'activo')";
                     $stmtOf = $conexion->prepare($sqlOf);
                     $stmtOf->bind_param("ii", $id_factura, $id_oferta);
                     $stmtOf->execute();
@@ -222,23 +229,24 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
 
         if (!empty($data['repuestos_extra'])) {
             foreach ($data['repuestos_extra'] as $item) {
-                $sqlR = "INSERT INTO Orden_Repuesto (id_orden, id_articulo, cantidad, precio_base, sub_total, estado) VALUES (?, ?, ?, ?, ?, 'activo')";
+                $sqlR = "INSERT INTO orden_repuesto (id_orden, id_articulo, cantidad, precio_base, sub_total, estado) VALUES (?, ?, ?, ?, ?, 'activo')";
                 $sub = $item['precio'] * $item['cantidad'];
                 $stmtR = $conexion->prepare($sqlR);
                 $stmtR->bind_param("iiidd", $id_orden, $item['id'], $item['cantidad'], $item['precio'], $sub);
                 $stmtR->execute();
 
-                $sqlU = "UPDATE Inventario i 
-                         INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
-                         INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
+                // Parche de Inventario: Reduce de la sucursal de la orden, no de la sesión vacía
+                $sqlU = "UPDATE inventario i 
+                         INNER JOIN gondola g ON i.id_gondola = g.id_gondola 
+                         INNER JOIN almacen a ON g.id_almacen = a.id_almacen 
                          SET i.cantidad = i.cantidad - ? 
                          WHERE i.id_articulo = ? AND a.id_sucursal = ?";
                 $stmtU = $conexion->prepare($sqlU);
-                $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
+                $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal_real);
                 $stmtU->execute();
 
                 $motivo = "Agregado en Entrega ORD-" . $id_orden;
-                $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
+                $sqlMov = "INSERT INTO movimiento_inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
                            VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
                 $stmtM = $conexion->prepare($sqlMov);
                 $stmtM->bind_param("iisi", $item['id'], $item['cantidad'], $motivo, $id_usuario);
@@ -247,20 +255,18 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
         }
 
         foreach ($data['impuestos_ids'] as $id_imp) {
-            $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
+            $sqlI = "INSERT INTO factura_impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
             $stmtI = $conexion->prepare($sqlI);
             $stmtI->bind_param("ii", $id_factura, $id_imp);
             $stmtI->execute();
         }
 
-        $sqlUpdO = "UPDATE Orden SET monto_total = ? WHERE id_orden = ?";
+        $sqlUpdO = "UPDATE orden SET monto_total = ? WHERE id_orden = ?";
         $stmtUpdO = $conexion->prepare($sqlUpdO);
         $stmtUpdO->bind_param("di", $data['total_final'], $id_orden);
         $stmtUpdO->execute();
 
-        // --- INYECCIÓN AUTOLAVADO: Quitar de la pista al facturar ---
         $conexion->query("UPDATE orden_lavado SET estado_lavado = 'Entregado' WHERE id_orden = " . (int)$id_orden);
-        // ------------------------------------------------------------
 
         $conexion->commit();
         echo json_encode(['success' => true, 'id_factura' => $id_factura]);
@@ -271,14 +277,12 @@ function guardar_factura_orden($conexion, $id_sucursal, $id_usuario) {
     }
 }
 
-// --- FUNCIÓN AÑADIDA CON LA INTEGRACIÓN DEL LAVADO ---
 function obtener_detalle_facturacion($conexion) {
     $id_orden = (int)$_GET['id_orden'];
     
-    // 1. Servicios del Taller
     $sqlServ = "SELECT os.id_tipo_servicio, ts.nombre AS descripcion, 1 AS cantidad, os.precio_estimado AS precio
-                FROM Orden_Servicio os
-                JOIN Tipo_Servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio
+                FROM orden_servicio os
+                JOIN tipo_servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio
                 WHERE os.id_orden = $id_orden AND os.estado = 'activo'";
                 
     $servicios_db = $conexion->query($sqlServ)->fetch_all(MYSQLI_ASSOC);
@@ -296,7 +300,6 @@ function obtener_detalle_facturacion($conexion) {
         ];
     }
     
-    // 2. INYECCIÓN AUTOLAVADO: Buscar lavado pendiente
     $sqlLav = "SELECT ol.id_orden_lavado, tl.nombre AS descripcion, ol.monto_total AS precio
                FROM orden_lavado ol
                JOIN tipo_lavado tl ON ol.id_tipo_lavado = tl.id_tipo
@@ -318,12 +321,11 @@ function obtener_detalle_facturacion($conexion) {
         }
     }
 
-    // 3. Repuestos
     $repuestos_data = [];
     try {
         $sqlRep = "SELECT ra.id_articulo as id, ra.nombre AS descripcion, orp.cantidad, ra.precio_venta AS precio, (orp.cantidad * ra.precio_venta) AS subtotal, false as es_extra
-                   FROM Orden_Repuesto orp 
-                   JOIN Repuesto_Articulo ra ON orp.id_articulo = ra.id_articulo
+                   FROM orden_repuesto orp 
+                   JOIN repuesto_articulo ra ON orp.id_articulo = ra.id_articulo
                    WHERE orp.id_orden = $id_orden AND orp.estado = 'activo'";
                    
         $repuestos = $conexion->query($sqlRep);
@@ -341,7 +343,7 @@ function obtener_servicios_calidad($conexion) {
     $sql = "SELECT ap.id_asignacion, ts.nombre 
             FROM asignacion_personal ap 
             JOIN asignacion_orden ao ON ap.id_asignacion = ao.id_asignacion 
-            JOIN Tipo_Servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio 
+            JOIN tipo_servicio ts ON ap.id_tipo_servicio = ts.id_tipo_servicio 
             WHERE ao.id_orden = $id_orden AND ap.estado_asignacion = 'Completado' AND ap.estado = 'activo'";
     $res = $conexion->query($sql);
     echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
@@ -363,11 +365,11 @@ function procesar_calidad($conexion) {
     try {
         $nombre_estado_nuevo = ($decision === 'Aprobado') ? 'Listo' : 'Reparación';
         
-        $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = '$nombre_estado_nuevo' LIMIT 1");
+        $resEst = $conexion->query("SELECT id_estado FROM estado WHERE nombre = '$nombre_estado_nuevo' LIMIT 1");
         $rowEst = $resEst ? $resEst->fetch_assoc() : null;
 
         if (!$rowEst && $decision === 'Rechazado') {
-            $resEstAlt = $conexion->query("SELECT id_estado FROM Estado WHERE nombre IN ('En Proceso', 'Proceso', 'En Reparación', 'Revisión') LIMIT 1");
+            $resEstAlt = $conexion->query("SELECT id_estado FROM estado WHERE nombre IN ('En Proceso', 'Proceso', 'En Reparación', 'Revisión') LIMIT 1");
             $rowEst = $resEstAlt ? $resEstAlt->fetch_assoc() : null;
         }
 
@@ -377,11 +379,11 @@ function procesar_calidad($conexion) {
 
         $id_estado_nuevo = $rowEst['id_estado'];
 
-        $checkEst = $conexion->query("SELECT 1 FROM Orden_Estado WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
+        $checkEst = $conexion->query("SELECT 1 FROM orden_estado WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
         if($checkEst->num_rows > 0){
-            $conexion->query("UPDATE Orden_Estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario_sesion WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
+            $conexion->query("UPDATE orden_estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario_sesion WHERE id_orden = $id_orden AND id_estado = $id_estado_nuevo");
         } else {
-            $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_nuevo, $usuario_sesion)");
+            $conexion->query("INSERT INTO orden_estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_nuevo, $usuario_sesion)");
         }
 
         if ($decision === 'Rechazado') {
@@ -413,19 +415,19 @@ function procesar_entrega($conexion) {
 
     $conexion->begin_transaction();
     try {
-        $resEst = $conexion->query("SELECT id_estado FROM Estado WHERE nombre = 'Entregado' LIMIT 1");
+        $resEst = $conexion->query("SELECT id_estado FROM estado WHERE nombre = 'Entregado' LIMIT 1");
         if(!$resEst || $resEst->num_rows == 0) throw new Exception("Estado 'Entregado' no encontrado en el sistema.");
         $id_estado_entregado = $resEst->fetch_assoc()['id_estado'];
 
-        $checkEst = $conexion->query("SELECT 1 FROM Orden_Estado WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
+        $checkEst = $conexion->query("SELECT 1 FROM orden_estado WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
         if($checkEst->num_rows > 0){
-            $conexion->query("UPDATE Orden_Estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
+            $conexion->query("UPDATE orden_estado SET fecha_creacion = CURRENT_TIMESTAMP, usuario_creacion = $usuario WHERE id_orden = $id_orden AND id_estado = $id_estado_entregado");
         } else {
-            $conexion->query("INSERT INTO Orden_Estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_entregado, $usuario)");
+            $conexion->query("INSERT INTO orden_estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_entregado, $usuario)");
         }
 
         if ($tipo_garantia != '') {
-            $sql_veh = "SELECT i.id_vehiculo FROM Orden o JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion WHERE o.id_orden = ?";
+            $sql_veh = "SELECT i.id_vehiculo FROM orden o JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion WHERE o.id_orden = ?";
             $stmt_veh = $conexion->prepare($sql_veh);
             $stmt_veh->bind_param("i", $id_orden);
             $stmt_veh->execute();
@@ -468,16 +470,16 @@ function obtener_acta($conexion) {
             v.placa, v.vin_chasis, CONCAT(mar.nombre, ' ', IFNULL(v.modelo, '')) AS vehiculo,
             DATE_FORMAT(oe_ent.fecha_creacion, '%d/%m/%Y %h:%i %p') AS fecha_entrega,
             IFNULL(u.username, 'Admin') AS entregado_por
-            FROM Orden o
+            FROM orden o
             JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion
-            JOIN Vehiculo v ON i.id_vehiculo = v.sec_vehiculo
-            JOIN Marca mar ON v.id_marca = mar.id_marca
-            JOIN Cliente c ON v.id_cliente = c.id_cliente
-            JOIN Persona per ON c.id_persona = per.id_persona
-            LEFT JOIN Factura_Central fc ON o.id_orden = fc.id_orden
-            LEFT JOIN Orden_Estado oe_ent ON o.id_orden = oe_ent.id_orden 
-            LEFT JOIN Estado e_ent ON oe_ent.id_estado = e_ent.id_estado AND e_ent.nombre = 'Entregado'
-            LEFT JOIN Usuario u ON oe_ent.usuario_creacion = u.id_usuario
+            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN marca mar ON v.id_marca = mar.id_marca
+            JOIN cliente c ON v.id_cliente = c.id_cliente
+            JOIN persona per ON c.id_persona = per.id_persona
+            LEFT JOIN factura_central fc ON o.id_orden = fc.id_orden
+            LEFT JOIN orden_estado oe_ent ON o.id_orden = oe_ent.id_orden 
+            LEFT JOIN estado e_ent ON oe_ent.id_estado = e_ent.id_estado AND e_ent.nombre = 'Entregado'
+            LEFT JOIN usuario u ON oe_ent.usuario_creacion = u.id_usuario
             WHERE o.id_orden = $id_orden ORDER BY oe_ent.fecha_creacion DESC LIMIT 1";
     $res = $conexion->query($sql);
     echo json_encode(['success' => true, 'data' => $res->fetch_assoc()]);

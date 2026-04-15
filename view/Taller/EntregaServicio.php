@@ -250,6 +250,7 @@ require("../../header.php");
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg overflow-hidden">
                 <div class="bg-primary p-4 text-center text-white">
+                    <img src="../../img/lazul.jpg" alt="Azul" style="height: 50px; border-radius: 5px;">
                     <h5 class="fw-bold mb-0">PASARELA AZUL</h5>
                     <small>BANCO POPULAR</small>
                 </div>

@@ -189,7 +189,7 @@ require("../../header.php");
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 overflow-hidden shadow-lg">
             <div class="bg-primary p-4 text-center">
-                <img src="/Taller/Taller-Mecanica/img/azul.webp" alt="Azul" style="filter: brightness(0) invert(1); height: 45px;">
+                <img src="../../img/lazul.jpg" alt="Azul" style="height: 50px; border-radius: 5px;">
                 <div class="mt-2 text-white small fw-bold">PASARELA BANCO POPULAR</div>
             </div>
             <div class="p-4" id="azul_formulario">

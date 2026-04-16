@@ -1,7 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     actualizarTablaInspecciones();
     cargarMonitorTaller(); 
-   // inicializarBuscadoresEspecializados(); 
+    cargarCatalogoServicios();
+
+    // Cierra los buscadores dinámicos al dar clic afuera
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#busqueda_repuesto') && !e.target.closest('#res_repuestos')) {
+            const r = document.getElementById('res_repuestos');
+            if(r) r.classList.add('d-none');
+        }
+        if (!e.target.closest('#busqueda_servicio') && !e.target.closest('#res_servicios')) {
+            const s = document.getElementById('res_servicios');
+            if(s) s.classList.add('d-none');
+        }
+    });
 });
 
 // Variables globales para el "Carrito" de la Orden
@@ -9,31 +21,17 @@ let serviciosAgregados = [];
 let repuestosAgregados = [];
 let idInspeccionSeleccionada = 0;
 let inventarioInspecciones = [];
+let catalogoServicios = [];
 
 /**
  * 1. CARGA DE INSPECCIONES PENDIENTES
  */
 
-
-function agregarServicioDesdeSelect(select) {
-    const option = select.options[select.selectedIndex];
-    if (!option.value) return;
-
-    const precio = parseFloat(option.getAttribute('data-precio')) || 0;
-    
-    serviciosAgregados.push({
-        id_tipo: option.value,
-        nombre: option.text,
-        cant: 1,
-        precio: precio
-    });
-
-    select.value = ""; 
+function agregarServicioA_Orden(id, nombre, precio) {
+    serviciosAgregados.push({ id_tipo: id, nombre: nombre, cant: 1, precio: parseFloat(precio) });
     renderizarListasOrden();
 }
-/**
- * Carga las inspecciones finalizadas desde el servidor y las muestra en la tabla.
- */
+
 function actualizarTablaInspecciones() {
     const busqueda = document.getElementById('filtro_inspeccion').value.toLowerCase();
     const tbody = document.getElementById('tbody_inspecciones');
@@ -41,9 +39,8 @@ function actualizarTablaInspecciones() {
     
     if(!tbody) return;
 
-    // Usamos la ruta absoluta para evitar errores de 404
     fetch('/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=listar_inspecciones')
-    .then(res => res.text()) // Leemos como texto para capturar errores de PHP
+    .then(res => res.text())
     .then(text => {
         try {
             const res = JSON.parse(text);
@@ -54,19 +51,14 @@ function actualizarTablaInspecciones() {
             }
 
             inventarioInspecciones = res.data;
-            // 1. Filtrado dinámico (protegido contra valores nulos)
             const filtrados = res.data.filter(i => 
                 (i.placa || '').toLowerCase().includes(busqueda) || 
                 (i.cliente_nombre || '').toLowerCase().includes(busqueda) ||
                 (i.id_inspeccion || '').toString().includes(busqueda)
             );
 
-            // 2. ACTUALIZAR EL RECUADRO AMARILLO
-            if(cnt) {
-                cnt.textContent = `${filtrados.length} Inspecciones`;
-            }
+            if(cnt) cnt.textContent = `${filtrados.length} Inspecciones`;
 
-            // 3. Limpiar y llenar la tabla
             tbody.innerHTML = '';
 
             if (filtrados.length === 0) {
@@ -75,14 +67,12 @@ function actualizarTablaInspecciones() {
             }
 
             filtrados.forEach(ins => {
-                // Validación para evitar el error de 'undefined' en marca/modelo
                 const marca = ins.marca || 'S/M';
                 const modelo = ins.modelo || 'S/M';
                 const placa = ins.placa || 'SIN PLACA';
                 const cliente = ins.cliente_nombre || 'Cliente no reg.';
                 const criticos = parseInt(ins.hallazgos_criticos || 0);
                 
-                // Color del badge de hallazgos
                 const badgeColor = criticos > 0 ? 'bg-danger' : 'bg-warning text-dark';
 
                 tbody.innerHTML += `
@@ -108,7 +98,6 @@ function actualizarTablaInspecciones() {
             });
 
         } catch (e) {
-            // Si el PHP manda un error de SQL, lo verás aquí detallado
             console.error("Error al procesar JSON. El servidor respondió:", text);
         }
     })
@@ -120,45 +109,113 @@ function actualizarTablaInspecciones() {
  */
 function prepararNuevaOrden(idInspeccion) {
     idInspeccionSeleccionada = idInspeccion;
-    
-    // Primero buscamos en la tabla local la info que ya tenemos para no esperar al servidor
-    const inspeccionLocal = inventarioInspecciones.find(i => i.id_inspeccion == idInspeccion);
-    if(inspeccionLocal) {
-        document.getElementById('modal_cliente_nombre').textContent = inspeccionLocal.cliente_nombre;
-    }
 
-    // Luego pedimos los hallazgos detallados al servidor
-    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=obtener_detalle_inspeccion&id=${idInspeccion}`)
+    fetch(`../../modules/Taller/Archivo_Orden.php?action=obtener_detalle_inspeccion&id=${idInspeccion}`)
     .then(res => res.json())
     .then(res => {
+        // SE AGREGÓ: Carga del color del vehículo
+        if (res.info_vehiculo) {
+            document.getElementById('modal_cliente_nombre').textContent = res.info_vehiculo.cliente_nombre;
+            document.getElementById('modal_vehiculo_placa').textContent = res.info_vehiculo.placa || 'N/A';
+            document.getElementById('modal_vehiculo_modelo').textContent = `${res.info_vehiculo.marca} ${res.info_vehiculo.modelo}`;
+            document.getElementById('modal_vehiculo_color').textContent = res.info_vehiculo.color_nombre;
+        }
+
         const listaH = document.getElementById('lista_hallazgos_sugeridos');
+        const listaT = document.getElementById('lista_trabajos_solicitados');
+        
         listaH.innerHTML = '';
+        listaT.innerHTML = ''; 
         
         if(res.hallazgos && res.hallazgos.length > 0) {
             res.hallazgos.forEach(h => {
-                const color = h.estado === 'D' ? 'text-danger' : 'text-warning';
-                listaH.innerHTML += `<li class="list-group-item small"><i class="fas fa-exclamation-triangle ${color} me-2"></i> ${h.elemento} (${h.categoria})</li>`;
+                const icono = h.estado === 'D' ? 'fa-times-circle text-danger' : 'fa-exclamation-triangle text-warning';
+                listaH.innerHTML += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center small">
+                        <span><i class="fas ${icono} me-2"></i>${h.elemento}</span>
+                        <span class="badge bg-light text-dark border">${h.categoria}</span>
+                    </li>`;
             });
         } else {
-            listaH.innerHTML = '<li class="list-group-item small text-muted text-center">Sin hallazgos críticos</li>';
+            listaH.innerHTML = '<li class="list-group-item small text-muted text-center py-3">Vehículo sin novedades críticas</li>';
         }
 
-        const myModal = new bootstrap.Modal(document.getElementById('modalCrearOrden'));
-        myModal.show();
+        if(res.trabajos && res.trabajos.length > 0) {
+            res.trabajos.forEach(t => {
+                listaT.innerHTML += `<li class="list-group-item small fw-bold text-dark"><i class="fas fa-check-circle text-primary me-2"></i> ${t.descripcion}</li>`;
+            });
+        } else {
+            listaT.innerHTML = '<li class="list-group-item small text-muted text-center py-2">No se especificaron trabajos en recepción</li>';
+        }
+
+        new bootstrap.Modal(document.getElementById('modalCrearOrden')).show();
     });
 }
 
 /**
  * 3. LÓGICA DEL "CARRITO" DE LA ORDEN
  */
-function agregarServicioA_Orden(id, nombre, precio) {
-    // Evitar duplicados si lo deseas, o permitir varios del mismo
-    serviciosAgregados.push({ id_tipo: id, nombre: nombre, cant: 1, precio: parseFloat(precio) });
-    renderizarListasOrden();
+
+function cargarCatalogoServicios() {
+    fetch('../../modules/Taller/Archivo_Orden.php?action=listar_catalogo_servicios')
+    .then(res => res.json())
+    .then(res => {
+        if (res.success) catalogoServicios = res.data;
+    });
 }
 
-function agregarRepuestoA_Orden(id, nombre, precio) {
-    repuestosAgregados.push({ id_art: id, nombre: nombre, cant: 1, precio: parseFloat(precio) });
+document.getElementById('busqueda_servicio').addEventListener('input', function() {
+    const term = this.value.toLowerCase().trim();
+    const lista = document.getElementById('res_servicios');
+    
+    if(term.length < 2) { lista.classList.add('d-none'); return; }
+
+    const filtrados = catalogoServicios.filter(s => s.nombre.toLowerCase().includes(term));
+    
+    lista.innerHTML = '';
+    if(filtrados.length > 0) {
+        lista.classList.remove('d-none');
+        filtrados.forEach(s => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center cursor-pointer py-2';
+            li.innerHTML = `
+                <span class="small fw-bold text-dark"><i class="fas fa-wrench text-primary me-2"></i>${s.nombre}</span>
+                <span class="badge bg-success shadow-sm">$${parseFloat(s.precio_valor).toFixed(2)}</span>
+            `;
+            li.onclick = () => {
+                agregarServicioA_Orden(s.id_tipo_servicio, s.nombre, s.precio_valor);
+                lista.classList.add('d-none');
+                document.getElementById('busqueda_servicio').value = '';
+            };
+            lista.appendChild(li);
+        });
+    } else {
+        lista.innerHTML = '<li class="list-group-item text-muted small py-2">No se encontraron servicios.</li>';
+        lista.classList.remove('d-none');
+    }
+});
+
+function agregarRepuestoA_Orden(art) {
+    const stockDisponible = parseInt(art.stock_sucursal);
+
+    if (stockDisponible <= 0) {
+        alert(`❌ No hay stock de "${art.nombre}" en esta sucursal. Debe solicitar una transferencia.`);
+        return;
+    }
+
+    const existe = repuestosAgregados.find(r => r.id_art === art.id_articulo);
+    if(existe && (existe.cant + 1) > stockDisponible) {
+        alert("⚠️ Cantidad máxima alcanzada según stock disponible.");
+        return;
+    }
+
+    repuestosAgregados.push({ 
+        id_art: art.id_articulo, 
+        nombre: art.nombre, 
+        cant: 1, 
+        precio: art.precio,
+        stock_limite: stockDisponible 
+    });
     renderizarListasOrden();
 }
 
@@ -176,8 +233,7 @@ function renderizarListasOrden() {
     listaServ.innerHTML = '';
     listaRep.innerHTML = '';
 
-    // --- RENDER SERVICIOS ---
-    serviciosAgregados.forEach((s, i) => { // 's' para servicio
+    serviciosAgregados.forEach((s, i) => {
         const precio = parseFloat(s.precio) || 0;
         const cant = parseInt(s.cant) || 1;
         const sub = cant * precio;
@@ -187,18 +243,17 @@ function renderizarListasOrden() {
             <tr>
                 <td class="small">${s.nombre}</td>
                 <td class="text-center">
-                    <input type="number" class="form-control form-control-sm text-center" 
+                    <input type="number" class="form-control form-control-sm text-center border-primary" 
                            style="width:60px; margin:auto;" value="${cant}" 
                            onchange="actualizarCant('serv', ${i}, this.value)">
                 </td>
                 <td class="text-end">$${precio.toFixed(2)}</td>
-                <td class="text-end fw-bold">$${sub.toFixed(2)}</td>
+                <td class="text-end fw-bold text-dark">$${sub.toFixed(2)}</td>
                 <td class="text-center"><button class="btn btn-link text-danger p-0" onclick="eliminarItem('servicio', ${i})"><i class="fas fa-times"></i></button></td>
             </tr>`;
     });
 
-    // --- RENDER REPUESTOS (Aquí estaba el error) ---
-    repuestosAgregados.forEach((r, i) => { // ASEGÚRATE de que aquí diga 'r'
+    repuestosAgregados.forEach((r, i) => {
         const precio = parseFloat(r.precio) || 0;
         const cant = parseInt(r.cant) || 1;
         const sub = cant * precio;
@@ -208,12 +263,12 @@ function renderizarListasOrden() {
             <tr>
                 <td class="small">${r.nombre}</td>
                 <td class="text-center">
-                    <input type="number" class="form-control form-control-sm text-center" 
+                    <input type="number" class="form-control form-control-sm text-center border-warning" 
                            style="width:60px; margin:auto;" value="${cant}" 
                            onchange="actualizarCant('rep', ${i}, this.value)">
                 </td>
                 <td class="text-end">$${precio.toFixed(2)}</td>
-                <td class="text-end fw-bold">$${sub.toFixed(2)}</td>
+                <td class="text-end fw-bold text-dark">$${sub.toFixed(2)}</td>
                 <td class="text-center"><button class="btn btn-link text-danger p-0" onclick="eliminarItem('repuesto', ${i})"><i class="fas fa-times"></i></button></td>
             </tr>`;
     });
@@ -222,12 +277,36 @@ function renderizarListasOrden() {
     window.montoTotalCalculado = total;
 }
 
+function actualizarCant(tipo, index, nuevaCant) {
+    const cantidad = parseInt(nuevaCant);
+
+    if (isNaN(cantidad) || cantidad <= 0) {
+        alert("La cantidad debe ser al menos 1");
+        renderizarListasOrden();
+        return;
+    }
+
+    if (tipo === 'rep') {
+        const item = repuestosAgregados[index];
+        if (cantidad > item.stock_limite) {
+            alert(`⚠️ Solo hay ${item.stock_limite} unidades en stock.`);
+            renderizarListasOrden();
+            return;
+        }
+        repuestosAgregados[index].cant = cantidad;
+    } else {
+        serviciosAgregados[index].cant = cantidad;
+    }
+
+    renderizarListasOrden();
+}
+
 /**
  * 4. GUARDADO FINAL
  */
 function guardarOrdenServicio() {
     if(serviciosAgregados.length === 0) {
-        alert("⚠️ Debe agregar al menos un servicio.");
+        alert("⚠️ Debe agregar al menos un servicio a la orden.");
         return;
     }
 
@@ -239,7 +318,7 @@ function guardarOrdenServicio() {
         repuestos: repuestosAgregados
     };
 
-    fetch('/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=guardar_orden_maestra', {
+    fetch('../../modules/Taller/Archivo_Orden.php?action=guardar_orden_maestra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -255,70 +334,6 @@ function guardarOrdenServicio() {
     });
 }
 
-// 1. Cargar el nombre del cliente y datos del vehículo al abrir
-function prepararNuevaOrden(idInspeccion) {
-    idInspeccionSeleccionada = idInspeccion;
-    const dataRow = inventarioInspecciones.find(i => i.id_inspeccion == idInspeccion);
-    
-    if(dataRow) {
-        document.getElementById('modal_cliente_nombre').textContent = dataRow.cliente_nombre;
-        document.getElementById('modal_vehiculo_placa').textContent = dataRow.placa;
-        document.getElementById('modal_vehiculo_modelo').textContent = `${dataRow.marca} ${dataRow.modelo}`;
-        document.getElementById('modal_vehiculo_color').textContent = dataRow.color_nombre || 'No especificado';
-    }
-
-    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=obtener_detalle_inspeccion&id=${idInspeccion}`)
-    .then(res => res.json())
-    .then(res => {
-        const listaH = document.getElementById('lista_hallazgos_sugeridos');
-        listaH.innerHTML = '';
-        
-        // Si el PHP devuelve elementos con estado 'D' (Dañado) o 'F' (Faltante)
-        if(res.hallazgos && res.hallazgos.length > 0) {
-            res.hallazgos.forEach(h => {
-                const icono = h.estado === 'D' ? 'fa-times-circle text-danger' : 'fa-exclamation-triangle text-warning';
-                listaH.innerHTML += `
-                    <li class="list-group-item d-flex justify-content-between align-items-center small">
-                        <span><i class="fas ${icono} me-2"></i>${h.elemento}</span>
-                        <span class="badge bg-light text-dark border">${h.categoria}</span>
-                    </li>`;
-            });
-        } else {
-            listaH.innerHTML = '<li class="list-group-item small text-muted text-center py-3">Vehículo sin novedades críticas</li>';
-        }
-        cargarCatalogoServicios();
-        new bootstrap.Modal(document.getElementById('modalCrearOrden')).show();
-    });
-}
-
-// 2. Validación de Stock al agregar
-function agregarRepuestoA_Orden(art) {
-    // art trae: id_articulo, nombre, precio, stock_sucursal
-    const stockDisponible = parseInt(art.stock_sucursal);
-
-    if (stockDisponible <= 0) {
-        alert(`❌ No hay stock de "${art.nombre}" en esta sucursal. Debe solicitar una transferencia.`);
-        return;
-    }
-
-    // Si ya está en el carrito, validamos que la nueva suma no supere el stock
-    const existe = repuestosAgregados.find(r => r.id_art === art.id_articulo);
-    if(existe && (existe.cant + 1) > stockDisponible) {
-        alert("⚠️ Cantidad máxima alcanzada según stock disponible.");
-        return;
-    }
-
-    repuestosAgregados.push({ 
-        id_art: art.id_articulo, 
-        nombre: art.nombre, 
-        cant: 1, 
-        precio: art.precio,
-        stock_limite: stockDisponible 
-    });
-    renderizarListasOrden();
-}
-
-// En Scripts_Orden_Servicio.js
 function seleccionarRepuestoBuscador(art) {
     const id = art.id_articulo;
     const nombre = art.nombre;
@@ -330,7 +345,6 @@ function seleccionarRepuestoBuscador(art) {
         return;
     }
 
-    // Guardamos el objeto con los mismos nombres que usa el renderizador
     repuestosAgregados.push({
         id_art: id,
         nombre: nombre,
@@ -342,41 +356,23 @@ function seleccionarRepuestoBuscador(art) {
     document.getElementById('busqueda_repuesto').value = '';
     document.getElementById('res_repuestos').classList.add('d-none');
     
-    renderizarListasOrden(); // Esta es la que fallaba porque no encontraba 'r'
+    renderizarListasOrden();
 }
 
-
-// Cargar Servicios al iniciar
-function cargarCatalogoServicios() {
-    fetch('/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=listar_catalogo_servicios')
-    .then(res => res.json())
-    .then(res => {
-        const sel = document.getElementById('select_servicio');
-        // Limpiamos pero mantenemos la opción por defecto
-        sel.innerHTML = '<option value="">Seleccione un servicio...</option>';
-        res.data.forEach(s => {
-            // Es vital que el atributo se llame data-precio
-            sel.innerHTML += `<option value="${s.id_tipo_servicio}" data-precio="${s.precio_valor}">${s.nombre}</option>`;
-        });
-    });
-}
-
-// Buscador de Repuestos con Imagen y STOCK REAL
 document.getElementById('busqueda_repuesto').addEventListener('input', function() {
     const term = this.value.trim();
     const lista = document.getElementById('res_repuestos');
     
     if(term.length < 2) { lista.classList.add('d-none'); return; }
 
-    // Cambiamos la ruta a la acción que busca con STOCK
-    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=buscar_repuestos_stock&term=${term}`)
+    fetch(`../../modules/Taller/Archivo_Orden.php?action=buscar_repuestos_stock&term=${term}`)
     .then(res => res.json())
     .then(response => {
         lista.innerHTML = '';
         if(response.success && response.data.length > 0) {
             lista.classList.remove('d-none');
             response.data.forEach(art => {
-                const img = art.imagen ? art.imagen : '/Taller/Taller-Mecanica/img/default_part.png';
+                const img = art.imagen ? art.imagen : '../../img/default_part.png';
                 const li = document.createElement('li');
                 li.className = 'list-group-item list-group-item-action d-flex align-items-center cursor-pointer';
                 li.innerHTML = `
@@ -387,9 +383,8 @@ document.getElementById('busqueda_repuesto').addEventListener('input', function(
                         <small class="text-primary fw-bold">$${parseFloat(art.precio_venta).toFixed(2)}</small>
                     </div>
                 `;
-                // Pasar el objeto completo 'art' para que agregarRepuestoA_Orden tenga el precio y stock
                 li.onclick = () => {
-                    seleccionarRepuestoBuscador(art); // Usamos la función de selección
+                    seleccionarRepuestoBuscador(art);
                     lista.classList.add('d-none');
                     document.getElementById('busqueda_repuesto').value = '';
                 };
@@ -399,37 +394,8 @@ document.getElementById('busqueda_repuesto').addEventListener('input', function(
     });
 });
 
-function actualizarCant(tipo, index, nuevaCant) {
-    const cantidad = parseInt(nuevaCant);
-
-    // Validación básica
-    if (isNaN(cantidad) || cantidad <= 0) {
-        alert("La cantidad debe ser al menos 1");
-        renderizarListasOrden();
-        return;
-    }
-
-    if (tipo === 'rep') {
-        const item = repuestosAgregados[index];
-        // Validación de Stock (usando el límite que guardamos al agregar)
-        if (cantidad > item.stock_limite) {
-            alert(`⚠️ Solo hay ${item.stock_limite} unidades en stock.`);
-            renderizarListasOrden();
-            return;
-        }
-        repuestosAgregados[index].cant = cantidad;
-    } else {
-        serviciosAgregados[index].cant = cantidad;
-    }
-
-    // ESTO ES LO QUE FALTA: Recalcular y actualizar la vista del total
-    renderizarListasOrden();
-}
-
-
-// --- AQUÍ ESTÁ LA FUNCIÓN CORREGIDA DEL MONITOR ---
 function cargarMonitorTaller() {
-    fetch('/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=listar_monitor_taller')
+    fetch('../../modules/Taller/Archivo_Orden.php?action=listar_monitor_taller')
     .then(res => res.json())
     .then(res => {
         const tbody = document.getElementById('tbody_ordenes_activas');
@@ -443,17 +409,14 @@ function cargarMonitorTaller() {
         }
 
         res.data.forEach(o => {
-            // Calcular progreso real
             const total = parseInt(o.total_servicios) || 0;
             const listos = parseInt(o.servicios_listos) || 0;
             const porcentaje = total > 0 ? Math.round((listos / total) * 100) : 0;
             
-            // Color de la barra según progreso
             let colorBarra = 'bg-info';
             if(porcentaje > 50) colorBarra = 'bg-primary';
             if(porcentaje === 100) colorBarra = 'bg-success';
 
-            // Badge de estado dinámico
             let badgeEstado = `<span class="badge bg-light text-dark border small"><i class="fas fa-clock me-1"></i> ${o.nombre_proceso}</span>`;
             if(o.nombre_proceso === 'Reparación' || o.nombre_proceso === 'En Reparación') {
                 badgeEstado = `<span class="badge bg-warning text-dark border-warning small"><i class="fas fa-wrench me-1"></i> ${o.nombre_proceso}</span>`;
@@ -498,22 +461,18 @@ function cargarMonitorTaller() {
     });
 }
 
-/**
- * Abre un modal o muestra la información detallada de una orden guardada
- */
 function verDetalleOrden(idOrden) {
     document.getElementById('det_id_orden').textContent = `#${idOrden}`;
     
-    fetch(`/Taller/Taller-Mecanica/modules/Taller/Archivo_Orden.php?action=obtener_detalle_orden_completo&id=${idOrden}`)
+    fetch(`../../modules/Taller/Archivo_Orden.php?action=obtener_detalle_orden_completo&id=${idOrden}`)
     .then(res => res.json())
     .then(res => {
         if (!res.success) return;
 
-        // --- SERVICIOS ---
         const contServ = document.getElementById('det_lista_servicios');
         contServ.innerHTML = '';
         res.servicios.forEach(s => {
-            const pUnit = parseFloat(s.precio) || 0; // Usamos .precio
+            const pUnit = parseFloat(s.precio) || 0; 
             const cant = parseInt(s.cantidad) || 0;
             const subtotal = pUnit * cant;
 
@@ -527,14 +486,13 @@ function verDetalleOrden(idOrden) {
                 </div>`;
         });
 
-        // --- REPUESTOS ---
         const contRep = document.getElementById('det_lista_repuestos');
         contRep.innerHTML = '';
         res.repuestos.forEach(r => {
-            const pUnit = parseFloat(r.precio) || 0; // Usamos .precio
+            const pUnit = parseFloat(r.precio) || 0;
             const cant = parseInt(r.cantidad) || 0;
             const subtotal = pUnit * cant;
-            const img = r.imagen ? r.imagen : '/Taller/Taller-Mecanica/img/default_part.png';
+            const img = r.imagen ? r.imagen : '../../img/default_part.png';
 
             contRep.innerHTML += `
                 <div class="list-group-item d-flex align-items-center p-2">

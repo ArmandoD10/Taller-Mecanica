@@ -73,7 +73,10 @@ function guardar($conexion) {
     $id_orden_previa = (int)($_POST['id_orden'] ?? 0);
     $kilometraje = $_POST['kilometraje_recepcion'] ?? 0;
     $combustible = $_POST['nivel_combustible'] ?? '';
-    $motivo_visita = $_POST['motivo_visita'] ?? '';
+    $motivo_visita = $_POST['motivo_visita'] ?? ''; // Mantenemos el campo texto por compatibilidad
+    
+    // === NUEVO: RECIBIMOS EL ARRAY DE TRABAJOS (CHECKBOXES) ===
+    $trabajos_seleccionados = $_POST['trabajos'] ?? [];
 
     if ($usuario_creacion == 0) {
         echo json_encode(['success' => false, 'message' => 'Sesión expirada.']);
@@ -109,14 +112,14 @@ function guardar($conexion) {
             $stmtUpd->bind_param("iissi", $id_empleado, $kilometraje, $combustible, $motivo_visita, $id_inspeccion);
             $stmtUpd->execute();
             
-            // Avanzar el estado de la orden a "Reparación" (Pasa directo al monitor)
+            // Avanzar el estado de la orden a "Reparación"
             $resEst = $conexion->query("SELECT id_estado FROM estado WHERE nombre = 'Reparación' LIMIT 1");
             if($resEst->num_rows > 0) {
                 $id_est_rep = $resEst->fetch_assoc()['id_estado'];
-                // Insertamos el estado "Reparación" en el historial
                 $conexion->query("INSERT INTO orden_estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden_previa, $id_est_rep, $usuario_creacion)");
             }
             $msg = "Inspección completada. La Orden ORD-$id_orden_previa ha pasado directo a Reparación.";
+            
         } else {
             // LÓGICA DIRECTA: Cliente de calle. (SOLO SE CREA LA INSPECCIÓN)
             $sql = "INSERT INTO inspeccion (id_vehiculo, id_empleado, id_sucursal, kilometraje_recepcion, nivel_combustible, observacion, estado, usuario_creacion) 
@@ -126,17 +129,39 @@ function guardar($conexion) {
             $stmt->execute();
             
             $id_inspeccion = $conexion->insert_id;
-
-            // ELIMINAMOS la inserción en la tabla `orden` aquí. Eso debe hacerlo el asesor 
-            // en la pantalla de Gestión de Órdenes (Servicio.php).
-
             $msg = "Inspección guardada. Se encuentra lista para procesar en Gestión de Órdenes.";
         }
+
+        // =========================================================================
+        // === NUEVO: GUARDAR LOS TRABAJOS SOLICITADOS EN LA TABLA PUENTE ===
+        // =========================================================================
+        if (!empty($trabajos_seleccionados)) {
+            // Preparamos la consulta. (Si es orden previa, podría ya tener trabajos, los borramos primero por si se está re-guardando)
+            if ($id_orden_previa > 0) {
+                $conexion->query("DELETE FROM inspeccion_trabajo WHERE id_inspeccion = $id_inspeccion");
+            }
+            
+            $sql_trabajo = "INSERT INTO inspeccion_trabajo (id_inspeccion, id_trabajo) VALUES (?, ?)";
+            $stmtTrabajo = $conexion->prepare($sql_trabajo);
+            
+            foreach ($trabajos_seleccionados as $id_trabajo) {
+                $id_trab_limpio = (int)$id_trabajo;
+                $stmtTrabajo->bind_param("ii", $id_inspeccion, $id_trab_limpio);
+                $stmtTrabajo->execute();
+            }
+        }
+        // =========================================================================
 
         // Guardar el Checklist Dinámico
         $items_interior = ['Beeper', 'Pito/Bocina', 'Luces int.', 'Aire Cond.', 'Radio', 'Cristales', 'Seguros', 'Retrovisor'];
         $items_ext = ['Goma Rep.', 'Gato', 'Herram.', 'Llave Rueda', 'Luces Tras.', 'Tapa Comb.', 'Botiquín', 'Triángulo'];
         $items_mot = ['Varilla Aceite', 'Tapón Aceite', 'Radiador', 'Batería', 'Agua L/V', 'Filtro Aire', 'Correas', 'Tapas'];
+
+        // Solo insertamos el checklist si es nuevo. Si es actualización de cotización, podríamos omitirlo o borrar los viejos.
+        // Para simplificar, asumimos que se insertan en cualquier caso en este flujo.
+        if ($id_orden_previa > 0) {
+            $conexion->query("DELETE FROM inspeccion_detalle WHERE id_inspeccion = $id_inspeccion");
+        }
 
         $sqlDet = "INSERT INTO inspeccion_detalle (id_inspeccion, categoria, elemento, estado) VALUES (?, ?, ?, ?)";
         $stmtDet = $conexion->prepare($sqlDet);

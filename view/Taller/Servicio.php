@@ -120,6 +120,11 @@ require("../../header.php");
                             </div>
                         </div>
 
+                        <div class="card border-0 shadow-sm mb-3 border-primary" style="border-left: 4px solid #0d6efd !important;">
+                            <div class="card-header bg-white fw-bold small text-primary"><i class="fas fa-comment-dots me-1"></i>Trabajos Solicitados (Cliente)</div>
+                            <ul class="list-group list-group-flush" id="lista_trabajos_solicitados"></ul>
+                        </div>
+
                         <div class="card border-0 shadow-sm mb-3">
                             <div class="card-header bg-white fw-bold small text-danger"><i class="fas fa-exclamation-circle me-1"></i>Hallazgos Críticos</div>
                             <ul class="list-group list-group-flush" id="lista_hallazgos_sugeridos"></ul>
@@ -127,8 +132,14 @@ require("../../header.php");
 
                         <div class="card border-0 shadow-sm">
                             <div class="card-body p-3">
-                                <label class="small fw-bold mb-1">Seleccionar Servicio</label>
-                                <select id="select_servicio" class="form-select form-select-sm mb-3" onchange="agregarServicioDesdeSelect(this)"></select>
+                                <label class="small fw-bold mb-1 text-primary">Buscar y Asignar Servicio</label>
+                                <div class="position-relative mb-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white border-primary"><i class="fas fa-search text-primary"></i></span>
+                                        <input type="text" id="busqueda_servicio" class="form-control border-primary fw-bold" placeholder="Ej: Afinamiento, Aceite...">
+                                    </div>
+                                    <ul id="res_servicios" class="list-group position-absolute w-100 shadow-lg d-none" style="z-index: 2000; max-height: 200px; overflow-y: auto;"></ul>
+                                </div>
 
                                 <label class="small fw-bold mb-1">Buscar Repuesto</label>
                                 <div class="position-relative mb-2">

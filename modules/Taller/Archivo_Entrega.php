@@ -3,8 +3,9 @@ include("../../controller/conexion.php");
 header('Content-Type: application/json');
 session_start();
 
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 $action = $_GET['action'] ?? '';
-// Parche 1: Si la sesión está vacía o es 0, forzamos a que sea 1 por defecto para consultas generales.
 $id_sucursal = (!empty($_SESSION['id_sucursal']) && $_SESSION['id_sucursal'] != 0) ? $_SESSION['id_sucursal'] : 1;
 $id_usuario = $_SESSION['id_usuario'] ?? 1;
 
@@ -49,11 +50,54 @@ switch ($action) {
     case 'listar_ofertas_vigentes':
         listar_ofertas_vigentes($conexion);
         break;
+
+    // ==========================================
+    // NUEVOS MÉTODOS PARA EL MÓDULO DE GARANTÍAS
+    // ==========================================
+    case 'obtener_catalogo_politicas':
+        try {
+            $sql = "SELECT id_politica, nombre, tiempo_cobertura, unidad_tiempo, kilometraje_cobertura 
+                    FROM politica_garantia WHERE estado = 'activo'";
+            $res = $conexion->query($sql);
+            echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        break;
+
+    case 'obtener_items_para_garantia':
+        try {
+            $id_orden = (int)$_GET['id_orden'];
+            
+            // 1. Obtener Servicios de la Orden
+            $sqlServ = "SELECT os.sec_serv as id, ts.nombre as descripcion, 'servicio' as tipo 
+                        FROM orden_servicio os 
+                        JOIN tipo_servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio 
+                        WHERE os.id_orden = $id_orden AND os.estado = 'activo'";
+            $servicios = $conexion->query($sqlServ)->fetch_all(MYSQLI_ASSOC);
+
+            // 2. Obtener Repuestos de la Orden
+            $sqlRep = "SELECT orp.sec_detalle as id, ra.nombre as descripcion, 'repuesto' as tipo 
+                       FROM orden_repuesto orp 
+                       JOIN repuesto_articulo ra ON orp.id_articulo = ra.id_articulo 
+                       WHERE orp.id_orden = $id_orden AND orp.estado = 'activo'";
+            $repuestos = $conexion->query($sqlRep)->fetch_all(MYSQLI_ASSOC);
+
+            // 3. Unir todo
+            $items = array_merge($servicios, $repuestos);
+            
+            echo json_encode(['success' => true, 'data' => $items]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
 }
 
+// ... [TUS OTRAS FUNCIONES MANTIENEN SU CÓDIGO EXACTAMENTE IGUAL HASTA LLEGAR A PROCESAR_ENTREGA] ...
 function verificar_clave_admin($conexion, $username, $password_ingresada) {
     if (empty($username) || empty($password_ingresada)) return false;
     $sql = "SELECT u.password_hash FROM usuario u JOIN nivel n ON u.id_nivel = n.id_nivel WHERE u.username = ? AND n.nombre = 'Administrador' AND u.estado = 'activo' LIMIT 1";
@@ -174,7 +218,6 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
         $id_cliente = (int)$data['id_cliente'];
         $id_orden = (int)$data['id_orden'];
         
-        // PARCHE DE SUCURSAL: Averiguamos en qué sucursal se originó esta orden realmente.
         $qSucursal = $conexion->query("SELECT id_sucursal FROM orden WHERE id_orden = $id_orden LIMIT 1");
         $id_sucursal_real = ($qSucursal && $rSuc = $qSucursal->fetch_assoc()) ? (int)$rSuc['id_sucursal'] : $id_sucursal_sesion;
 
@@ -196,7 +239,6 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
         $estado_pago = $data['es_credito'] ? 'Pendiente' : 'Pagado';
         
         $stmtF = $conexion->prepare($sqlF);
-        // Aquí pasamos el $id_sucursal_real blindando el proceso
         $stmtF->bind_param("iiiisdssi", $id_cliente, $id_sucursal_real, $id_orden, $data['metodo_pago'], $data['ncf'], $data['total_final'], $data['referencia_azul'], $estado_pago, $id_usuario);
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
@@ -235,7 +277,6 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
                 $stmtR->bind_param("iiidd", $id_orden, $item['id'], $item['cantidad'], $item['precio'], $sub);
                 $stmtR->execute();
 
-                // Parche de Inventario: Reduce de la sucursal de la orden, no de la sesión vacía
                 $sqlU = "UPDATE inventario i 
                          INNER JOIN gondola g ON i.id_gondola = g.id_gondola 
                          INNER JOIN almacen a ON g.id_almacen = a.id_almacen 
@@ -404,17 +445,20 @@ function procesar_calidad($conexion) {
     }
 }
 
+// ==========================================
+// FUNCIÓN PROCESAR ENTREGA (NUEVA LÓGICA DE GARANTÍA POR LÍNEA)
+// ==========================================
 function procesar_entrega($conexion) {
-    $id_orden = $_POST['id_orden_entrega'] ?? '';
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    $id_orden = $data['id_orden_entrega'] ?? 0;
     $usuario = $_SESSION['id_usuario'] ?? 1;
-
-    $tipo_garantia = $_POST['tipo_garantia'] ?? '';
-    $fecha_vencimiento = $_POST['fecha_vencimiento'] ?? null;
-    $km_limite = $_POST['km_limite'] ?? null;
-    $terminos_resumen = $_POST['terminos_resumen'] ?? '';
+    $garantias_asignadas = $data['garantias_asignadas'] ?? []; 
+    $hay_garantias_asignadas = false;
 
     $conexion->begin_transaction();
     try {
+        // 1. Cambiar estado de la Orden a 'Entregado'
         $resEst = $conexion->query("SELECT id_estado FROM estado WHERE nombre = 'Entregado' LIMIT 1");
         if(!$resEst || $resEst->num_rows == 0) throw new Exception("Estado 'Entregado' no encontrado en el sistema.");
         $id_estado_entregado = $resEst->fetch_assoc()['id_estado'];
@@ -426,36 +470,86 @@ function procesar_entrega($conexion) {
             $conexion->query("INSERT INTO orden_estado (id_orden, id_estado, usuario_creacion) VALUES ($id_orden, $id_estado_entregado, $usuario)");
         }
 
-        if ($tipo_garantia != '') {
+        // 2. Procesar Garantías Individuales (Iterar sobre los selects de la vista)
+        if (!empty($garantias_asignadas)) {
+            
+            // Preparar Sentencias UPDATE
+            $stmtUpdServ = $conexion->prepare("UPDATE orden_servicio SET id_politica = ?, fecha_vencimiento = ?, kilometraje_vencimiento = ? WHERE sec_serv = ?");
+            $stmtUpdRep = $conexion->prepare("UPDATE orden_repuesto SET id_politica = ?, fecha_vencimiento = ?, kilometraje_vencimiento = ? WHERE sec_detalle = ?");
+
+            foreach ($garantias_asignadas as $g) {
+                // $g['id_politica'] viene del SELECT. Si es vacío (0 o ""), no aplica garantía.
+                if (empty($g['id_politica'])) continue;
+                
+                $id_politica = (int)$g['id_politica'];
+                $id_linea = (int)$g['id_linea'];
+                $tipo_linea = $g['tipo_linea']; // 'servicio' o 'repuesto'
+                
+                // Calcular Fechas y KM de Vencimiento usando MySQL
+                $sqlCalc = "SELECT 
+                                CASE unidad_tiempo 
+                                    WHEN 'Dias' THEN DATE_ADD(CURDATE(), INTERVAL tiempo_cobertura DAY)
+                                    WHEN 'Meses' THEN DATE_ADD(CURDATE(), INTERVAL tiempo_cobertura MONTH)
+                                    WHEN 'Anios' THEN DATE_ADD(CURDATE(), INTERVAL tiempo_cobertura YEAR)
+                                END as fecha_ven,
+                                kilometraje_cobertura
+                            FROM politica_garantia WHERE id_politica = ?";
+                $stmtCalc = $conexion->prepare($sqlCalc);
+                $stmtCalc->bind_param("i", $id_politica);
+                $stmtCalc->execute();
+                $resCalc = $stmtCalc->get_result()->fetch_assoc();
+
+                $fecha_ven = $resCalc['fecha_ven'];
+                $km_cobertura = $resCalc['kilometraje_cobertura'];
+
+                // Necesitamos el KM actual del vehículo para sumarle la cobertura
+                $km_vencimiento = null;
+                if ($km_cobertura !== null) {
+                    $sqlKm = "SELECT i.kilometraje_recepcion FROM orden o JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion WHERE o.id_orden = $id_orden";
+                    $resKm = $conexion->query($sqlKm)->fetch_assoc();
+                    if ($resKm) {
+                        $km_vencimiento = (int)$resKm['kilometraje_recepcion'] + (int)$km_cobertura;
+                    }
+                }
+
+                // Guardar en su tabla correspondiente
+                if ($tipo_linea === 'servicio') {
+                    $stmtUpdServ->bind_param("isii", $id_politica, $fecha_ven, $km_vencimiento, $id_linea);
+                    $stmtUpdServ->execute();
+                    $hay_garantias_asignadas = true;
+                } else if ($tipo_linea === 'repuesto') {
+                    $stmtUpdRep->bind_param("isii", $id_politica, $fecha_ven, $km_vencimiento, $id_linea);
+                    $stmtUpdRep->execute();
+                    $hay_garantias_asignadas = true;
+                }
+            }
+        }
+
+        // 3. Crear el Documento de Certificado (Si al menos 1 línea tuvo garantía)
+        $generar_certificado = false;
+        if ($hay_garantias_asignadas) {
+            $generar_certificado = true;
+            
+            // Extraer ID del vehiculo para el certificado
             $sql_veh = "SELECT i.id_vehiculo FROM orden o JOIN inspeccion i ON o.id_inspeccion = i.id_inspeccion WHERE o.id_orden = ?";
             $stmt_veh = $conexion->prepare($sql_veh);
             $stmt_veh->bind_param("i", $id_orden);
             $stmt_veh->execute();
-            $res_veh = $stmt_veh->get_result();
-            $vehiculo = $res_veh->fetch_assoc();
-            
-            if (!$vehiculo) {
-                throw new Exception("No se encontró el vehículo asociado a esta orden para generar la garantía.");
-            }
-            $id_vehiculo = $vehiculo['id_vehiculo'];
+            $id_vehiculo = $stmt_veh->get_result()->fetch_assoc()['id_vehiculo'];
 
             $codigo_certificado = "GAR-" . $id_orden . "-" . strtoupper(substr(uniqid(), -3));
-            $estado_garantia = 'activo';
-
-            $sql_gar = "INSERT INTO garantia_servicio 
-                        (id_orden, id_vehiculo, codigo_certificado, fecha_vencimiento, terminos_condiciones, kilometraje_limite, estado, usuario_creacion) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            // Insertar certificado maestro (ahora las fechas están en las líneas)
+            $sql_gar = "INSERT INTO garantia_servicio (id_orden, id_vehiculo, codigo_certificado, fecha_vencimiento, estado, usuario_creacion) 
+                        VALUES (?, ?, ?, CURDATE(), 'activo', ?)"; // fecha_vencimiento_general es dummy, importa la línea
             
             $stmt_gar = $conexion->prepare($sql_gar);
-            $stmt_gar->bind_param("iisssisi", $id_orden, $id_vehiculo, $codigo_certificado, $fecha_vencimiento, $terminos_resumen, $km_limite, $estado_garantia, $usuario);
-            
-            if (!$stmt_gar->execute()) {
-                throw new Exception("Error al guardar la garantía: " . $stmt_gar->error);
-            }
+            $stmt_gar->bind_param("iisi", $id_orden, $id_vehiculo, $codigo_certificado, $usuario);
+            $stmt_gar->execute();
         }
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'message' => 'Vehículo entregado y garantía procesada.']);
+        echo json_encode(['success' => true, 'message' => 'Vehículo entregado exitosamente.', 'generar_certificado' => $generar_certificado]);
     } catch (Exception $e) {
         $conexion->rollback(); 
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);

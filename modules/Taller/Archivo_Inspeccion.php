@@ -18,6 +18,12 @@ switch ($action) {
     case 'guardar':
         guardar($conexion);
         break;
+    case 'listar_historial':
+        listar_historial($conexion);
+        break;
+    case 'ver_detalle':
+        ver_detalle($conexion);
+        break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;
@@ -73,9 +79,9 @@ function guardar($conexion) {
     $id_orden_previa = (int)($_POST['id_orden'] ?? 0);
     $kilometraje = $_POST['kilometraje_recepcion'] ?? 0;
     $combustible = $_POST['nivel_combustible'] ?? '';
-    $motivo_visita = $_POST['motivo_visita'] ?? ''; // Mantenemos el campo texto por compatibilidad
+    $motivo_visita = $_POST['motivo_visita'] ?? ''; // El campo de texto antiguo como notas opcionales
     
-    // === NUEVO: RECIBIMOS EL ARRAY DE TRABAJOS (CHECKBOXES) ===
+    // RECIBIMOS EL ARRAY DE TRABAJOS (CHECKBOXES / TAGS)
     $trabajos_seleccionados = $_POST['trabajos'] ?? [];
 
     if ($usuario_creacion == 0) {
@@ -133,10 +139,10 @@ function guardar($conexion) {
         }
 
         // =========================================================================
-        // === NUEVO: GUARDAR LOS TRABAJOS SOLICITADOS EN LA TABLA PUENTE ===
+        // GUARDAR LOS TRABAJOS SOLICITADOS EN LA TABLA PUENTE
         // =========================================================================
         if (!empty($trabajos_seleccionados)) {
-            // Preparamos la consulta. (Si es orden previa, podría ya tener trabajos, los borramos primero por si se está re-guardando)
+            // Si es orden previa, borramos primero por si se está re-guardando
             if ($id_orden_previa > 0) {
                 $conexion->query("DELETE FROM inspeccion_trabajo WHERE id_inspeccion = $id_inspeccion");
             }
@@ -157,8 +163,6 @@ function guardar($conexion) {
         $items_ext = ['Goma Rep.', 'Gato', 'Herram.', 'Llave Rueda', 'Luces Tras.', 'Tapa Comb.', 'Botiquín', 'Triángulo'];
         $items_mot = ['Varilla Aceite', 'Tapón Aceite', 'Radiador', 'Batería', 'Agua L/V', 'Filtro Aire', 'Correas', 'Tapas'];
 
-        // Solo insertamos el checklist si es nuevo. Si es actualización de cotización, podríamos omitirlo o borrar los viejos.
-        // Para simplificar, asumimos que se insertan en cualquier caso en este flujo.
         if ($id_orden_previa > 0) {
             $conexion->query("DELETE FROM inspeccion_detalle WHERE id_inspeccion = $id_inspeccion");
         }
@@ -186,5 +190,76 @@ function guardar($conexion) {
         $conexion->rollback();
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
+}
+
+// =========================================================================
+// NUEVAS FUNCIONES PARA EL HISTORIAL DE INSPECCIONES
+// =========================================================================
+
+function listar_historial($conexion) {
+    // Busca las últimas 500 inspecciones. Se incluye fecha_db para el filtro de JS
+    $sql = "SELECT i.id_inspeccion, 
+                   DATE_FORMAT(i.fecha_inspeccion, '%d/%m/%Y %h:%i %p') as fecha,
+                   DATE(i.fecha_inspeccion) as fecha_db,
+                   v.placa, CONCAT(IFNULL(m.nombre, ''), ' ', v.modelo) as vehiculo,
+                   IF(p.tipo_persona = 'Juridica', p.nombre, CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, ''))) as cliente,
+                   i.estado
+            FROM inspeccion i
+            JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+            JOIN cliente c ON v.id_cliente = c.id_cliente
+            JOIN persona p ON c.id_persona = p.id_persona
+            LEFT JOIN marca m ON v.id_marca = m.id_marca
+            ORDER BY i.id_inspeccion DESC LIMIT 500";
+            
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
+}
+
+function ver_detalle($conexion) {
+    $id = (int)($_GET['id'] ?? 0);
+    
+    // 1. Información General de Recepción
+    $sql_info = "SELECT i.id_inspeccion, DATE_FORMAT(i.fecha_inspeccion, '%d/%m/%Y %h:%i %p') as fecha, 
+                        i.kilometraje_recepcion, i.nivel_combustible, i.observacion,
+                        v.placa, CONCAT(IFNULL(m.nombre, ''), ' ', v.modelo) as vehiculo,
+                        IF(p.tipo_persona = 'Juridica', p.nombre, CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, ''))) as cliente,
+                        CONCAT(emp_p.nombre, ' ', IFNULL(emp_p.apellido_p, '')) as asesor
+                 FROM inspeccion i
+                 JOIN vehiculo v ON i.id_vehiculo = v.sec_vehiculo
+                 JOIN cliente c ON v.id_cliente = c.id_cliente
+                 JOIN persona p ON c.id_persona = p.id_persona
+                 LEFT JOIN marca m ON v.id_marca = m.id_marca
+                 JOIN empleado e ON i.id_empleado = e.id_empleado
+                 JOIN persona emp_p ON e.id_persona = emp_p.id_persona
+                 WHERE i.id_inspeccion = ?";
+                 
+    $stmt = $conexion->prepare($sql_info);
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $info = $stmt->get_result()->fetch_assoc();
+
+    // 2. Trabajos Solicitados (Las nuevas etiquetas azules)
+    $sql_trabajos = "SELECT ts.descripcion 
+                     FROM inspeccion_trabajo it 
+                     JOIN trabajo_solicitado ts ON it.id_trabajo = ts.id_trabajo 
+                     WHERE it.id_inspeccion = ?";
+    $stmt_t = $conexion->prepare($sql_trabajos);
+    $stmt_t->bind_param("i", $id);
+    $stmt_t->execute();
+    $trabajos = $stmt_t->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    // 3. Checklist Dinámico Completo (para rearmar la hoja de inspección en el modal)
+    $sql_check = "SELECT categoria, elemento, estado FROM inspeccion_detalle WHERE id_inspeccion = ?";
+    $stmt_c = $conexion->prepare($sql_check);
+    $stmt_c->bind_param("i", $id);
+    $stmt_c->execute();
+    $checklist = $stmt_c->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    echo json_encode([
+        'success' => true, 
+        'info' => $info, 
+        'trabajos' => $trabajos, 
+        'checklist' => $checklist
+    ]);
 }
 ?>

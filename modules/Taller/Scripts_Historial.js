@@ -1,56 +1,94 @@
 console.log("Scripts_Historial.js: Módulo de historial cargado.");
 
+let listaHistorialGeneral = [];
+
 document.addEventListener("DOMContentLoaded", () => {
     listar();
 });
 
 // ==========================================
-// LISTADO GENERAL DEL HISTORIAL
+// LISTADO GENERAL DEL HISTORIAL Y FILTROS
 // ==========================================
 function listar() {
     fetch("../../modules/Taller/Archivo_Historial.php?action=listar")
     .then(res => res.json())
     .then(data => {
-        const tbody = document.getElementById("cuerpoTablaHistorial");
-        if(!tbody) return;
-        tbody.innerHTML = "";
-
-        if (data.success && data.data.length > 0) {
-            data.data.forEach(o => {
-                
-                // Formato de insignias para el estado
-                let badgeOrden = "";
-                switch(o.estado_orden) {
-                    case 'Entregado': badgeOrden = `<span class="badge bg-success">Entregado</span>`; break;
-                    case 'Listo': badgeOrden = `<span class="badge bg-primary">Listo</span>`; break;
-                    case 'Control Calidad': badgeOrden = `<span class="badge bg-info text-dark">Control Calidad</span>`; break;
-                    case 'Reparación': badgeOrden = `<span class="badge bg-warning text-dark">Reparación</span>`; break;
-                    case 'Diagnóstico': badgeOrden = `<span class="badge bg-secondary">Diagnóstico</span>`; break;
-                    default: badgeOrden = `<span class="badge bg-dark">${o.estado_orden}</span>`; break;
-                }
-
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td class="fw-bold text-primary">ORD-${o.id_orden}</td>
-                    <td>${o.fecha_fmt}</td>
-                    <td>${o.cliente}</td>
-                    <td>${o.vehiculo}</td>
-                    <td><span class="badge bg-secondary">${o.placa}</span></td>
-                    <td>${badgeOrden}</td>
-                    <td class="fw-bold">${o.monto_total_fmt}</td>
-                    <td class="text-center">
-                        <button class="btn btn-sm btn-outline-primary" onclick="verDetalles(${o.id_orden})" title="Ver Detalles">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+        if (data.success) {
+            listaHistorialGeneral = data.data;
+            renderizarTablaHistorial(listaHistorialGeneral);
         } else {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay registros en el historial.</td></tr>`;
+            document.getElementById("cuerpoTablaHistorial").innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay registros en el historial.</td></tr>`;
         }
     })
     .catch(err => console.error("Error listar historial:", err));
+}
+
+function renderizarTablaHistorial(datos) {
+    const tbody = document.getElementById("cuerpoTablaHistorial");
+    if(!tbody) return;
+    tbody.innerHTML = "";
+
+    if (datos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No se encontraron resultados para su búsqueda.</td></tr>`;
+        return;
+    }
+
+    datos.forEach(o => {
+        let badgeOrden = "";
+        switch(o.estado_orden) {
+            case 'Entregado': badgeOrden = `<span class="badge bg-success">Entregado</span>`; break;
+            case 'Listo': badgeOrden = `<span class="badge bg-primary">Listo</span>`; break;
+            case 'Control Calidad': badgeOrden = `<span class="badge bg-info text-dark">Control Calidad</span>`; break;
+            case 'Reparación': badgeOrden = `<span class="badge bg-warning text-dark">Reparación</span>`; break;
+            case 'Diagnóstico': badgeOrden = `<span class="badge bg-secondary">Diagnóstico</span>`; break;
+            default: badgeOrden = `<span class="badge bg-dark">${o.estado_orden}</span>`; break;
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td class="fw-bold text-primary ps-3">ORD-${o.id_orden}</td>
+            <td>${o.fecha_fmt}</td>
+            <td>${o.cliente}</td>
+            <td class="fw-bold">${o.vehiculo}</td>
+            <td><span class="badge bg-secondary">${o.placa}</span></td>
+            <td>${badgeOrden}</td>
+            <td class="fw-bold">${o.monto_total_fmt}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary shadow-sm" onclick="verDetalles(${o.id_orden})" title="Ver Detalles">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filtrarTabla() {
+    const term = document.getElementById('filtroGeneral').value.toLowerCase().trim();
+    const desde = document.getElementById('fechaDesde').value;
+    const hasta = document.getElementById('fechaHasta').value;
+    
+    const filtrados = listaHistorialGeneral.filter(o => {
+        const matchTexto = (o.vehiculo || '').toLowerCase().includes(term) ||
+                           (o.placa || '').toLowerCase().includes(term) ||
+                           (o.cliente || '').toLowerCase().includes(term) ||
+                           (o.id_orden || '').toString().includes(term);
+        
+        let matchFecha = true;
+        if (desde && o.fecha_db < desde) matchFecha = false;
+        if (hasta && o.fecha_db > hasta) matchFecha = false;
+
+        return matchTexto && matchFecha;
+    });
+    
+    renderizarTablaHistorial(filtrados);
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtroGeneral').value = "";
+    document.getElementById('fechaDesde').value = "";
+    document.getElementById('fechaHasta').value = "";
+    renderizarTablaHistorial(listaHistorialGeneral);
 }
 
 // ==========================================
@@ -62,52 +100,79 @@ function verDetalles(id_orden) {
     .then(data => {
         if(data.success) {
             const d = data.data.cabecera;
+            const trabajos = data.data.trabajos;
             const servicios = data.data.servicios;
+            const repuestos = data.data.repuestos;
 
-            // Llenar Cabecera
+            // 1. Llenar Cabecera
             document.getElementById("lbl_id_orden_modal").innerText = "ORD-" + d.id_orden;
             document.getElementById("lbl_estado_orden_modal").innerText = d.estado_orden.toUpperCase();
             document.getElementById("lbl_fecha_orden_modal").innerText = d.fecha_fmt;
             
-            // Llenar Cliente
             document.getElementById("det_cliente").innerText = d.cliente;
             document.getElementById("det_cedula").innerText = d.cedula || 'N/A';
-            // Nota: Aquí podrías vincular el teléfono si tuvieras el cruce, por ahora lo dejamos genérico o N/A
-            document.getElementById("det_telefono").innerText = d.telefono || 'Revisar perfil'; 
+            document.getElementById("det_telefono").innerText = d.telefono || 'N/A'; 
 
-            // Llenar Vehículo
             document.getElementById("det_vehiculo").innerText = d.vehiculo;
-            document.getElementById("det_placa").innerText = d.placa;
-            document.getElementById("det_vin").innerText = d.vin_chasis;
-            document.getElementById("det_km").innerText = d.kilometraje;
+            document.getElementById("det_placa").innerText = d.placa || 'N/A';
+            document.getElementById("det_vin").innerText = d.vin_chasis || 'N/A';
+            document.getElementById("det_km").innerText = d.kilometraje + " km";
             
-            // Total
             document.getElementById("det_total").innerText = d.monto_total_fmt;
 
-            // Llenar Tabla de Servicios
+            // 2. Trabajos Solicitados
+            const divTrabajos = document.getElementById("det_trabajos");
+            divTrabajos.innerHTML = "";
+            if(trabajos && trabajos.length > 0) {
+                trabajos.forEach(t => {
+                    divTrabajos.innerHTML += `<span class="badge bg-info text-dark shadow-sm px-3 py-2"><i class="fas fa-check-circle me-1 opacity-75"></i> ${t.descripcion}</span>`;
+                });
+            } else {
+                divTrabajos.innerHTML = '<span class="text-muted small italic">No se indicaron motivos específicos.</span>';
+            }
+
+            // 3. Llenar Tabla de Servicios
             const tbodyS = document.getElementById("cuerpoServiciosDetalle");
             tbodyS.innerHTML = "";
-
-            if(servicios.length > 0) {
+            if(servicios && servicios.length > 0) {
                 servicios.forEach(s => {
                     let estadoServ = s.estado_asignacion === 'Completado' 
                         ? '<i class="fas fa-check-circle text-success" title="Completado"></i>' 
                         : '<i class="fas fa-clock text-warning" title="Pendiente/En Curso"></i>';
+                    const notas = s.notas_hallazgos ? s.notas_hallazgos : '<em class="text-muted">Sin notas</em>';
 
-                    const notas = s.notas_hallazgos ? s.notas_hallazgos : '<em class="text-muted">Sin notas registradas</em>';
-
-                    const tr = document.createElement("tr");
-                    tr.innerHTML = `
-                        <td class="fw-bold">${estadoServ} ${s.servicio}</td>
-                        <td><small>${s.mecanicos || 'Ninguno'}</small></td>
-                        <td><small>${s.hora_inicio || '--:--'}</small></td>
-                        <td><small>${s.hora_fin || '--:--'}</small></td>
-                        <td style="max-width: 300px; word-wrap: break-word;"><small>${notas}</small></td>
+                    tbodyS.innerHTML += `
+                        <tr>
+                            <td class="fw-bold ps-2">${estadoServ} ${s.servicio}</td>
+                            <td><small>${s.mecanicos || 'Ninguno'}</small></td>
+                            <td><small>${s.hora_inicio || '--:--'}</small></td>
+                            <td><small>${s.hora_fin || '--:--'}</small></td>
+                            <td style="max-width: 250px; word-wrap: break-word;"><small>${notas}</small></td>
+                        </tr>
                     `;
-                    tbodyS.appendChild(tr);
                 });
             } else {
-                tbodyS.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No se han registrado servicios o tiempos para esta orden.</td></tr>`;
+                tbodyS.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No hay servicios asociados.</td></tr>`;
+            }
+
+            // 4. Llenar Tabla de Repuestos
+            const tbodyR = document.getElementById("cuerpoRepuestosDetalle");
+            tbodyR.innerHTML = "";
+            if(repuestos && repuestos.length > 0) {
+                repuestos.forEach(r => {
+                    const pUnit = parseFloat(r.precio_base).toFixed(2);
+                    const subT = parseFloat(r.subtotal).toFixed(2);
+                    tbodyR.innerHTML += `
+                        <tr>
+                            <td class="fw-bold ps-2 text-secondary">${r.nombre}</td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">${r.cantidad}</span></td>
+                            <td class="text-end">$${pUnit}</td>
+                            <td class="text-end fw-bold pe-2">$${subT}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbodyR.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No se utilizaron repuestos.</td></tr>`;
             }
 
             abrirModalUI('modalDetalleOrden');
@@ -123,19 +188,21 @@ function verDetalles(id_orden) {
 // ==========================================
 function imprimirReporte() {
     const contenido = document.getElementById('areaImpresion').innerHTML;
-    const ventana = window.open('', '_blank', 'width=800,height=600');
+    const ventana = window.open('', '_blank', 'width=900,height=700');
     ventana.document.write(`
         <html>
             <head>
                 <title>Reporte de Servicio</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
                 <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
-                    .badge { border: 1px solid #000; padding: 3px 6px; border-radius: 3px; font-size: 12px;}
-                    .text-success { color: green; }
-                    .fw-bold { font-weight: bold; }
+                    body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+                    .card { border: 1px solid #000 !important; margin-bottom: 15px; page-break-inside: avoid; }
+                    .card-header { background-color: #f8f9fa !important; border-bottom: 1px solid #000 !important; color: #000 !important; font-weight: bold; padding: 5px 10px; }
+                    .table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+                    .table th, .table td { border: 1px solid #ccc; padding: 5px; }
+                    .table th { background-color: #eee !important; -webkit-print-color-adjust: exact; }
+                    .badge { border: 1px solid #000; color: #000 !important; background: transparent !important; padding: 2px 5px; }
                 </style>
             </head>
             <body>

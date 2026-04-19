@@ -313,10 +313,10 @@ require("../../header.php");
     </div>
 
     <div class="modal fade" id="modalEntrega" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-success border-2">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Entrega de Vehículo y Certificado de Garantía</h5>
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Entrega y Asignación de Garantías</h5>
                     <button type="button" class="btn-close btn-close-white" onclick="cerrarModalEntrega()"></button>
                 </div>
                 <form id="formEntrega">
@@ -329,43 +329,29 @@ require("../../header.php");
                             <p class="mb-0 text-muted" id="lbl_vehiculo"></p>
                         </div>
 
-                        <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-shield-check me-2"></i>Configuración de Garantía</h6>
+                        <div class="alert alert-info py-2 small mb-3">
+                            <i class="fas fa-info-circle me-1"></i> Asigne las políticas de garantía a los servicios y repuestos que apliquen. Si un ítem no lleva garantía, déjelo en "Sin Cobertura".
+                        </div>
                         
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="fw-bold small mb-1">Km Inspección (Ingreso) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control shadow-sm bg-white border-success" id="km_actual" name="km_actual" placeholder="Ej. 120000" required>
-                            </div>
-                            <div class="col-md-8">
-                                <label class="fw-bold small mb-1">Tipo de Garantía a Aplicar <span class="text-danger">*</span></label>
-                                <select class="form-select shadow-sm border-success" id="tipo_garantia" name="tipo_garantia" onchange="calcularGarantia()" required>
-                                    <option value="" selected disabled>Seleccione cobertura...</option>
-                                    <option value="A">Categoría A - Mantenimiento Preventivo (30 días / 1,500 km)</option>
-                                    <option value="B">Categoría B - Mecánica Menor y Suspensión (3 meses / 5,000 km)</option>
-                                    <option value="C">Categoría C - Mecánica Mayor (6 meses / 10,000 km)</option>
-                                    <option value="D">Categoría D - SIN GARANTÍA</option>
-                                </select>
-                            </div>
+                        <div class="table-responsive bg-white border rounded shadow-sm">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                                <thead class="table-light text-muted">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Descripción del Trabajo / Pieza</th>
+                                        <th style="width: 250px;">Política de Garantía</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody_items_garantia">
+                                    <tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Cargando ítems de la orden...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
-
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="fw-bold small mb-1 text-muted">Vence el (Fecha):</label>
-                                <input type="date" class="form-control bg-light text-danger fw-bold" id="fecha_vencimiento" name="fecha_vencimiento" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="fw-bold small mb-1 text-muted">Vence a los (Kilómetros):</label>
-                                <input type="number" class="form-control bg-light text-danger fw-bold" id="km_limite" name="km_limite" readonly>
-                            </div>
-                            <div class="col-md-12">
-                                <label class="fw-bold small mb-1 text-muted">Términos que se imprimirán y guardarán:</label>
-                                <textarea class="form-control bg-light text-muted" id="terminos_resumen" name="terminos_resumen" rows="2" readonly></textarea>
-                            </div>
-                        </div>
+                        
                     </div>
                     <div class="modal-footer bg-light border-top">
                         <button type="submit" class="btn btn-success w-100 fw-bold shadow-sm py-2" style="font-size: 1.1rem;">
-                            <i class="fas fa-check-circle me-2"></i> Confirmar Entrega de Llaves y Generar Certificado
+                            <i class="fas fa-check-circle me-2"></i> Confirmar Entrega de Llaves
                         </button>
                     </div>
                 </form>

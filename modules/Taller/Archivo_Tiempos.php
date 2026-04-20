@@ -64,7 +64,16 @@ function cargar_dependencias($conexion) {
                FROM Maquinaria m WHERE m.estado = 'activo'";
     $data['maquinaria'] = $conexion->query($sqlMaq)->fetch_all(MYSQLI_ASSOC);
     
-    $data['mecanicos'] = $conexion->query("SELECT e.id_empleado, CONCAT(p.nombre, ' ', p.apellido_p) AS nombre_completo FROM Empleado e JOIN Persona p ON e.id_persona = p.id_persona WHERE e.estado = 'activo'")->fetch_all(MYSQLI_ASSOC);
+   $data['mecanicos'] = $conexion->query("
+    SELECT 
+        e.id_empleado, 
+        CONCAT(p.nombre, ' ', p.apellido_p) AS nombre_completo 
+    FROM Empleado e 
+    JOIN Persona p ON e.id_persona = p.id_persona 
+    JOIN Puesto pu ON e.id_puesto = pu.id_puesto
+    WHERE e.estado = 'activo' 
+    AND (pu.nombre = 'Mecanico' OR pu.nombre = 'Mecánico' OR pu.nombre = 'Tec. Mecanica')
+")->fetch_all(MYSQLI_ASSOC);
     $data['precios'] = $conexion->query("SELECT id_precio, monto FROM Precio WHERE estado = 'activo'")->fetch_all(MYSQLI_ASSOC);
     
     echo json_encode(['success' => true, 'data' => $data]);

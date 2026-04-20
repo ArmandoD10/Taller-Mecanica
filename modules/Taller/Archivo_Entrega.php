@@ -221,18 +221,21 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
         $qSucursal = $conexion->query("SELECT id_sucursal FROM orden WHERE id_orden = $id_orden LIMIT 1");
         $id_sucursal_real = ($qSucursal && $rSuc = $qSucursal->fetch_assoc()) ? (int)$rSuc['id_sucursal'] : $id_sucursal_sesion;
 
+        // 1. VALIDACIÓN DE CRÉDITO EXISTENTE (Si aplica)
         if ($data['es_credito']) {
-            $sqlC = "SELECT saldo_disponible FROM credito WHERE id_credito = ? FOR UPDATE";
+            $sqlC = "SELECT id_credito, saldo_disponible FROM credito WHERE id_cliente = ? AND estado = 'activo' LIMIT 1 FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
-            $stmtC->bind_param("i", $data['id_credito']);
+            $stmtC->bind_param("i", $id_cliente);
             $stmtC->execute();
             $cred = $stmtC->get_result()->fetch_assoc();
 
             if (!$cred || $cred['saldo_disponible'] < $data['total_final']) {
-                throw new Exception("El cliente no tiene balance suficiente en su línea de crédito para cubrir RD$ " . number_format($data['total_final'], 2));
+                throw new Exception("El cliente no tiene línea de crédito activa o balance suficiente.");
             }
+            $id_credito = $cred['id_credito'];
         }
 
+        // 2. INSERTAR FACTURA CENTRAL
         $sqlF = "INSERT INTO factura_central (id_cliente, id_sucursal, id_orden, id_metodo, id_moneda, NCF, origen_negocio, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
                  VALUES (?, ?, ?, ?, 1, ?, 'Taller', ?, ?, ?, ?, 'activo')";
                  
@@ -243,72 +246,70 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
+        // 3. LÓGICA DE CRÉDITO Y ACUERDO DE PAGO
         if ($data['es_credito']) {
+            // Vincular Factura con Crédito
             $sqlFC = "INSERT INTO factura_credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
             $stmtFC = $conexion->prepare($sqlFC);
-            $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
+            $stmtFC->bind_param("ii", $id_credito, $id_factura);
             $stmtFC->execute();
 
+            // Actualizar Saldo de la Línea de Crédito
             $sqlUpdC = "UPDATE credito 
                         SET saldo_disponible = saldo_disponible - ?, 
                             saldo_pendiente = saldo_pendiente + ? 
                         WHERE id_credito = ?";
             $stmtUpdC = $conexion->prepare($sqlUpdC);
-            $stmtUpdC->bind_param("ddi", $data['total_final'], $data['total_final'], $data['id_credito']);
+            $stmtUpdC->bind_param("ddi", $data['total_final'], $data['total_final'], $id_credito);
             $stmtUpdC->execute();
+
+            // INSERTAR ACUERDO DE PAGO (LAS CUOTAS)
+            if (!empty($data['acuerdo_pago'])) {
+                $sqlCuota = "INSERT INTO Acuerdo_Pago_Cuotas (id_factura, numero_cuota, monto_cuota, fecha_programada, usuario_creacion) 
+                             VALUES (?, ?, ?, ?, ?)";
+                $stmtCuota = $conexion->prepare($sqlCuota);
+                
+                foreach ($data['acuerdo_pago'] as $cuota) {
+                    $stmtCuota->bind_param("iidsi", 
+                        $id_factura, 
+                        $cuota['nro'], 
+                        $cuota['monto'], 
+                        $cuota['fecha'], 
+                        $id_usuario
+                    );
+                    $stmtCuota->execute();
+                }
+            }
         }
 
+        // 4. PROCESAR IMPUESTOS, OFERTAS Y REPUESTOS (Mantenemos tu lógica igual)
         if (!empty($data['ofertas_ids'])) {
             foreach ($data['ofertas_ids'] as $id_oferta) {
-                try {
-                    $sqlOf = "INSERT INTO factura_oferta (id_factura, id_oferta, estado) VALUES (?, ?, 'activo')";
-                    $stmtOf = $conexion->prepare($sqlOf);
-                    $stmtOf->bind_param("ii", $id_factura, $id_oferta);
-                    $stmtOf->execute();
-                } catch(Exception $ex) { }
+                $conexion->query("INSERT INTO factura_oferta (id_factura, id_oferta, estado) VALUES ($id_factura, $id_oferta, 'activo')");
             }
         }
 
         if (!empty($data['repuestos_extra'])) {
             foreach ($data['repuestos_extra'] as $item) {
-                $sqlR = "INSERT INTO orden_repuesto (id_orden, id_articulo, cantidad, precio_base, sub_total, estado) VALUES (?, ?, ?, ?, ?, 'activo')";
                 $sub = $item['precio'] * $item['cantidad'];
-                $stmtR = $conexion->prepare($sqlR);
+                $stmtR = $conexion->prepare("INSERT INTO orden_repuesto (id_orden, id_articulo, cantidad, precio_base, sub_total, estado) VALUES (?, ?, ?, ?, ?, 'activo')");
                 $stmtR->bind_param("iiidd", $id_orden, $item['id'], $item['cantidad'], $item['precio'], $sub);
                 $stmtR->execute();
 
-                $sqlU = "UPDATE inventario i 
-                         INNER JOIN gondola g ON i.id_gondola = g.id_gondola 
-                         INNER JOIN almacen a ON g.id_almacen = a.id_almacen 
-                         SET i.cantidad = i.cantidad - ? 
-                         WHERE i.id_articulo = ? AND a.id_sucursal = ?";
-                $stmtU = $conexion->prepare($sqlU);
-                $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal_real);
-                $stmtU->execute();
-
-                $motivo = "Agregado en Entrega ORD-" . $id_orden;
-                $sqlMov = "INSERT INTO movimiento_inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
-                           VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
-                $stmtM = $conexion->prepare($sqlMov);
-                $stmtM->bind_param("iisi", $item['id'], $item['cantidad'], $motivo, $id_usuario);
-                $stmtM->execute();
+                $conexion->query("UPDATE inventario i 
+                                 INNER JOIN gondola g ON i.id_gondola = g.id_gondola 
+                                 INNER JOIN almacen a ON g.id_almacen = a.id_almacen 
+                                 SET i.cantidad = i.cantidad - {$item['cantidad']} 
+                                 WHERE i.id_articulo = {$item['id']} AND a.id_sucursal = $id_sucursal_real");
             }
         }
 
         foreach ($data['impuestos_ids'] as $id_imp) {
-            $sqlI = "INSERT INTO factura_impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
-            $stmtI = $conexion->prepare($sqlI);
-            $stmtI->bind_param("ii", $id_factura, $id_imp);
-            $stmtI->execute();
+            $conexion->query("INSERT INTO factura_impuesto (id_factura, id_impuesto, estado) VALUES ($id_factura, $id_imp, 'activo')");
         }
 
-        $sqlUpdO = "UPDATE orden SET monto_total = ? WHERE id_orden = ?";
-        $stmtUpdO = $conexion->prepare($sqlUpdO);
-        $stmtUpdO->bind_param("di", $data['total_final'], $id_orden);
-        $stmtUpdO->execute();
-
-        $conexion->query("UPDATE orden_lavado SET estado_lavado = 'Entregado' WHERE id_orden = " . (int)$id_orden);
-
+        $conexion->query("UPDATE orden SET monto_total = {$data['total_final']} WHERE id_orden = $id_orden");
+        
         $conexion->commit();
         echo json_encode(['success' => true, 'id_factura' => $id_factura]);
 

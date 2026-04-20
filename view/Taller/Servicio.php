@@ -227,5 +227,57 @@ require("../../header.php");
     </div>
 </div>
 
+<div class="modal fade" id="modalAcuerdoPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-handshake me-2"></i> Definir Acuerdo de Pago</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Monto Total Factura</label>
+                        <input type="text" id="total_acuerdo" class="form-control fw-bold text-primary" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Cantidad de Cuotas</label>
+                        <select id="cant_cuotas" class="form-select" onchange="generarCronograma()">
+                            <option value="1">1 Pago (Completo)</option>
+                            <option value="2">2 Pagos</option>
+                            <option value="3">3 Pagos</option>
+                            <option value="4">4 Pagos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Frecuencia (Días)</label>
+                        <input type="number" id="frecuencia_dias" class="form-control" value="15" onchange="generarCronograma()">
+                    </div>
+                </div>
+
+                <h6 class="fw-bold border-bottom pb-2 text-muted">Cronograma de Pagos Sugerido</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Cuota</th>
+                                <th>Monto</th>
+                                <th>Fecha de Pago</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista_cuotas_acuerdo">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary px-4" onclick="confirmarAcuerdo()">Aceptar Acuerdo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Taller/Scripts_Orden.js"></script>
+

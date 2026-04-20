@@ -511,3 +511,4 @@ function verDetalleOrden(idOrden) {
         new bootstrap.Modal(document.getElementById('modalVerDetalleOrden')).show();
     });
 }
+

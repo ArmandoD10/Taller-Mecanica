@@ -164,7 +164,7 @@ require("../../header.php");
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <label class="small fw-bold text-dark">Método de Pago</label>
                                             <div class="form-check form-switch m-0">
-                                                <input class="form-check-input" type="checkbox" id="fac_switch_credito" onchange="toggleCreditoTaller(this.checked)">
+                                                <input class="form-check-input" type="checkbox" id="fac_switch_credito" onchange="toggleCreditoTaller(this.checked); gestionarModalCredito(this)">
                                                 <label class="form-check-label fw-bold text-danger small" for="fac_switch_credito">Facturar a Crédito</label>
                                             </div>
                                         </div>
@@ -401,8 +401,57 @@ require("../../header.php");
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalAcuerdoPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-handshake me-2"></i> Plan de Pago a Crédito</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Monto a Financiar</label>
+                        <input type="text" id="total_acuerdo" class="form-control fw-bold text-primary" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Cuotas</label>
+                        <select id="cant_cuotas" class="form-select" onchange="generarCronograma()">
+                            <option value="1">1 Pago</option>
+                            <option value="2">2 Pagos</option>
+                            <option value="3">3 Pagos</option>
+                            <option value="4">4 Pagos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Días entre pagos</label>
+                        <input type="number" id="frecuencia_dias" class="form-control" value="15" onchange="generarCronograma()">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Monto</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista_cuotas_acuerdo"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmarAcuerdo()">Guardar Plan</button>
+            </div>
+        </div>
+    </div>
+</div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../../modules/Taller/Scripts_Entrega.js"></script>
 </body>
 </html>

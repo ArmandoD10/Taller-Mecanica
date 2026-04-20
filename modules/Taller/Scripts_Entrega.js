@@ -576,6 +576,7 @@ function procesarAzulTaller() {
 }
 
 function ejecutarFacturacionFinal(refAzul, esCredito) {
+    // 1. Preparamos el objeto base con los datos de facturación
     const data = {
         id_orden: document.getElementById("fac_id_orden").value,
         id_cliente: document.getElementById("fac_id_cliente").value,
@@ -587,8 +588,17 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
         es_credito: esCredito,
         id_credito: document.getElementById("fac_id_credito").value,
         repuestos_extra: repuestosExtra,
-        ofertas_ids: ofertasSeleccionadasParaFactura
+        ofertas_ids: ofertasSeleccionadasParaFactura,
+        
+        // --- AGREGADO: Enviar el acuerdo de pago si es crédito ---
+        acuerdo_pago: esCredito ? window.acuerdoPagoGlobal : null 
     };
+
+    // 2. Validación de seguridad para crédito
+    if (esCredito && (!data.acuerdo_pago || data.acuerdo_pago.length === 0)) {
+        alert("⚠️ No se ha definido un plan de cuotas. Por favor, active el switch de crédito nuevamente.");
+        return;
+    }
 
     fetch("../../modules/Taller/Archivo_Entrega.php?action=guardar_factura_orden", {
         method: "POST",
@@ -598,7 +608,12 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
+            alert("✅ Factura generada y acuerdo de pago registrado.");
             cerrarModalFacturacion();
+            
+            // Limpiamos la variable global para la siguiente factura
+            window.acuerdoPagoGlobal = null;
+            
             imprimirFacturaVoucher(res.id_factura, data);
             listar(); 
         } else {
@@ -892,4 +907,131 @@ function cerrarModalUI(id) {
             document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
         }
     }
+}
+
+// FUCNION DE ACUERDO DE PAGO
+// 1. FUNCIÓN PRINCIPAL: Se activa al mover el Switch
+/**
+ * LÓGICA INTEGRADA PARA ACUERDO DE PAGO
+ */
+document.addEventListener('change', function(e) {
+    // Detectamos el cambio en el switch de crédito
+    if (e.target && e.target.id === 'switch_credito') {
+        if (e.target.checked) {
+            console.log("Switch de crédito activado. Buscando montos...");
+
+            // Intentamos obtener el total desde los posibles IDs de tu interfaz
+            // Según tu imagen, el monto verde es el objetivo
+            const elTotal = document.getElementById('total_facturar_txt') || 
+                            document.getElementById('total_a_cobrar_id') ||
+                            document.querySelector('.text-success.fw-bold.h3'); // Selector genérico por clase si fallan los IDs
+            
+            if (elTotal) {
+                // Extraemos solo los números y el punto decimal
+                const montoTexto = elTotal.innerText || elTotal.textContent;
+                const montoLimpio = montoTexto.replace(/[^\d.]/g, ''); 
+                
+                console.log("Monto detectado:", montoLimpio);
+
+                // Seteamos el valor en el modal
+                const inputAcuerdo = document.getElementById('total_acuerdo');
+                if (inputAcuerdo) {
+                    inputAcuerdo.value = "RD$ " + parseFloat(montoLimpio).toLocaleString('en-US', {minimumFractionDigits: 2});
+                }
+                
+                // Abrimos el modal
+                const modalDiv = document.getElementById('modalAcuerdoPago');
+                if (modalDiv) {
+                    const myModal = new bootstrap.Modal(modalDiv);
+                    myModal.show();
+                    
+                    // IMPORTANTE: Asegúrate de que esta función exista abajo
+                    generarCronograma(); 
+                } else {
+                    alert("Error: No se encontró el modal de acuerdo de pago en el HTML.");
+                }
+            } else {
+                alert("Primero debe haber un monto total calculado para habilitar el crédito.");
+                e.target.checked = false; 
+            }
+        } else {
+            window.acuerdoPagoGlobal = null;
+            console.log("Crédito desactivado, acuerdo limpiado.");
+        }
+    }
+});
+
+function gestionarModalCredito(checkbox) {
+    if (checkbox.checked) {
+        // En EntregaServicio.php, el total está en 'fac_total_final'
+        const elTotal = document.getElementById('fac_total_final');
+        const inputAcuerdo = document.getElementById('total_acuerdo');
+        
+        if (elTotal && inputAcuerdo) {
+            const montoLimpio = elTotal.innerText.replace(/[^\d.]/g, ''); 
+            inputAcuerdo.value = "RD$ " + parseFloat(montoLimpio).toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            // Abrir el modal correctamente con Bootstrap 5
+            const modalDiv = document.getElementById('modalAcuerdoPago');
+            const myModal = new bootstrap.Modal(modalDiv);
+            myModal.show();
+            
+            generarCronograma(); 
+        } else {
+            console.error("No se encontró el elemento total o el input del modal.");
+        }
+    } else {
+        window.acuerdoPagoGlobal = null;
+    }
+}
+
+// Función de cronograma (re-asegurada)
+function generarCronograma() {
+    const inputTotal = document.getElementById('total_acuerdo');
+    if (!inputTotal) return;
+
+    const total = parseFloat(inputTotal.value.replace(/[^\d.]/g, ''));
+    const cuotas = parseInt(document.getElementById('cant_cuotas').value) || 1;
+    const diasFrecuencia = parseInt(document.getElementById('frecuencia_dias').value) || 15;
+    const tbody = document.getElementById('lista_cuotas_acuerdo');
+    
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const montoIndividual = (total / cuotas).toFixed(2);
+    let fechaBase = new Date();
+
+    for (let i = 1; i <= cuotas; i++) {
+        fechaBase.setDate(fechaBase.getDate() + diasFrecuencia);
+        const fechaISO = fechaBase.toISOString().split('T')[0];
+
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold text-primary">${i}</td>
+                <td><input type="number" class="form-control form-control-sm cuota-monto" value="${montoIndividual}"></td>
+                <td><input type="date" class="form-control form-control-sm cuota-fecha" value="${fechaISO}"></td>
+            </tr>`;
+    }
+}
+
+function confirmarAcuerdo() {
+    const montos = document.querySelectorAll('.cuota-monto');
+    const fechas = document.querySelectorAll('.cuota-fecha');
+    
+    const cuotasArray = [];
+    montos.forEach((m, i) => {
+        cuotasArray.push({
+            nro: i + 1,
+            monto: parseFloat(m.value),
+            fecha: fechas[i].value
+        });
+    });
+
+    window.acuerdoPagoGlobal = cuotasArray;
+    
+    const modalEl = document.getElementById('modalAcuerdoPago');
+    const instance = bootstrap.Modal.getInstance(modalEl);
+    if (instance) instance.hide();
+    
+    alert("✅ Acuerdo de pago guardado correctamente.");
 }

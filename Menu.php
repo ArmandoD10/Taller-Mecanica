@@ -245,8 +245,10 @@ for($i = 6; $i >= 0; $i--) {
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MSucursal.php">Sucursales</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MDepartamento.php">Departamentos</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/MPuesto.php">Puestos</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/MEspecialidad.php">Especialidades</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionUsuario.php">Gestion de Usuarios</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionPermisos.php">Gestion de Permisos</a>
+                    <a href="/Taller/Taller-Mecanica/view/RRHH/GestionEspecialidades.php">Gestion Especialidades</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestionDepartamento.php">Departamento a Sucursal</a>
                     <a href="/Taller/Taller-Mecanica/view/RRHH/GestEmpleado_Sucursal.php">Empleado por Sucursal</a>
                 </div>
@@ -323,7 +325,9 @@ for($i = 6; $i >= 0; $i--) {
                     <a href="/Taller/Taller-Mecanica/view/Taller/MMaquinaria.php">Gestión de Recursos</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/RegistroTiempo.php">Tiempos y Asignacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/EntregaServicio.php">Entrega de Servicios</a>
+                     <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MPoliticaGarantia.php">Politicas de Garantia</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MReclamoGarantia.php">Reclamos de Garantia</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialServicio.php">Historial de Servicios</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/HistorialEntrega.php">Historial de Entregas</a>

@@ -28,6 +28,9 @@ switch ($action) {
     case 'niveles':
         niveles($conexion);
         break;
+    case 'reporte_pdf':
+    reporte_pdf($conexion);
+    break;
     default:
         // Mensaje de error para acciones no válidas
         echo json_encode(['success' => false, 'message' => 'Acción no válida.']);
@@ -79,6 +82,20 @@ echo json_encode([
     'page' => $page,
     'limit' => $limit
 ]);
+}
+
+// Al final del archivo:
+function reporte_pdf($conexion) {
+    $sql = "SELECT u.id_usuario, u.username, n.nombre as nivel, u.correo_org, u.fecha_creacion, u.estado 
+            FROM usuario u
+            INNER JOIN nivel n ON u.id_nivel = n.id_nivel
+            ORDER BY u.id_usuario ASC";
+    $res = $conexion->query($sql);
+    $usuarios = [];
+    while($fila = $res->fetch_assoc()){
+        $usuarios[] = $fila;
+    }
+    echo json_encode(['success' => true, 'data' => $usuarios]);
 }
 
 /**

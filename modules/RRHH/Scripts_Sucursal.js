@@ -259,3 +259,57 @@ document.querySelectorAll('input[name="criterioFiltro"]').forEach(radio => {
         renderizarTabla(sucursalesRaw); // Mostrar todos al cambiar de filtro
     });
 });
+
+window.generarReporteSucursalesPDF = function() {
+    fetch("/Taller/Taller-Mecanica/modules/RRHH/Archivo_Sucursal.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos de sucursales");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4'); // 'l' para formato Horizontal (Landscape)
+
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Logo a la derecha (ajustado para hoja horizontal)
+            doc.addImage(img, 'PNG', 240, 10, 40, 20);
+
+            // Encabezado
+            doc.setFontSize(20);
+            doc.setTextColor(13, 71, 161); 
+            doc.text("REPORTE DE SUCURSALES", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Fecha: ${new Date().toLocaleString()}`, 14, 33);
+
+            // Mapear datos
+            const filas = res.data.map(s => [
+                s.id_sucursal,
+                s.nombre,
+                s.telefono,
+                s.ciudad,
+                s.direccion,
+                s.estado.toUpperCase()
+            ]);
+
+            // Generar Tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['ID', 'Sucursal', 'Teléfono', 'Ciudad', 'Dirección', 'Estado']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] },
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+                columnStyles: {
+                    4: { cellWidth: 80 } // Darle más espacio a la columna de dirección
+                }
+            });
+
+            doc.save('Reporte_Sucursales.pdf');
+        };
+    })
+    .catch(err => console.error("Error:", err));
+};

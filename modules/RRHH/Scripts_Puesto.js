@@ -192,3 +192,67 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
+window.generarReportePuestosPDF = function() {
+    fetch("/Taller/Taller-Mecanica/modules/RRHH/Archivo_Puesto.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos de los puestos");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Cargar Logo (usando la ruta de tu sistema)
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Encabezado
+            doc.addImage(img, 'PNG', 160, 10, 35, 18);
+            
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161); // Azul Primario
+            doc.text("REPORTE ESTRUCTURA DE PUESTOS", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Fecha de emisión: ${new Date().toLocaleString()}`, 14, 33);
+
+            // Mapeo de datos para la tabla
+            const filas = res.data.map(p => [
+                p.id_puesto,
+                p.puesto,
+                p.departamento,
+                p.fecha,
+                p.estado.toUpperCase()
+            ]);
+
+            // Configuración de la Tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['ID', 'Nombre del Puesto', 'Departamento', 'Fecha Registro', 'Estado']],
+                body: filas,
+                headStyles: { 
+                    fillColor: [13, 71, 161],
+                    halign: 'center'
+                },
+                columnStyles: {
+                    0: { cellWidth: 15, halign: 'center' },
+                    3: { halign: 'center' },
+                    4: { halign: 'center' }
+                },
+                styles: { fontSize: 9 },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { top: 40 }
+            });
+
+            // Guardar el archivo
+            doc.save('Reporte_Puestos_Trabajo.pdf');
+        };
+    })
+    .catch(err => {
+        console.error("Error al generar PDF:", err);
+        alert("No se pudo conectar con el servidor para generar el reporte.");
+    });
+};

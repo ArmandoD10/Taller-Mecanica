@@ -28,6 +28,22 @@ switch ($action) {
     case 'actualizar':
         actualizar($conexion);
         break;
+   // Dentro del switch ($action)
+case 'reporte_pdf':
+    $sql = "SELECT c.id_cliente, p.cedula, 
+                   CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, '')) as cliente,
+                   (SELECT tel.numero FROM telefono tel 
+                    JOIN cliente_telefono ct ON tel.id_telefono = ct.id_telefono 
+                    WHERE ct.id_cliente = c.id_cliente LIMIT 1) as telefono,
+                   c.estado 
+            FROM cliente c
+            JOIN persona p ON c.id_persona = p.id_persona
+            WHERE c.estado != 'eliminado'
+            ORDER BY c.id_cliente ASC";
+            
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+    break;
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;

@@ -155,6 +155,9 @@ require("../../header.php");
                             <label class="form-check-label small" for="f_cedula">Cédula/RNC</label>
                         </div>
                     </div>
+                    <button type="button" class="btn btn-primary fw-bold shadow-sm" onclick="generarReporteClientesPDF()">
+        <i class="fas fa-print me-3"></i> Imprimir Reporte
+    </button>
                 </div>
 
                 <div class="table-responsive">
@@ -177,6 +180,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Cliente/Scripts_Cliente.js"></script>
 </body>
 </html>

@@ -120,6 +120,7 @@ function guardarPermisoReal() {
 }
 
 // 📋 LISTAR HISTORIAL EN LA TABLA
+// Modifica el renderizado de la tabla para activar el botón
 function listarPermisos() {
     fetch('/Taller/Taller-Mecanica/modules/RRHH/Archivo_Gestion_Permiso.php?action=listarPermisos')
         .then(res => res.json())
@@ -127,20 +128,14 @@ function listarPermisos() {
             const tbody = document.getElementById("tbodyPermisos");
             tbody.innerHTML = "";
             
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay permisos registrados</td></tr>';
-                return;
-            }
-
             data.forEach(p => {
-
-                // Definir color del badge según el estado
                 const colorBadge = p.estado_real === 'activo' ? 'bg-success' : 'bg-secondary';
                 const textoEstado = p.estado_real === 'activo' ? 'Vigente' : 'Finalizado';
                 
+                // Aquí pasamos todo el objeto 'p' para tener los datos listos
                 tbody.innerHTML += `
                     <tr>
-                        <td>${p.id_empleado}</td>
+                        <td>${p.id_permiso || p.id_empleado}</td>
                         <td class="fw-bold">${p.emp_nombre} ${p.apellido_p}</td>
                         <td><span class="badge bg-info text-dark">${p.tipo_nombre}</span></td>
                         <td>${p.fecha_inicio}</td>
@@ -148,13 +143,98 @@ function listarPermisos() {
                         <td>${p.motivo || 'N/A'}</td>
                         <td><span class="badge rounded-pill ${colorBadge}">${textoEstado}</span></td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-light border" title="Ver Comprobante">
-                                <i class="fas fa-file-pdf text-danger"></i>
+                            <button class="btn btn-sm btn-danger shadow-sm" onclick='generarComprobantePermiso(${JSON.stringify(p)})' title="Imprimir Comprobante">
+                                <i class="fas fa-file-pdf"></i>
                             </button>
                         </td>
                     </tr>`;
             });
         });
+}
+
+// Nueva función creativa para el Comprobante Tipo Certificado
+function generarComprobantePermiso(datos) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const logoUrl = "/Taller/Taller-Mecanica/img/logo.png"; 
+
+    const img = new Image();
+    img.src = logoUrl;
+    img.onload = function() {
+        // --- AJUSTE DEL LOGO ---
+        // Calculamos la proporción para que no se comprima
+        const logoAnchoOriginal = img.width;
+        const logoAltoOriginal = img.height;
+        const proporcion = logoAltoOriginal / logoAnchoOriginal;
+        
+        const anchoDeseado = 20; // Más chico para que quepa bien
+        const altoCalculado = anchoDeseado * proporcion;
+
+        // --- ENCABEZADO INSTITUCIONAL ---
+        // Posicionamos el logo sin deformarlo
+        doc.addImage(img, 'JPEG', 15, 12, anchoDeseado, altoCalculado);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(13, 71, 161);
+        doc.text("MECÁNICA AUTOMOTRIZ DÍAZ & PANTALEÓN", 40, 20);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        doc.text("Departamento de Recursos Humanos", 40, 26);
+        doc.text(`Santiago de los Caballeros, Rep. Dom.`, 40, 31);
+
+        // --- CUERPO DEL CERTIFICADO ---
+        doc.setDrawColor(13, 71, 161);
+        doc.setLineWidth(0.5);
+        doc.line(15, 38, 195, 38); 
+
+        doc.setFontSize(15);
+        doc.setTextColor(0);
+        doc.text("CERTIFICADO DE PERMISO LABORAL", 105, 50, { align: "center" });
+
+        // Ajuste de texto del cuerpo
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        const nombreCompleto = `${datos.emp_nombre} ${datos.apellido_p}`.toUpperCase();
+        const textoCuerpo = `Por la presente se certifica que el empleado(a) ${nombreCompleto}, ha sido formalmente autorizado(a) para ausentarse de sus labores bajo el concepto detallado a continuación:`;
+        
+        const splitText = doc.splitTextToSize(textoCuerpo, 170);
+        doc.text(splitText, 20, 65);
+
+        // --- TABLA DE DETALLES ---
+        doc.autoTable({
+            startY: 80,
+            theme: 'grid',
+            head: [['DESCRIPCIÓN', 'INFORMACIÓN']],
+            body: [
+                ['Tipo de Permiso:', datos.tipo_nombre.toUpperCase()],
+                ['Desde:', datos.fecha_inicio],
+                ['Hasta:', datos.fecha_fin],
+                ['Motivo:', datos.motivo || 'No especificado'],
+                ['Estado:', datos.estado_real === 'activo' ? 'VIGENTE' : 'FINALIZADO']
+            ],
+            headStyles: { fillColor: [13, 71, 161], halign: 'left' },
+            styles: { fontSize: 10, cellPadding: 4 },
+            columnStyles: { 0: { fontStyle: 'bold', width: 50 } }
+        });
+
+        // --- SECCIÓN DE FIRMAS ---
+        const finalY = doc.lastAutoTable.finalY + 30;
+        doc.setFontSize(10);
+        doc.line(30, finalY, 85, finalY);
+        doc.text("Firma del Empleado", 42, finalY + 5);
+
+        doc.line(125, finalY, 180, finalY);
+        doc.text("Recursos Humanos", 140, finalY + 5);
+
+        // --- PIE DE PÁGINA ---
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`ID: PER-${datos.id_permiso || '00'} | Generado: ${new Date().toLocaleString()}`, 105, 285, { align: "center" });
+
+        doc.save(`Permiso_${datos.emp_nombre}.pdf`);
+    };
 }
 
 

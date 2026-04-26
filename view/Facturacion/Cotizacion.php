@@ -8,7 +8,7 @@ require("../../header.php");
         <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
             <h2><i class="fas fa-file-invoice me-2 text-primary"></i>Módulo de Cotizaciones</h2>
             <div class="d-flex gap-2">
-                <button class="btn btn-secondary shadow-sm" type="button" onclick="listarPendientes()">
+                <button class="btn btn-secondary shadow-sm" type="button" onclick="actualizar()">
                     <i class="fas fa-sync-alt me-2"></i>Actualizar
                 </button>
                 <button class="btn btn-success shadow-sm" type="button" onclick="abrirModalNuevaCotizacion()">

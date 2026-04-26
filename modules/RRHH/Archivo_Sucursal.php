@@ -30,6 +30,23 @@ switch ($action) {
         actualizar($conexion);
         break;
 
+    case 'reporte_pdf':
+    $sql = "SELECT 
+                s.id_sucursal,
+                s.nombre,
+                t.numero AS telefono,
+                d.descripcion AS direccion,
+                c.nombre AS ciudad,
+                s.estado
+            FROM Sucursal s
+            INNER JOIN Direccion d ON s.id_direccion = d.id_direccion
+            INNER JOIN Ciudad c ON d.id_ciudad = c.id_ciudad
+            INNER JOIN Telefono t ON s.id_telefono = t.id_telefono";
+            
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+    break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;

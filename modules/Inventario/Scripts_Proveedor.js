@@ -578,3 +578,62 @@ function cerrarModalUI(idModal) {
         $('#' + idModal).modal('hide'); 
     }
 }
+
+// Añadir al final de Scripts_Proveedor.js
+
+window.generarReporteProveedoresPDF = function() {
+    fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4'); 
+
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Encabezado Institucional
+            doc.addImage(img, 'PNG', 150, 10, 45, 22);
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161);
+            doc.text("REPORTE DE PROVEEDORES", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Fecha: ${new Date().toLocaleString()}`, 14, 33);
+
+            // Mapear datos
+            const filas = res.data.map(p => [
+                p.id_proveedor,
+                p.nombre_comercial,
+                p.RNC || 'N/A',
+                p.correo || 'N/A',
+                p.estado.toUpperCase()
+            ]);
+
+            // Generar Tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['ID', 'Nombre Comercial', 'RNC', 'Correo Electrónico', 'Estado']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] },
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+                styles: { fontSize: 9, cellPadding: 3 }
+            });
+
+            doc.save(`Reporte_Proveedores_DP.pdf`);
+        };
+
+        img.onerror = function() {
+            alert("No se pudo cargar el logo, pero se generará el PDF.");
+            // Lógica de respaldo sin imagen si es necesario...
+        };
+    })
+    .catch(err => {
+        console.error("Error:", err);
+        alert("Error de conexión con el servidor.");
+    });
+};

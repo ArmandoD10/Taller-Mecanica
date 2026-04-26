@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+
     const inputNombre = document.getElementById('occ_nombre');
     if (inputNombre) {
         inputNombre.addEventListener('input', function(e) {
@@ -53,6 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
+function actualizar() {
+    location.reload();
+}
 
 function filtrarCotizaciones() {
     const input = document.getElementById("buscar_cotizacion");

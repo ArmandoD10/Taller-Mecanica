@@ -171,3 +171,62 @@ document.addEventListener("DOMContentLoaded", () => {
         e.target.value = valor;
     });
 });
+
+window.generarReporteDepartamentosPDF = function() {
+    fetch("/Taller/Taller-Mecanica/modules/RRHH/Archivo_DepartamentoP.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos de departamentos");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Encabezado Estético
+            doc.addImage(img, 'PNG', 160, 10, 35, 18);
+            
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161); 
+            doc.text("REPORTE DE DEPARTAMENTOS", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 33);
+
+            // Mapear los datos de la consulta
+            const filas = res.data.map(d => [
+                d.nombre,
+                d.dias_lab + " días",
+                d.hora_entrada,
+                d.hora_salida,
+                d.estado.toUpperCase()
+            ]);
+
+            // Crear la tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['Nombre Departamento', 'Días Lab.', 'Entrada', 'Salida', 'Estado']],
+                body: filas,
+                headStyles: { 
+                    fillColor: [13, 71, 161],
+                    halign: 'center'
+                },
+                columnStyles: {
+                    1: { halign: 'center' },
+                    2: { halign: 'center' },
+                    3: { halign: 'center' },
+                    4: { halign: 'center' }
+                },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { top: 40 }
+            });
+
+            doc.save('Reporte_Departamentos_RRHH.pdf');
+        };
+    })
+    .catch(err => console.error("Error al generar PDF:", err));
+};

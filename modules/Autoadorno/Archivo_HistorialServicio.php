@@ -52,6 +52,11 @@ case 'filtrar_historial':
     echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
     break;
 
+    // Dentro del switch ($action) en Archivo_HistorialServicio.php
+case 'reporte_pdf':
+    reporte_pdf($conexion, $id_sucursal);
+    break;
+
     // 3. DETALLE COMPLETO PARA EL MODAL (Servicios y Repuestos con Imagen)
     case 'detalle_orden_historial':
         $id_o = (int)$_GET['id_orden'];
@@ -71,4 +76,22 @@ case 'filtrar_historial':
             'total' => $total['monto_total']
         ]);
         break;
+}
+
+// Función al final del archivo
+function reporte_pdf($conexion, $id_sucursal) {
+    $sql = "SELECT o.id_orden, o.descripcion, o.monto_total, 
+                   DATE_FORMAT(o.fecha_creacion, '%d/%m/%Y') as fecha_fmt,
+                   e.nombre as estado
+            FROM orden o
+            JOIN Orden_Estado oe ON o.id_orden = oe.id_orden
+            JOIN Estado e ON oe.id_estado = e.id_estado
+            WHERE o.id_sucursal = $id_sucursal 
+            AND o.descripcion LIKE 'ORDEN AUTOADORNO%'
+            AND oe.sec_orden_estado = (SELECT MAX(sec_orden_estado) FROM Orden_Estado WHERE id_orden = o.id_orden)
+            ORDER BY o.id_orden DESC";
+            
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+    exit;
 }

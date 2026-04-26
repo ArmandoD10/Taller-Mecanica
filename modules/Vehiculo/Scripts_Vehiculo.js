@@ -363,3 +363,75 @@ if (inputAnio) {
         }
     });
 }
+
+// Agrega esta función al final de Scripts_Vehiculo.js
+
+window.generarReporteVehiculosPDF = function() {
+    // 1. Obtener los datos del servidor
+    fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Vehiculo.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos");
+
+        const { jsPDF } = window.jspdf;
+        // 'l' para landscape (horizontal) si hay muchas columnas, o 'p' para portrait
+        const doc = new jsPDF('l', 'mm', 'a4'); 
+
+        // 2. Cargar Logo (Usando la misma ruta del ejemplo de clientes)
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Logo a la derecha (ajustado para hoja horizontal)
+            doc.addImage(img, 'PNG', 230, 10, 45, 22);
+
+            // Título y Estilo institucional
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161); // Azul primario
+            doc.text("REPORTE MAESTRO DE VEHÍCULOS", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Fecha: ${new Date().toLocaleString()}`, 14, 33);
+
+            // 3. Mapear datos para la tabla
+            const filas = res.data.map(v => [
+                v.sec_vehiculo,
+                v.cliente,
+                v.vin_chasis,
+                v.placa || 'S/P',
+                `${v.marca} ${v.modelo}`,
+                v.anio,
+                v.estado.toUpperCase()
+            ]);
+
+            // 4. Generar Tabla con AutoTable
+            doc.autoTable({
+                startY: 40,
+                head: [['ID', 'Propietario', 'Chasis/VIN', 'Placa', 'Vehículo', 'Año', 'Estado']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] }, 
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+                styles: { fontSize: 9, cellPadding: 3 },
+                columnStyles: {
+                    0: { cellWidth: 15 },
+                    3: { cellWidth: 25 },
+                    5: { cellWidth: 15 }
+                }
+            });
+
+            // 5. Guardar el reporte
+            doc.save(`Reporte_Vehiculos_DP.pdf`);
+        };
+
+        img.onerror = function() {
+            console.error("Logo no encontrado.");
+            alert("No se pudo cargar el logo, verifique la ruta.");
+        };
+    })
+    .catch(err => {
+        console.error("Error en reporte:", err);
+        alert("Hubo un problema de conexión con el servidor.");
+    });
+};

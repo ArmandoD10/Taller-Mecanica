@@ -22,6 +22,18 @@ switch ($action) {
         actualizar($conexion);
         break;
 
+    case 'reporte_pdf':
+    $sql = "SELECT p.id_puesto, p.nombre as puesto, d.nombre as departamento, 
+                   DATE_FORMAT(p.fecha_creacion, '%d/%m/%Y') as fecha, p.estado 
+            FROM Puesto p
+            INNER JOIN Departamento d ON p.id_departamento = d.id_departamento
+            WHERE p.estado != 'eliminado'
+            ORDER BY d.nombre ASC, p.nombre ASC";
+            
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+    break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;

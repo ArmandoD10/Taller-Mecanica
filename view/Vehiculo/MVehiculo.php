@@ -118,7 +118,9 @@ require("../../header.php");
                         <span class="fw-bold small">Cliente</span>
                     </div>
 
-                    <button type="button" class="btn btn-primary">Imprimir Listado</button>
+                    <button type="button" class="btn btn-primary" onclick="generarReporteVehiculosPDF()">
+    <i class="fas fa-file-pdf"></i> Imprimir Reporte
+</button>
                 </div>
 
                 <div class="table-responsive">
@@ -147,6 +149,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Vehiculo/Scripts_Vehiculo.js"></script>
 </body>
 </html>

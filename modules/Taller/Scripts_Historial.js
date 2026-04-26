@@ -95,43 +95,57 @@ function limpiarFiltros() {
 // OBTENER Y MOSTRAR DETALLES (RADIOGRAFÍA)
 // ==========================================
 function verDetalles(id_orden) {
+    // 1. Petición al servidor
     fetch(`../../modules/Taller/Archivo_Historial.php?action=obtener_detalles&id_orden=${id_orden}`)
     .then(res => res.json())
     .then(data => {
         if(data.success) {
+            // Desestructuración de los datos recibidos
             const d = data.data.cabecera;
             const trabajos = data.data.trabajos;
             const servicios = data.data.servicios;
             const repuestos = data.data.repuestos;
 
-            // 1. Llenar Cabecera
+            // 2. Llenar Cabecera del Modal
             document.getElementById("lbl_id_orden_modal").innerText = "ORD-" + d.id_orden;
             document.getElementById("lbl_estado_orden_modal").innerText = d.estado_orden.toUpperCase();
             document.getElementById("lbl_fecha_orden_modal").innerText = d.fecha_fmt;
             
+            // Mostrar la sucursal (Asegúrate de tener este ID en tu HTML)
+            const elSucursal = document.getElementById("det_sucursal_nombre");
+            if(elSucursal) {
+                elSucursal.innerText = d.sucursal_nombre || "No especificada";
+            }
+
+            // Datos del Cliente
             document.getElementById("det_cliente").innerText = d.cliente;
             document.getElementById("det_cedula").innerText = d.cedula || 'N/A';
             document.getElementById("det_telefono").innerText = d.telefono || 'N/A'; 
 
+            // Datos del Vehículo
             document.getElementById("det_vehiculo").innerText = d.vehiculo;
             document.getElementById("det_placa").innerText = d.placa || 'N/A';
             document.getElementById("det_vin").innerText = d.vin_chasis || 'N/A';
             document.getElementById("det_km").innerText = d.kilometraje + " km";
             
+            // Total
             document.getElementById("det_total").innerText = d.monto_total_fmt;
 
-            // 2. Trabajos Solicitados
+            // 3. Llenar Trabajos Solicitados (Badges)
             const divTrabajos = document.getElementById("det_trabajos");
             divTrabajos.innerHTML = "";
             if(trabajos && trabajos.length > 0) {
                 trabajos.forEach(t => {
-                    divTrabajos.innerHTML += `<span class="badge bg-info text-dark shadow-sm px-3 py-2"><i class="fas fa-check-circle me-1 opacity-75"></i> ${t.descripcion}</span>`;
+                    divTrabajos.innerHTML += `
+                        <span class="badge bg-info text-dark shadow-sm px-3 py-2">
+                            <i class="fas fa-check-circle me-1 opacity-75"></i> ${t.descripcion}
+                        </span>`;
                 });
             } else {
                 divTrabajos.innerHTML = '<span class="text-muted small italic">No se indicaron motivos específicos.</span>';
             }
 
-            // 3. Llenar Tabla de Servicios
+            // 4. Llenar Tabla de Servicios (Mano de Obra)
             const tbodyS = document.getElementById("cuerpoServiciosDetalle");
             tbodyS.innerHTML = "";
             if(servicios && servicios.length > 0) {
@@ -139,6 +153,7 @@ function verDetalles(id_orden) {
                     let estadoServ = s.estado_asignacion === 'Completado' 
                         ? '<i class="fas fa-check-circle text-success" title="Completado"></i>' 
                         : '<i class="fas fa-clock text-warning" title="Pendiente/En Curso"></i>';
+                    
                     const notas = s.notas_hallazgos ? s.notas_hallazgos : '<em class="text-muted">Sin notas</em>';
 
                     tbodyS.innerHTML += `
@@ -155,7 +170,7 @@ function verDetalles(id_orden) {
                 tbodyS.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No hay servicios asociados.</td></tr>`;
             }
 
-            // 4. Llenar Tabla de Repuestos
+            // 5. Llenar Tabla de Repuestos
             const tbodyR = document.getElementById("cuerpoRepuestosDetalle");
             tbodyR.innerHTML = "";
             if(repuestos && repuestos.length > 0) {
@@ -175,12 +190,17 @@ function verDetalles(id_orden) {
                 tbodyR.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No se utilizaron repuestos.</td></tr>`;
             }
 
+            // 6. Abrir la interfaz del modal
             abrirModalUI('modalDetalleOrden');
+
         } else {
-            alert("Error al cargar detalles: " + data.message);
+            alert("Error al cargar detalles: " + (data.message || "Error desconocido"));
         }
     })
-    .catch(err => console.error("Error ver detalles:", err));
+    .catch(err => {
+        console.error("Error ver detalles:", err);
+        alert("Hubo un fallo en la conexión con el servidor.");
+    });
 }
 
 // ==========================================
@@ -245,3 +265,69 @@ function cerrarModalUI(id) {
     const b = document.getElementById('m-bd-hist'); if(b) b.remove();
     document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
 }
+
+
+// Añadir al final de Scripts_Historial.js
+
+window.generarReporteHistorialPDF = function() {
+    fetch("../../modules/Taller/Archivo_Historial.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener los datos del historial.");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4'); // 'l' para horizontal
+
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Encabezado
+            doc.addImage(img, 'PNG', 235, 10, 45, 22);
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161);
+            doc.text("HISTORIAL GENERAL DE SERVICIOS", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Reporte generado el: ${new Date().toLocaleString()}`, 14, 33);
+
+            // Mapear datos para la tabla
+            const filas = res.data.map(o => [
+                o.id_orden,
+                o.fecha_fmt,
+                o.vehiculo,
+                o.placa,
+                o.cliente,
+                o.estado_orden.toUpperCase(),
+                "RD$ " + parseFloat(o.monto_total).toLocaleString('en-US', {minimumFractionDigits: 2})
+            ]);
+
+            // Generar Tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['N° Orden', 'Fecha', 'Vehículo', 'Placa', 'Cliente', 'Estado', 'Monto Total']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] },
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: {
+                    6: { halign: 'right', fontStyle: 'bold' } // Alinear monto a la derecha
+                }
+            });
+
+            doc.save(`Historial_Servicios_DP.pdf`);
+        };
+
+        img.onerror = function() {
+            console.error("No se pudo cargar el logo.");
+            alert("No se encontró el logo institucional, el reporte se generará solo con texto.");
+            // Aquí podrías disparar la generación sin imagen si lo deseas
+        };
+    })
+    .catch(err => {
+        console.error("Error:", err);
+        alert("Ocurrió un error al conectar con el servidor.");
+    });
+};

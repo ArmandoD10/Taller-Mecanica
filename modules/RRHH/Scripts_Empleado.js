@@ -681,3 +681,57 @@ async function cargarDatosPersona(p) {
         selCiud.value = p.id_ciudad;
     }
 }
+
+window.generarReporteEmpleadosPDF = function() {
+    fetch("/Taller/Taller-Mecanica/modules/RRHH/Archivo_Empleado.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // 1. Cargar Logo
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Logo a la derecha
+            doc.addImage(img, 'PNG', 155, 10, 40, 20);
+
+            // Encabezado
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161); 
+            doc.text("REPORTE GENERAL DE EMPLEADOS", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Fecha de impresión: ${new Date().toLocaleString()}`, 14, 33);
+
+            // 2. Preparar los datos (Combinando Nombre y Apellido)
+            const filas = res.data.map(e => [
+                e.id_empleado,
+                `${e.nombre} ${e.apellido_p}`,
+                e.cedula,
+                e.puesto,
+                e.estado
+            ]);
+
+            // 3. Generar Tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['ID', 'Nombre Completo', 'Cédula', 'Puesto', 'Estado']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] },
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+                margin: { top: 40 }
+            });
+
+            doc.save('Reporte_Empleados.pdf');
+        };
+
+        img.onerror = () => alert("Error cargando el logo. Verifica la ruta.");
+    })
+    .catch(err => console.error("Error:", err));
+};

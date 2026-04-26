@@ -35,6 +35,26 @@ switch ($action) {
         actualizar($conexion);
         break;
 
+    case 'reporte_pdf':
+    $sql = "SELECT 
+                e.id_empleado,
+                p.nombre,
+                p.apellido_p,
+                p.cedula,
+                pu.nombre as puesto,
+                e.estado
+            FROM Empleado e
+            INNER JOIN Persona p ON e.id_persona = p.id_persona
+            INNER JOIN Puesto pu ON e.id_puesto = pu.id_puesto";
+            
+    $res = $conexion->query($sql);
+    $datos = [];
+    while($fila = $res->fetch_assoc()){
+        $datos[] = $fila;
+    }
+    echo json_encode(['success' => true, 'data' => $datos]);
+    break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;

@@ -135,6 +135,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/RRHH/Scripts_Gestion_Permiso.js"></script>
 
 </body>

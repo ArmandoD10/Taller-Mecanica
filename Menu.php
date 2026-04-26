@@ -22,11 +22,22 @@ $sqlBahia = "SELECT COUNT(*) as total FROM orden o
 $resBahia = $conexion->query($sqlBahia);
 $vehiculos_bahia = $resBahia ? $resBahia->fetch_assoc()['total'] : 0;
 
-// 2. Presupuestos Pendientes (Cotizaciones en estado pendiente)
-$sqlPres = "SELECT COUNT(*) as total FROM cotizacion WHERE estado = 'Pendiente' OR estado = 'pendiente'";
+// 2. Presupuestos Pendientes con filtro por Nivel de Usuario
+$id_sucursal_sesion = $_SESSION['id_sucursal'] ?? 0;
+$id_rol_usuario = $_SESSION['id_rol'] ?? 2; // Asumiendo que 1 es Admin y 2 es Sucursal
+
+if ($id_rol_usuario == 1) {
+    // Si es Administrador (Nivel 1), ve todo
+    $sqlPres = "SELECT COUNT(*) as total FROM cotizacion WHERE estado IN ('Pendiente', 'pendiente')";
+} else {
+    // Si es Nivel 2, solo ve lo de su sucursal
+    $sqlPres = "SELECT COUNT(*) as total FROM cotizacion 
+                WHERE estado IN ('Pendiente', 'pendiente') 
+                AND id_sucursal = '$id_sucursal_sesion'";
+}
+
 $resPres = $conexion->query($sqlPres);
 $presupuestos_pendientes = $resPres ? $resPres->fetch_assoc()['total'] : 0;
-
 // 3. Listos para Entrega (Último estado = 'Listo')
 $sqlListos = "SELECT COUNT(*) as total FROM orden o 
               WHERE o.estado = 'activo' 

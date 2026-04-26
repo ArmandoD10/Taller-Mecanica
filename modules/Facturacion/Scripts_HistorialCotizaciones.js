@@ -136,37 +136,102 @@ function abrirDetalleCot(id_cotizacion, cliente, vehiculo, fecha, tipo, estado, 
 }
 
 function ejecutarReimpresionCotizacion(id, cliente, vehiculo, fecha, items, total, tipo) {
-    let htmlItems = "";
-    items.forEach(i => {
-        htmlItems += `
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span>${i.cantidad}x ${i.descripcion}</span>
-                <span>RD$ ${parseFloat(i.subtotal).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
-            </div>`;
-    });
+    // 1. Cargamos la librería para el PDF si no está presente
+    if (typeof html2pdf === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        document.head.appendChild(script);
+        script.onload = () => procesarPDF();
+    } else {
+        procesarPDF();
+    }
 
-    const v = window.open('', '_blank', 'width=400,height=600');
-    v.document.write(`
-        <html><head><style>body{font-family:monospace;}</style></head>
-        <body style="padding:20px;">
-            <h3 style="text-align:center;">PRESUPUESTO ESTIMADO (${tipo})</h3>
-            <p style="text-align:center; font-weight:bold;">COT-${id}</p>
-            <p style="font-size: 12px;">
-                <b>Fecha:</b> ${fecha}<br>
-                <b>Cliente:</b> ${cliente}<br>
-                <b>Vehículo:</b> ${vehiculo}
-            </p>
-            <hr>
-            ${htmlItems}
-            <hr>
-            <h4>TOTAL ESTIMADO: RD$ ${parseFloat(total).toLocaleString(undefined,{minimumFractionDigits:2})}</h4>
-            <p style="text-align:center; font-size:10px; margin-top:30px; color:#666;">
-                Copia generada desde el Historial. Este documento no es una factura válida para crédito fiscal.
-            </p>
-        </body></html>
-    `);
-    v.document.close();
-    setTimeout(() => { v.print(); v.close(); }, 500);
+    function procesarPDF() {
+        let tablaItems = "";
+        items.forEach(i => {
+            tablaItems += `
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${i.cantidad}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${i.descripcion}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">RD$ ${parseFloat(i.precio || 0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">RD$ ${parseFloat(i.subtotal).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+                </tr>`;
+        });
+
+        const element = document.createElement('div');
+        element.innerHTML = `
+            <div style="width: 210mm; min-height: 297mm; padding: 40px; border: 20px solid #0d47a1; background: white; font-family: 'Poppins', sans-serif; box-sizing: border-box; position: relative;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 5px solid #0d47a1; padding-bottom: 20px; margin-bottom: 30px;">
+                    <img src="../../img/logo.png" style="max-width: 200px; height: auto;" onerror="this.style.visibility='hidden'">
+                    <div style="background: #0d47a1; color: white; padding: 15px 30px; border-radius: 10px; text-align: center;">
+                        <span style="font-size: 11px; display: block; letter-spacing: 1px; font-weight: 300;">COTIZACIÓN OFICIAL</span>
+                        <span style="font-size: 26px; font-weight: 800;">COT-${id}</span>
+                    </div>
+                </div>
+
+                <h2 style="text-align: center; color: #0d47a1; text-transform: uppercase; margin-bottom: 30px; letter-spacing: 2px;">Presupuesto Estimado de Servicio</h2>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 10px; border-left: 6px solid #0d47a1; width: 48%;">
+                        <span style="font-size: 10px; color: #64748b; font-weight: 800; text-transform: uppercase;">Propietario / Cliente</span>
+                        <span style="font-size: 16px; font-weight: 700; display: block; color: #1e293b; margin-top: 5px;">${cliente}</span>
+                        <span style="font-size: 10px; color: #64748b; font-weight: 800; text-transform: uppercase; margin-top: 15px; display: block;">Vehículo Detalle</span>
+                        <span style="font-size: 14px; font-weight: 600; display: block; color: #1e293b;">${vehiculo}</span>
+                    </div>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 10px; border-left: 6px solid #0d47a1; width: 48%;">
+                        <span style="font-size: 10px; color: #64748b; font-weight: 800; text-transform: uppercase;">Fecha de Emisión</span>
+                        <span style="font-size: 16px; font-weight: 700; display: block; color: #1e293b; margin-top: 5px;">${fecha}</span>
+                        <span style="font-size: 10px; color: #64748b; font-weight: 800; text-transform: uppercase; margin-top: 15px; display: block;">Estado del Registro</span>
+                        <span style="font-size: 14px; font-weight: 600; display: block; color: #1e293b;">${tipo}</span>
+                    </div>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="background: #f1f5f9; color: #0d47a1;">
+                            <th style="padding: 12px; font-size: 12px; text-align: center;">CANT.</th>
+                            <th style="padding: 12px; font-size: 12px; text-align: left;">DESCRIPCIÓN DEL SERVICIO</th>
+                            <th style="padding: 12px; font-size: 12px; text-align: right;">PRECIO</th>
+                            <th style="padding: 12px; font-size: 12px; text-align: right;">SUBTOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tablaItems}
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 30px; background: #0d47a1; color: white; padding: 25px; text-align: right; border-radius: 0 0 10px 10px;">
+                    <span style="font-size: 16px; font-weight: 300;">MONTO TOTAL ESTIMADO:</span><br>
+                    <span style="font-size: 32px; font-weight: 800;">RD$ ${parseFloat(total).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                </div>
+
+                <div style="margin-top: 40px; font-size: 11px; color: #475569; border: 1px solid #e2e8f0; padding: 20px; border-radius: 10px; line-height: 1.6; background: #fff;">
+                    <b style="color: #0d47a1; font-size: 12px;">TÉRMINOS Y POLÍTICAS DE SERVICIO:</b><br>
+                    1. Esta cotización tiene una validez de 15 días calendario.<br>
+                    2. Los precios de repuestos pueden variar según disponibilidad de proveedores.<br>
+                    3. Servicios de mano de obra cuentan con garantía de 30 días.<br>
+                    4. Copia generada desde el Historial Oficial de Taller Mecánica Diaz.
+                </div>
+
+                <div style="margin-top: 70px; display: flex; justify-content: space-around; text-align: center;">
+                    <div style="border-top: 2px solid #1e293b; width: 220px; padding-top: 10px; font-weight: 700; font-size: 13px;">Firma Autorizada / Sello</div>
+                    <div style="border-top: 2px solid #1e293b; width: 220px; padding-top: 10px; font-weight: 700; font-size: 13px;">Aceptación del Cliente</div>
+                </div>
+            </div>
+        `;
+
+        const opt = {
+            margin: 0,
+            filename: `Cotizacion_COT-${id}.pdf`,
+            image: { type: 'jpeg', quality: 1 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Generar y descargar el PDF
+        html2pdf().set(opt).from(element).save();
+    }
 }
 
 // ==========================================

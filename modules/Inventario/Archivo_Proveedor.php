@@ -13,6 +13,9 @@ switch ($action) {
     case 'cargar_dependencias':
         cargar_dependencias($conexion);
         break;
+    case 'reporte_pdf':
+    reporte_pdf($conexion);
+    break;
     case 'guardar':
         guardar($conexion);
         break;
@@ -57,6 +60,22 @@ function listar($conexion) {
         'success' => true, 
         'data' => $res->fetch_all(MYSQLI_ASSOC)
     ]);
+}
+
+// Añade esta función al final del archivo
+function reporte_pdf($conexion) {
+    $sql = "SELECT p.id_proveedor, p.nombre_comercial, p.RNC, p.correo, p.estado 
+            FROM proveedor p 
+            WHERE p.estado != 'eliminado' 
+            ORDER BY p.id_proveedor ASC";
+            
+    $res = $conexion->query($sql);
+    $data = [];
+    while($row = $res->fetch_assoc()) {
+        $data[] = $row;
+    }
+    echo json_encode(['success' => true, 'data' => $data]);
+    exit;
 }
 
 function cargar_dependencias($conexion) {

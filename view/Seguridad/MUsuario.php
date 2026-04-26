@@ -89,8 +89,8 @@ require("../../header.php");
                         <span class="fw-bold small">Nivel</span>
                     </div>
 
-                    <button class="btn btn-primary" id="btnBuscar">
-                        Imprimir Reporte
+                    <button type="button" class="btn btn-primary fw-bold" id="btnImprimirReporte">
+                        <i class="fas fa-print me-2"></i>Imprimir Reporte
                     </button>
 
                 </div>
@@ -121,6 +121,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Seguridad/Scripts_Usuario.js"></script>
 
 </body>

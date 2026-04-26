@@ -41,14 +41,18 @@ if ($resultado->num_rows === 1) {
 
         // 🔥 3. NUEVO: VINCULAR USUARIO -> EMPLEADO -> SUCURSAL
         // Esta consulta busca la sucursal ACTIVA donde trabaja el usuario logueado
-        $sqlSucursal = "SELECT s.id_sucursal, s.nombre 
-                        FROM sucursal s
-                        INNER JOIN empleado_sucursal es ON s.id_sucursal = es.id_sucursal
-                        INNER JOIN empleado_usuario eu ON es.id_empleado = eu.id_empleado
-                        WHERE eu.id_usuario = ? 
-                        AND es.estado = 'activo' 
-                        AND es.fecha_fin IS NULL 
-                        LIMIT 1";
+        // 🔥 Consulta corregida con los nombres exactos de tu tabla
+// 🔥 Esta es la consulta que debe ir en tu archivo de login
+$sqlSucursal = "SELECT s.id_sucursal, s.nombre, eu.id_empleado
+                FROM sucursal s
+                INNER JOIN empleado_sucursal es ON s.id_sucursal = es.id_sucursal
+                INNER JOIN Empleado_Usuario eu ON es.id_empleado = eu.id_empleado
+                WHERE eu.id_usuario = ? 
+                AND eu.estado = 'activo'  -- <--- ESTO evitará que entre con Armando (ID: 1)
+                AND es.estado = 'activo' 
+                AND es.fecha_fin IS NULL 
+                ORDER BY eu.sec_empleado_usuario DESC 
+                LIMIT 1";
 
         $stmtSuc = $conexion->prepare($sqlSucursal);
         $stmtSuc->bind_param("i", $usuario['id_usuario']);

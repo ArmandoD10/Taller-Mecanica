@@ -415,6 +415,83 @@ function generarUsername() {
         .catch(error => console.error("Error:", error));
 }
 
+// Script para impimir reporte 
+// Agrega el evento al botón
+document.getElementById('btnImprimirReporte').addEventListener('click', function() {
+    generarReporteUsuariosPDF();
+});
+
+window.generarReporteUsuariosPDF = function() {
+    fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=reporte_pdf")
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error: " + res.message);
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // --- AGREGAR LOGO ---
+        // Creamos un objeto imagen para cargarlo antes de generar el PDF
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; // Verifica que esta ruta sea correcta
+        
+        img.onload = function() {
+            // Dibujar Logo en la esquina derecha (x=150, y=10, ancho=40, alto=20)
+            doc.addImage(img, 'PNG', 150, 10, 40, 20);
+
+            // Título y Estilo (Movidos un poco para no chocar con el logo)
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161); 
+            doc.text("REPORTE GENERAL DE USUARIOS", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 33);
+
+            const filas = res.data.map(u => [
+                u.id_usuario,
+                u.username,
+                u.nivel,
+                u.correo_org,
+                u.fecha_creacion,
+                u.estado
+            ]);
+
+            doc.autoTable({
+                startY: 40,
+                head: [['ID', 'Usuario', 'Nivel', 'Correo', 'Ingreso', 'Estado']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] },
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+            });
+
+            doc.save('Reporte_Usuarios_DP.pdf');
+        };
+
+        // Manejo de error si no carga el logo
+        img.onerror = function() {
+            console.error("No se pudo cargar el logo, generando sin imagen.");
+            // Si falla el logo, generamos el PDF sin él para no bloquear al usuario
+            generarPdfSinLogo(doc, res.data);
+        };
+    })
+    .catch(err => alert("Error de conexión con el servidor."));
+};
+
+// Función de respaldo por si el logo falla
+function generarPdfSinLogo(doc, data) {
+    doc.setFontSize(18);
+    doc.text("REPORTE GENERAL DE USUARIOS", 14, 22);
+    // ... resto de la lógica de autoTable que ya tienes ...
+    doc.autoTable({
+        startY: 40,
+        head: [['ID', 'Usuario', 'Nivel', 'Correo', 'Ingreso', 'Estado']],
+        body: data.map(u => [u.id_usuario, u.username, u.nivel, u.correo, u.fecha_ingreso, u.estado]),
+        headStyles: { fillColor: [13, 71, 161] }
+    });
+    doc.save('Reporte_Usuarios_Sin_Logo.pdf');
+}
 document.getElementById("filtro").addEventListener("keyup", filtrarTabla);
 document.getElementById("tipoFiltro").addEventListener("change", filtrarTabla);
 

@@ -22,11 +22,16 @@ require("../../header.php");
 <main class="contenido">
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
-            <h2><i class="fas fa-truck-loading me-2 text-primary"></i>Catálogo de Proveedores</h2>
-            <button class="btn btn-primary" onclick="nuevoProveedor()">
-                <i class="fas fa-plus me-2"></i>Nuevo Proveedor
-            </button>
-        </div>
+    <h2><i class="fas fa-truck-loading me-2 text-primary"></i>Catálogo de Proveedores</h2>
+    <div>
+        <button class="btn btn-danger me-2" onclick="generarReporteProveedoresPDF()">
+            <i class="fas fa-file-pdf me-2"></i>Imprimir Reporte
+        </button>
+        <button class="btn btn-primary" onclick="nuevoProveedor()">
+            <i class="fas fa-plus me-2"></i>Nuevo Proveedor
+        </button>
+    </div>
+</div>
 
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-body">
@@ -219,6 +224,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Inventario/Scripts_Proveedor.js"></script>
 </body>
 </html>

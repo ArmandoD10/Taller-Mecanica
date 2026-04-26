@@ -18,6 +18,19 @@ switch ($action) {
         actualizar($conexion);
         break;
 
+    case 'reporte_pdf':
+    $sql = "SELECT nombre, dias_lab, 
+                   TIME_FORMAT(hora_ini, '%h:%i %p') as hora_entrada, 
+                   TIME_FORMAT(hora_fin, '%h:%i %p') as hora_salida, 
+                   estado 
+            FROM Departamento 
+            WHERE estado != 'eliminado'
+            ORDER BY nombre ASC";
+            
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res->fetch_all(MYSQLI_ASSOC)]);
+    break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Acción no válida']);
         break;

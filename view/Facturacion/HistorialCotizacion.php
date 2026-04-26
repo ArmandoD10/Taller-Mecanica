@@ -2,7 +2,44 @@
 require("../../layout.php");
 require("../../header.php");
 ?>
+<style>
+    @media print {
+    body * { visibility: hidden; }
+    #seccionImprimir, #seccionImprimir * { visibility: visible; }
+    #seccionImprimir {
+        position: absolute;
+        left: 0; top: 0;
+        width: 100%;
+        padding: 40px;
+        border: 15px double #1a3c5a; /* Borde tipo certificado */
+        background-color: white !important;
+        -webkit-print-color-adjust: exact;
+    }
+}
 
+.certificado-container {
+    font-family: 'Georgia', serif;
+    color: #333;
+    background: #fff;
+    border: 10px double #1a3c5a;
+    padding: 50px;
+    position: relative;
+}
+
+.certificado-header { text-align: center; border-bottom: 2px solid #1a3c5a; padding-bottom: 20px; margin-bottom: 30px; }
+.certificado-titulo { font-size: 38px; color: #1a3c5a; text-transform: uppercase; font-weight: bold; }
+.certificado-sub { font-size: 18px; color: #666; margin-top: 10px; }
+
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 14px; }
+.info-box { border-bottom: 1px solid #ddd; padding: 5px; }
+.info-label { font-weight: bold; color: #1a3c5a; }
+
+.tabla-items { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.tabla-items th { background: #1a3c5a; color: white; padding: 10px; text-align: left; }
+.tabla-items td { padding: 10px; border-bottom: 1px solid #eee; }
+
+.total-box { margin-top: 30px; text-align: right; font-size: 24px; font-weight: bold; color: #1a3c5a; border-top: 2px solid #1a3c5a; padding-top: 10px; }
+    </style>
 <main class="contenido mb-5">
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
@@ -87,6 +124,7 @@ require("../../header.php");
                             <span id="det_cot_estado" class="badge mt-1"></span>
                         </div>
                     </div>
+                    
                     
                     <div class="table-responsive bg-white border rounded shadow-sm">
                         <table class="table table-sm table-striped mb-0">

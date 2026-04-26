@@ -6,11 +6,16 @@ require("../../header.php");
 <main class="contenido">
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
-            <h2><i class="fas fa-history me-2 text-primary"></i>Historial General de Servicios</h2>
-            <button class="btn btn-secondary" type="button" onclick="listar()">
-                <i class="fas fa-sync-alt me-2"></i>Actualizar
-            </button>
-        </div>
+    <h2><i class="fas fa-history me-2 text-primary"></i>Historial General de Servicios</h2>
+    <div>
+        <button class="btn btn-primary me-2" type="button" onclick="generarReporteHistorialPDF()">
+            <i class="fas fa-file-pdf me-2"></i>Imprimir Reporte
+        </button>
+        <button class="btn btn-secondary" type="button" onclick="listar()">
+            <i class="fas fa-sync-alt me-2"></i>Actualizar
+        </button>
+    </div>
+</div>
 
         <div class="card shadow-sm border-0 mb-4 bg-light">
             <div class="card-body py-3">
@@ -76,16 +81,23 @@ require("../../header.php");
                 <div class="modal-body bg-light" id="areaImpresion">
                     
                     <div class="row mb-3">
-                        <div class="col-md-6">
-                            <h4 class="text-primary mb-0 fw-bold">Mecánica Automotriz Díaz Pantaleón</h4>
-                            <p class="text-muted small mb-0">Reporte Operativo de Servicio</p>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <span class="badge bg-dark fs-6 mb-1" id="lbl_estado_orden_modal">ESTADO</span><br>
-                            <small class="text-muted fw-bold">Fecha: <span id="lbl_fecha_orden_modal"></span></small>
-                        </div>
-                    </div>
+    <div class="col-md-8">
+        <h4 class="text-primary mb-0 fw-bold">Mecánica Automotriz Díaz Pantaleón</h4>
+        <div class="d-flex align-items-center">
+            <p class="text-muted small mb-0 me-3">Reporte Operativo de Servicio</p>
+            <div class="badge bg-light text-dark border shadow-sm px-2 py-1" style="font-size: 0.8rem;">
+                <i class="fas fa-map-marker-alt text-danger me-1"></i> 
+                <span id="det_sucursal_nombre" class="fw-bold text-uppercase">Cargando...</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <span class="badge bg-dark fs-6 mb-1" id="lbl_estado_orden_modal">ESTADO</span><br>
+        <small class="text-muted fw-bold">Fecha: <span id="lbl_fecha_orden_modal"></span></small>
+    </div>
+</div>
 
+            
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <div class="card border-primary h-100 shadow-sm">
@@ -172,6 +184,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="../../modules/Taller/Scripts_Historial.js"></script>
 </body>
 </html>

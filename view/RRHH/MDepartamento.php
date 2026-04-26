@@ -88,9 +88,9 @@ require("../../header.php");
                             <label class="form-check-label small" for="radioNombre">Nombre</label>
                         </div>
 
-                        <button class="btn btn-primary" id="btnBuscar">
-                                Imprimir Reporte
-                            </button>
+                        <button type="button" class="btn btn-primary shadow-sm" onclick="generarReporteDepartamentosPDF()">
+    <i class="fas fa-print me-1"></i> Imprimir Reporte
+</button>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -119,6 +119,8 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/RRHH/Scripts_DepartamentoP.js"></script>
 
 </body>

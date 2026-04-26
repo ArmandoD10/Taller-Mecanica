@@ -119,18 +119,23 @@ function aplicarFiltrosHistorial() {
     const id = document.getElementById('f_id_orden').value.trim();
     const inicio = document.getElementById('f_fecha_inicio').value;
     const fin = document.getElementById('f_fecha_fin').value;
+    
+    // Usamos el ID de la tabla principal para mostrar los resultados filtrados
     const tbody = document.getElementById('tabla_ordenes_recientes');
 
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4">Filtrando historial...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary"></div> Filtrando historial...</td></tr>';
 
-    // Construcción limpia de la URL
+    // Construcción de la URL
     let url = `/Taller/Taller-Mecanica/modules/Autoadorno/Archivo_HistorialServicio.php?action=filtrar_historial`;
     
     if (id !== "") {
         url += `&id_orden=${id}`;
-    } else if (inicio !== "" && fin !== "") {
+    } 
+    
+    // Si hay fechas, las enviamos independientemente de si hay ID o no
+    if (inicio !== "" && fin !== "") {
         url += `&f_inicio=${inicio}&f_fin=${fin}`;
     }
 
@@ -138,7 +143,7 @@ function aplicarFiltrosHistorial() {
     .then(r => r.json())
     .then(res => {
         if (!res.success || !res.data || res.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-muted">No se encontraron registros en este rango de fechas.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-muted">No se encontraron registros con los criterios ingresados.</td></tr>';
             return;
         }
 
@@ -163,3 +168,57 @@ function aplicarFiltrosHistorial() {
     });
 }
 // Cargar al inicio sin filtros
+
+// Añadir al final de Scripts_HistorialServicio.js
+
+window.generarReporteDetailingPDF = function() {
+    fetch('/Taller/Taller-Mecanica/modules/Autoadorno/Archivo_HistorialServicio.php?action=reporte_pdf')
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) return alert("Error al obtener datos");
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        const img = new Image();
+        img.src = "/Taller/Taller-Mecanica/img/logo.png"; 
+        
+        img.onload = function() {
+            // Estilo Institucional
+            doc.addImage(img, 'PNG', 150, 10, 45, 22);
+            doc.setFontSize(18);
+            doc.setTextColor(13, 71, 161);
+            doc.text("REPORTE HISTORIAL DETAILING", 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Mecánica Automotriz Díaz & Pantaleón", 14, 28);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 33);
+
+            // Mapear filas
+            const filas = res.data.map(o => [
+                `ORD-${o.id_orden}`,
+                o.descripcion,
+                o.fecha_fmt,
+                o.estado.toUpperCase(),
+                "RD$ " + parseFloat(o.monto_total).toLocaleString()
+            ]);
+
+            // Crear tabla
+            doc.autoTable({
+                startY: 40,
+                head: [['N° Orden', 'Descripción Servicio', 'Fecha', 'Estado', 'Monto']],
+                body: filas,
+                headStyles: { fillColor: [13, 71, 161] },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                styles: { fontSize: 9, cellPadding: 3 },
+                columnStyles: {
+                    4: { halign: 'right' } // Monto a la derecha
+                }
+            });
+
+            doc.save(`Historial_Detailing_DP.pdf`);
+        };
+    })
+    .catch(err => console.error("Error PDF:", err));
+};

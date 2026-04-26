@@ -23,6 +23,9 @@ switch ($action) {
     case 'get_modelos_por_marca': 
         get_modelos_por_marca($conexion); 
         break;
+    case 'reporte_pdf':
+        reporte_pdf($conexion);
+        break;
     case 'get_selects':
         get_selects($conexion);
         break;
@@ -40,6 +43,7 @@ function get_modelos_por_marca($conexion) {
     echo json_encode($modelos);
 }
 
+
 function get_selects($conexion) {
     $data = ['marcas' => [], 'colores' => []];
     $resMar = $conexion->query("SELECT id_marca, nombre FROM Marca WHERE estado = 'activo' ORDER BY nombre ASC");
@@ -47,6 +51,31 @@ function get_selects($conexion) {
     $resCol = $conexion->query("SELECT id_color, nombre FROM Color WHERE estado = 'activo' ORDER BY nombre ASC");
     while($row = $resCol->fetch_assoc()) $data['colores'][] = $row;
     echo json_encode($data);
+}
+
+function reporte_pdf($conexion) {
+    $sql = "SELECT 
+                v.sec_vehiculo, 
+                CONCAT(p.nombre, ' ', IFNULL(p.apellido_p, '')) AS cliente,
+                v.vin_chasis, 
+                v.placa, 
+                m.nombre AS marca,
+                v.modelo, 
+                v.anio, 
+                v.estado 
+            FROM Vehiculo v
+            INNER JOIN Cliente cli ON v.id_cliente = cli.id_cliente
+            INNER JOIN Persona p ON cli.id_persona = p.id_persona
+            INNER JOIN Marca m ON v.id_marca = m.id_marca
+            ORDER BY v.sec_vehiculo ASC";
+            
+    $res = $conexion->query($sql);
+    $data = [];
+    while($row = $res->fetch_assoc()) {
+        $data[] = $row;
+    }
+    echo json_encode(['success' => true, 'data' => $data]);
+    exit;
 }
 
 function cargar($conexion) {

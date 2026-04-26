@@ -11,18 +11,23 @@
                         <label class="small fw-bold">ID ORDEN</label>
                         <input type="number" id="f_id_orden" class="form-control" placeholder="Ej: 10">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="small fw-bold">FECHA INICIO</label>
                         <input type="date" id="f_fecha_inicio" class="form-control">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="small fw-bold">FECHA FIN</label>
                         <input type="date" id="f_fecha_fin" class="form-control">
                     </div>
-                    <div class="col-md-3">
-                        <button class="btn btn-primary w-100 fw-bold" onclick="cargarHistorialDetailing()">
-    <i class="fas fa-filter me-2"></i>APLICAR FILTRO
-</button>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100 fw-bold" onclick="aplicarFiltrosHistorial()">
+                            <i class="fas fa-filter me-2"></i>APLICAR FILTRO
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-danger w-100 fw-bold" onclick="generarReporteDetailingPDF()">
+                            <i class="fas fa-file-pdf me-2"></i>IMPRIMIR 
+                        </button>
                     </div>
                 </div>
             </div>
@@ -64,4 +69,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
+<script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Autoadorno/Scripts_HistorialServicio.js"></script>

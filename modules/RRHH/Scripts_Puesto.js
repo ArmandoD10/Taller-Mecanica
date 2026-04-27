@@ -138,16 +138,34 @@ window.editarRegistro = function(id) {
 document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
 
-    // 🔴 Confirmación de Inactivación
+    // 🔴 Confirmación de Inactivación con SweetAlert2
     if (modoEdicion) {
         const estaInactivo = document.getElementById("inactivo").checked;
         if (estaInactivo) {
-            const seguro = confirm("¿Está seguro de que desea inactivar este puesto? Podría afectar la asignación de empleados.");
-            if (!seguro) return; 
+            Swal.fire({
+                title: '¿Inactivar este puesto?',
+                text: "Esto podría afectar la asignación de empleados actuales y futuros.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, inactivar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarDatosPuesto(this);
+                }
+            });
+            return;
         }
     }
 
-    const formData = new FormData(this);
+    enviarDatosPuesto(this);
+});
+
+// Función para procesar la petición fetch
+function enviarDatosPuesto(formulario) {
+    const formData = new FormData(formulario);
     let url = modoEdicion
         ? "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Puesto.php?action=actualizar"
         : "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Puesto.php?action=guardar";
@@ -159,18 +177,24 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTabla(); // Recargamos la tabla dinámicamente
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTabla();
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
     })
     .catch(error => {
-        console.error("Error en la petición:", error);
-        alert("Ocurrió un error al procesar el puesto.");
+        console.error("Error:", error);
+        Swal.fire('Error', 'Ocurrió un error al procesar el puesto de trabajo.', 'error');
     });
-});
+}
 
 //---------------------------------------------------------
 // 🚀 INIT & VALIDACIONES
@@ -184,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inputNombre) {
         inputNombre.addEventListener('input', function(e) {
             // Permitimos letras, acentos, ñ, números y espacios
-            let valor = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+            let valor = e.target.value.replace(/[^a-zA.-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
             if (valor.length > 0) {
                 valor = valor.charAt(0).toUpperCase() + valor.slice(1);
             }

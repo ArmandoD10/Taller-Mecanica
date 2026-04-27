@@ -121,16 +121,34 @@ window.editarRegistro = function(id) {
 document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
 
-    // 🔴 Confirmación de Inactivación
+    // 🔴 Confirmación de Inactivación con SweetAlert2
     if (modoEdicion) {
         const estaInactivo = document.getElementById("inactivo").checked;
         if (estaInactivo) {
-            const seguro = confirm("¿Está seguro de que desea inactivar este departamento? Los puestos asociados podrían verse afectados.");
-            if (!seguro) return; 
+            Swal.fire({
+                title: '¿Inactivar departamento?',
+                text: "Los puestos asociados podrían verse afectados. ¿Desea continuar?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, inactivar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarDatosDepartamento(this);
+                }
+            });
+            return; // Detiene la ejecución para esperar la confirmación
         }
     }
 
-    const formData = new FormData(this);
+    enviarDatosDepartamento(this);
+});
+
+// Función para procesar el envío
+function enviarDatosDepartamento(formulario) {
+    const formData = new FormData(formulario);
     let url = modoEdicion
         ? "/Taller/Taller-Mecanica/modules/RRHH/Archivo_DepartamentoP.php?action=actualizar"
         : "/Taller/Taller-Mecanica/modules/RRHH/Archivo_DepartamentoP.php?action=guardar";
@@ -142,18 +160,24 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTabla(); // Recargamos la tabla dinámicamente
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTabla();
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
     })
     .catch(error => {
-        console.error("Error en la petición:", error);
-        alert("Ocurrió un error al procesar el departamento.");
+        console.error("Error:", error);
+        Swal.fire('Error', 'Ocurrió un error al procesar el departamento.', 'error');
     });
-});
+}
 
 //---------------------------------------------------------
 // 🚀 INIT & VALIDACIONES

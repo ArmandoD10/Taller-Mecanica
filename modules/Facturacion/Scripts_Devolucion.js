@@ -10,58 +10,56 @@ function buscarFacturaDevolucion() {
     const id = idInput.value;
 
     if (!id) {
-        alert("Por favor, ingrese un número de factura para validar.");
+        Swal.fire('Campo requerido', 'Por favor, ingrese un número de factura para validar.', 'warning');
         idInput.focus();
         return;
     }
 
+    // Indicador de carga para la búsqueda
+    Swal.fire({
+        title: 'Buscando factura...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
     const formData = new FormData();
     formData.append('id_factura', id);
 
-    // Ruta hacia tu archivo PHP
     fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Devolucion.php?action=buscar_factura', { 
         method: 'POST', 
         body: formData 
     })
     .then(res => res.json())
     .then(res => {
+        Swal.close(); // Cerramos el cargando
+
         if (res.success) {
             const f = res.data;
-            
-            // ASIGNACIÓN CRÍTICA: Guardamos el ID en la variable global
             currentFacturaId = f.id_factura; 
 
-            // Mostrar el contenedor de resultados
             const contenedor = document.getElementById("resultado_busqueda");
             contenedor.classList.remove("d-none");
             
-            // Llenar la información visual
             document.getElementById("info_fac_nro").innerText = "FACTURA N° " + f.id_factura;
             document.getElementById("info_fac_cliente").innerText = f.cliente_nombre;
             document.getElementById("info_fac_fecha").innerText = "Emitida el: " + f.fecha_emision;
             
-            // Formatear monto a moneda local
             const montoFormateado = "RD$ " + parseFloat(f.monto_total).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
             document.getElementById("info_fac_monto").innerText = montoFormateado;
             
-            // Referencias a elementos de control
             const btnDevolucion = document.getElementById("btn_procesar_dev");
-            const btnDetalle = document.getElementById("btn_ver_detalle");
             const alertaExpirada = document.getElementById("alerta_expirada");
             const alertaValida = document.getElementById("alerta_valida");
 
-            // --- LÓGICA DE GARANTÍA (30 DÍAS) ---
             const dias = parseInt(f.dias_transcurridos);
             const estaInactiva = (f.estado === 'inactivo');
 
             if (dias > 30 || estaInactiva) {
-                // Factura fuera de tiempo o ya devuelta
                 btnDevolucion.disabled = true;
                 btnDevolucion.classList.replace("btn-danger", "btn-secondary");
-                
                 alertaExpirada.classList.remove("d-none");
                 alertaValida.classList.add("d-none");
                 
@@ -69,35 +67,28 @@ function buscarFacturaDevolucion() {
                     alertaExpirada.innerHTML = '<i class="fas fa-info-circle me-2"></i> Esta factura ya ha sido devuelta anteriormente.';
                 }
             } else {
-                // Factura apta para devolución
                 btnDevolucion.disabled = false;
                 btnDevolucion.classList.replace("btn-secondary", "btn-danger");
-                
                 alertaExpirada.classList.add("d-none");
                 alertaValida.classList.remove("d-none");
 
-                // Asignar evento al botón de procesar
                 btnDevolucion.onclick = function() {
                     const modalDev = new bootstrap.Modal(document.getElementById('modalDevolucion'));
                     modalDev.show();
                 };
             }
 
-            // --- BOTÓN VER DETALLE ---
-            btnDetalle.onclick = function() {
-                verDetalleFactura(f.id_factura);
-            };
+            document.getElementById("btn_ver_detalle").onclick = () => verDetalleFactura(f.id_factura);
 
         } else {
-            // Factura no encontrada
-            alert(res.message);
+            Swal.fire('No encontrada', res.message, 'error');
             document.getElementById("resultado_busqueda").classList.add("d-none");
             currentFacturaId = null;
         }
     })
     .catch(err => {
-        console.error("Error en la búsqueda:", err);
-        alert("Error de conexión al buscar la factura.");
+        Swal.close();
+        Swal.fire('Error', 'Error de conexión al buscar la factura.', 'error');
     });
 }
 
@@ -134,9 +125,9 @@ function verDetalleFactura(id) {
 }
 
 function confirmarDevolucion() {
-    // Validaciones de UI
+    // Validaciones de Políticas de Devolución
     if (document.getElementById("chk_destapado").checked || document.getElementById("chk_uso").checked) {
-        alert("No se permite devolución de productos abiertos o usados.");
+        Swal.fire('Devolución Rechazada', 'No se permite la devolución de productos abiertos o usados según las políticas del taller.', 'error');
         return;
     }
     
@@ -144,37 +135,52 @@ function confirmarDevolucion() {
     const passAdmin = document.getElementById("admin_pass").value;
 
     if (!userAdmin || !passAdmin) {
-        alert("Credenciales de administrador obligatorias.");
+        Swal.fire('Autorización Requerida', 'Las credenciales de administrador son obligatorias para procesar reversiones.', 'warning');
         return;
     }
 
-    // Preparar envío
-    const form = new FormData();
-    form.append('id_factura', currentFacturaId); // Variable global
-    form.append('user_admin', userAdmin);
-    form.append('pass_admin', passAdmin);
-    form.append('motivo', document.getElementById("txt_motivo").value);
-    form.append('buen_estado', document.getElementById("chk_buen_estado").checked);
-    // Limpiamos el formato de moneda para enviar solo el número
-    const montoLimpio = document.getElementById("info_fac_monto").innerText.replace(/[^\d.-]/g, '');
-    form.append('monto', montoLimpio);
-    
-    fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Devolucion.php?action=procesar_devolucion', { 
-        method: 'POST', 
-        body: form 
-    })
-    .then(res => res.json())
-    .then(res => {
-        if (res.success) {
-            alert(res.message);
-            location.reload();
-        } else {
-            alert(res.message);
+    // Alerta de confirmación final
+    Swal.fire({
+        title: '¿Confirmar Devolución?',
+        text: "Se generará una nota de crédito y se anulará la factura original.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, procesar devolución',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            const form = new FormData();
+            form.append('id_factura', currentFacturaId);
+            form.append('user_admin', userAdmin);
+            form.append('pass_admin', passAdmin);
+            form.append('motivo', document.getElementById("txt_motivo").value);
+            form.append('buen_estado', document.getElementById("chk_buen_estado").checked);
+            
+            const montoLimpio = document.getElementById("info_fac_monto").innerText.replace(/[^\d.-]/g, '');
+            form.append('monto', montoLimpio);
+            
+            fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Devolucion.php?action=procesar_devolucion', { 
+                method: 'POST', 
+                body: form 
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    Swal.fire('¡Éxito!', res.message, 'success').then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            })
+            .catch(err => {
+                Swal.fire('Error Crítico', 'Fallo en la comunicación con el servidor.', 'error');
+            });
         }
-    })
-    .catch(err => {
-        console.error("Error:", err);
-        alert("Error crítico en la comunicación con el servidor.");
     });
 }
 

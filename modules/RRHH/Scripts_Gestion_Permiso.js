@@ -38,35 +38,46 @@ function cargarKPIs() {
 // 🔍 BUSQUEDA REAL POR NOMBRE, ID O USERNAME
 function buscarEmpleadoReal() {
     const filtro = document.getElementById("busquedaEmp").value.trim();
-    if (!filtro) return alert("Escriba un nombre, ID, Cédula o usuario");
+    if (!filtro) {
+        Swal.fire('Atención', 'Escriba un nombre, ID, Cédula o usuario para buscar.', 'info');
+        return;
+    }
 
     fetch(`/Taller/Taller-Mecanica/modules/RRHH/Archivo_Gestion_Permiso.php?action=buscarEmpleado&filtro=${filtro}`)
         .then(res => res.json())
         .then(data => {
             if (data && data.id_empleado) {
-                // Guardamos el ID para el insert posterior
                 idEmpleadoSeleccionado = data.id_empleado;
 
-                // Llenamos la Card con datos reales
                 document.getElementById("res_nombre").textContent = data.nombre;
                 document.getElementById("res_id").textContent = data.id_empleado;
                 document.getElementById("res_user").textContent = data.username || 'Sin usuario';
                 
-                // --- AQUÍ ACTUALIZAMOS EL PUESTO ---
-                // Buscamos el elemento donde dice "Puesto:" en tu HTML y le ponemos el dato
                 const puestoLabel = document.querySelector("#resultadoBusqueda b:last-child");
                 if(puestoLabel) puestoLabel.textContent = data.nombre_puesto;
 
-                // Mostrar secciones ocultas
                 document.getElementById("resultadoBusqueda").classList.remove("d-none");
                 document.getElementById("camposSolicitud").classList.remove("d-none");
+
+                // Notificación rápida de éxito
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Empleado localizado',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
             } else {
-                alert("No se encontró ningún empleado con esos datos.");
+                Swal.fire('No encontrado', 'No se encontró ningún empleado con esos datos.', 'error');
                 document.getElementById("resultadoBusqueda").classList.add("d-none");
                 document.getElementById("camposSolicitud").classList.add("d-none");
             }
         })
-        .catch(err => console.error("Error en búsqueda:", err));
+        .catch(err => {
+            console.error("Error:", err);
+            Swal.fire('Error', 'Hubo un fallo en la comunicación con el servidor.', 'error');
+        });
 }
 
 // 📋 CARGAR MOTIVOS DESDE LA TABLA Tipo_Motivo
@@ -93,7 +104,8 @@ function guardarPermisoReal() {
     const motivo = document.getElementById("motivo_texto").value;
 
     if (!idEmpleadoSeleccionado || !idMotivo || !fIni || !fFin) {
-        return alert("Por favor complete todos los campos obligatorios.");
+        Swal.fire('Campos incompletos', 'Por favor complete todos los campos obligatorios.', 'warning');
+        return;
     }
 
     const formData = new URLSearchParams();
@@ -111,11 +123,20 @@ function guardarPermisoReal() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert("✅ Permiso registrado correctamente.");
-            location.reload(); // Recargar para actualizar tabla y dashboard
+            Swal.fire({
+                title: '¡Éxito!',
+                text: 'El permiso ha sido registrado correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                location.reload(); 
+            });
         } else {
-            alert("❌ Error al guardar: " + data.detalle);
+            Swal.fire('Error al guardar', data.detalle, 'error');
         }
+    })
+    .catch(err => {
+        Swal.fire('Error crítico', 'No se pudo conectar con el servidor.', 'error');
     });
 }
 

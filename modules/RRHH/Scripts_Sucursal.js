@@ -157,16 +157,32 @@ window.editarRegistro = async function(id) {
 document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
 
-    // 🔴 Lógica de Confirmación si se marca INACTIVO
-    if (modoEdicion) {
-        const estadoSeleccionado = document.querySelector('input[name="estado"]:checked').value;
-        if (estadoSeleccionado === "inactivo") {
-            const confirmar = confirm("¿Está seguro de que desea desactivar esta sucursal? Esto podría afectar la operatividad en el sistema.");
-            if (!confirmar) return; // Cancela el envío si el usuario dice que no
-        }
-    }
+    const estadoSeleccionado = document.querySelector('input[name="estado"]:checked').value;
 
-    const formData = new FormData(this);
+    // 🔴 Lógica de Confirmación Estilizada si se marca INACTIVO
+    if (modoEdicion && estadoSeleccionado === "inactivo") {
+        Swal.fire({
+            title: '¿Desactivar sucursal?',
+            text: "Esto podría afectar la operatividad en el sistema y la asignación de empleados.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                enviarDatosSucursal(this);
+            }
+        });
+    } else {
+        enviarDatosSucursal(this);
+    }
+});
+
+// Función auxiliar para no repetir el fetch
+function enviarDatosSucursal(formulario) {
+    const formData = new FormData(formulario);
     let url = modoEdicion
         ? "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Sucursal.php?action=actualizar"
         : "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Sucursal.php?action=guardar";
@@ -178,15 +194,24 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTabla(); // Recargar tabla sin recargar página completa
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTabla();
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
     })
-    .catch(error => console.error("Error en el envío:", error));
-});
+    .catch(error => {
+        console.error("Error:", error);
+        Swal.fire('Error', 'Hubo un problema al conectar con el servidor.', 'error');
+    });
+}
 
 //---------------------------------------------------------
 // 🚀 INICIALIZACIÓN Y MASCARAS

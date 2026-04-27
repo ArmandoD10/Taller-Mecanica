@@ -81,26 +81,28 @@ function cargarTablaNiveles(page = 1){
 /* =========================
    💾 GUARDAR NIVEL + PERMISOS
 ========================= */
-function guardarNivel(){
-
+function guardarNivel() {
     const nombre = document.getElementById("nombre").value;
     const id = document.getElementById("id_nivel").value;
 
-    if(!nombre){
-        alert("Ingrese un nombre de nivel");
+    if (!nombre) {
+        // Reemplazamos el alert de validación
+        Swal.fire({
+            title: 'Campo requerido',
+            text: 'Por favor, ingrese un nombre de nivel',
+            icon: 'warning',
+            confirmButtonColor: '#3085d6'
+        });
         return;
     }
 
     const checks = document.querySelectorAll("#contenedorModulos input:checked");
-
     let modulos = [];
-
     checks.forEach(c => modulos.push(parseInt(c.value)));
 
     const formData = new FormData();
     formData.append("id_nivel", id);
     formData.append("nombre", nombre);
-
     modulos.forEach(m => formData.append("modulos[]", m));
 
     fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Permisos.php?action=guardar", {
@@ -109,16 +111,32 @@ function guardarNivel(){
     })
     .then(res => res.json())
     .then(data => {
-        alert("Guardado correctamente");
-        limpiar();
-        cargarTablaNiveles();
-        // 🔥 3. CAMBIAR BOTÓN
-    const btn = document.getElementById("btnGuardar");
-    if(btn){
-        btn.textContent = "Guardar";
-        btn.classList.remove("btn-warning");
-        btn.classList.add("btn-primary");
-    }
+        if (data.success || data) { // Ajustado para manejar la respuesta
+            // MODAL DE ÉXITO ESTILO MODERNO
+            Swal.fire({
+                title: '¡Éxito!',
+                text: 'El nivel y sus permisos se han guardado correctamente',
+                icon: 'success',
+                confirmButtonColor: '#28a745'
+            }).then(() => {
+                limpiar();
+                cargarTablaNiveles();
+                
+                // Restablecer el botón a su estado original
+                const btn = document.getElementById("btnGuardar");
+                if (btn) {
+                    btn.textContent = "Guardar";
+                    btn.classList.remove("btn-warning");
+                    btn.classList.add("btn-primary");
+                }
+            });
+        } else {
+            Swal.fire('Error', 'No se pudo guardar la información', 'error');
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        Swal.fire('Error', 'Hubo un fallo en la conexión con el servidor', 'error');
     });
 }
 

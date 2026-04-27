@@ -276,28 +276,34 @@ async function cargarUbicacionEdicionCliente(idPais, idProv, idCiud) {
 document.getElementById("formulario").addEventListener("submit", function(e) {
     e.preventDefault();
 
-    // Habilitar temporalmente para capturar los datos
-    const camposBloqueados = this.querySelectorAll('input:disabled, select:disabled');
-    camposBloqueados.forEach(campo => campo.disabled = false);
-
     const formData = new FormData(this);
-
-    // Restaurar estado visual
-    camposBloqueados.forEach(campo => campo.disabled = true);
-
     let url = modoEdicion 
         ? "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=actualizar" 
         : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=guardar";
 
-    fetch(url, { method: "POST", body: formData })
+    fetch(url, {
+        method: "POST",
+        body: formData
+    })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            location.reload(); // Recarga limpia igual que en empleados
+            Swal.fire({
+                title: '¡Cliente Guardado!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTabla();
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        Swal.fire('Error', 'No se pudo conectar con el servidor de clientes.', 'error');
     });
 });
 
@@ -364,45 +370,65 @@ document.addEventListener("DOMContentLoaded", function() {
 // Evento del botón de la lupa (Buscar Cédula)
 document.getElementById('btnBuscarCedula').addEventListener('click', async function() {
     const cedula = document.getElementById('cedula').value;
+    const isEmpresa = document.getElementById('juridica').checked;
+    const tipoDoc = isEmpresa ? 'RNC' : 'Cédula';
     
     if (cedula.length < 9) {
-        alert("Ingrese una cédula o RNC válido.");
+        Swal.fire('Atención', `Por favor, ingrese un ${tipoDoc} válido.`, 'warning');
         return;
     }
 
     try {
+        // Indicador de carga
+        Swal.fire({
+            title: `Verificando ${tipoDoc}...`,
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
         const response = await fetch(`/Taller/Taller-Mecanica/modules/Cliente/Archivo_Cliente.php?action=verificar_cedula&cedula=${cedula}`);
         const res = await response.json();
+        
+        Swal.close(); // Cerramos el cargando
 
         if (res.status === 'cliente_existe') {
-            alert("Este número ya pertenece a un Cliente registrado.");
+            Swal.fire('Aviso', `Este ${tipoDoc} ya pertenece a un Cliente registrado en el sistema.`, 'info');
             bloquearCampos(true);
-            document.getElementById('id_persona_capturado').value = ""; // Limpiar por seguridad
+            document.getElementById('id_persona_capturado').value = ""; 
         } 
         else if (res.status === 'persona_existe') {
-            alert("Empleado/Persona encontrada. Cargando datos...");
+            Swal.fire({
+                icon: 'success',
+                title: 'Registro encontrado',
+                text: 'Se han importado los datos personales del sistema.',
+                timer: 2000,
+                showConfirmButton: false
+            });
             
-            // 1. LLENAMOS EL ID OCULTO CON EL ID DE LA PERSONA ENCONTRADA
             document.getElementById('id_persona_capturado').value = res.data.id_persona;
-            
-            // 2. Cargamos los datos en los inputs (incluyendo cascada de ciudad)
             await cargarDatosPersona(res.data);
-            
-            // 3. Bloqueamos campos para que no altere datos del empleado
             bloquearCampos(true);
-            
-            // 4. Habilitamos el botón de registro para que pueda "convertirlo" a cliente
             document.getElementById('btnGuardar').disabled = false;
         } 
         else {
-            alert("No se encontró registro previo. Complete los datos para un nuevo cliente.");
-            
-            // Es un registro nuevo, el ID oculto debe estar vacío
-            document.getElementById('id_persona_capturado').value = "";
-            bloquearCampos(false);
+            Swal.fire({
+                icon: 'question',
+                title: 'Nuevo Registro',
+                text: `No hay coincidencias. ¿Desea registrar a este nuevo cliente?`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, completar datos',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('id_persona_capturado').value = "";
+                    bloquearCampos(false);
+                }
+            });
         }
     } catch (error) {
-        console.error("Error en la búsqueda:", error);
+        Swal.close();
+        console.error("Error:", error);
+        Swal.fire('Error', 'No se pudo verificar la identidad en el servidor.', 'error');
     }
 });
 

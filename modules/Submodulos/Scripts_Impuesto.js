@@ -55,13 +55,24 @@ function guardarImpuesto() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            form.reset();
-            document.getElementById("id_config_impuesto").value = ""; // Limpiar ID oculto
-            listarImpuestos();
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                form.reset();
+                document.getElementById("id_config_impuesto").value = ""; 
+                document.getElementById("tituloForm").innerHTML = '<i class="fas fa-plus me-2 text-success"></i>Gestionar Impuesto';
+                listarImpuestos();
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        Swal.fire('Error', 'No se pudo conectar con el servidor de impuestos.', 'error');
     });
 }
 
@@ -112,21 +123,35 @@ function editarImpuesto(id) {
 }
 
 function eliminarImpuesto(id) {
-    if (confirm("¿Está seguro de eliminar este impuesto? No aparecerá en nuevas facturas.")) {
-        const f = new FormData();
-        f.append("id_config_impuesto", id);
+    Swal.fire({
+        title: '¿Eliminar este impuesto?',
+        text: "No aparecerá en nuevas facturas. Esta acción marcará el registro como eliminado.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const f = new FormData();
+            f.append("id_config_impuesto", id);
 
-        fetch("/Taller/Taller-Mecanica/modules/Submodulos/Archivo_Impuesto.php?action=eliminar", {
-            method: "POST",
-            body: f
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                listarImpuestos();
-            }
-        });
-    }
+            fetch("/Taller/Taller-Mecanica/modules/Submodulos/Archivo_Impuesto.php?action=eliminar", {
+                method: "POST",
+                body: f
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Eliminado', 'El impuesto ha sido removido.', 'success');
+                    listarImpuestos();
+                } else {
+                    Swal.fire('Error', 'No se pudo eliminar el impuesto.', 'error');
+                }
+            });
+        }
+    });
 }
 
 // Función extra para limpiar el formulario si el usuario cancela la edición

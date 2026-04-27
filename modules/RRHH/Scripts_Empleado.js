@@ -449,35 +449,31 @@ document.addEventListener("DOMContentLoaded", function() {
 window.enviarFormulario = function() {
     const form = document.getElementById("formulario");
     
-    // 1. Validar campos básicos antes de hacer nada
+    // 1. Validar campos básicos con SweetAlert
     if (document.getElementById("nombre1").value === "" || document.getElementById("cedula").value === "") {
-        alert("Por favor, complete los campos obligatorios.");
+        Swal.fire('Campos obligatorios', 'Por favor, complete el nombre y la cédula.', 'warning');
         return;
     }
 
     // 2. HABILITAR TODO temporalmente para capturar los datos
     const elementos = form.querySelectorAll('input, select, textarea');
     const estadosPrevios = [];
-
     elementos.forEach(el => {
         estadosPrevios.push({ el: el, wasDisabled: el.disabled });
         el.disabled = false; 
     });
 
-    // 3. Crear el FormData
     const formData = new FormData(form);
 
-    // 4. Restaurar bloqueos inmediatamente para que la interfaz no parpadee
+    // 3. Restaurar bloqueos
     estadosPrevios.forEach(item => {
         item.el.disabled = item.wasDisabled;
     });
 
-    // 5. Determinar URL
     let url = modoEdicion 
         ? "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Empleado.php?action=actualizar" 
         : "/Taller/Taller-Mecanica/modules/RRHH/Archivo_Empleado.php?action=guardar";
 
-    // 6. Enviar vía FETCH
     fetch(url, {
         method: "POST",
         body: formData
@@ -485,15 +481,21 @@ window.enviarFormulario = function() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            location.reload(); // Recarga limpia
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#28a745'
+            }).then(() => {
+                location.reload(); 
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
     })
     .catch(err => {
-        console.error("Error en la petición:", err);
-        alert("Error crítico al conectar con el servidor.");
+        console.error("Error:", err);
+        Swal.fire('Error crítico', 'No se pudo conectar con el servidor.', 'error');
     });
 };
 // Función de bloqueo selectivo
@@ -533,63 +535,51 @@ document.addEventListener("DOMContentLoaded", () => {
 async function ejecutarBusquedaEmpleado() {
     const cedula = document.getElementById('cedula').value;
     
-    // Validación mínima de longitud para cédula dominicana con guiones
     if (cedula.length < 13) { 
-        alert("Por favor, ingrese una cédula válida (000-0000000-0).");
+        Swal.fire('Cédula incompleta', 'Ingrese el formato correcto: 000-0000000-0', 'info');
         return;
     }
 
     try {
-        // Mostramos un indicador visual si lo deseas o cambiamos el cursor
         document.body.style.cursor = 'wait';
-
         const url = `/Taller/Taller-Mecanica/modules/RRHH/Archivo_Empleado.php?action=verificar_cedula_empleado&cedula=${cedula}`;
         const response = await fetch(url);
         const res = await response.json();
-
         document.body.style.cursor = 'default';
 
         if (res.status === 'empleado_existe') {
-            alert(res.message); 
+            Swal.fire('Atención', res.message, 'warning'); 
             bloquearCamposEmpleado(true);
             document.getElementById('id_persona_capturado').value = "";
         } 
         else if (res.status === 'persona_existe') {
-            alert("Cliente encontrado. Cargando datos personales...");
+            // Notificación pequeña en la esquina (Toast) para no interrumpir tanto
+            Swal.fire({
+                icon: 'success',
+                title: 'Persona encontrada',
+                text: 'Cargando datos desde el registro de clientes...',
+                timer: 2000,
+                showConfirmButton: false
+            });
             
-            // 1. Asignar el ID de persona para que el PHP no inserte una nueva
             document.getElementById('id_persona_capturado').value = res.data.id_persona;
-            
-            // 2. Cargar datos en los inputs (incluye la espera de provincia y ciudad)
             await cargarDatosPersona(res.data);
-            
-            // 3. Bloquear datos personales generales
             bloquearCamposEmpleado(true); 
-            
-            // 4. EXCEPCIÓN: Habilitar Correo (Los clientes no suelen tenerlo registrado)
-            const correoInput = document.getElementById('correo');
-            if (correoInput) {
-                correoInput.disabled = false;
-                correoInput.placeholder = "Ingrese el correo del nuevo empleado";
-            }
-
-            // 5. Habilitar campos que SIEMPRE deben llenarse para un empleado
             habilitarLaborales(true);
-            
-            console.log("Datos de cliente vinculados correctamente.");
         } 
         else {
-            alert("Nueva persona. Por favor, complete todos los campos.");
+            Swal.fire({
+                icon: 'info',
+                title: 'Nuevo Registro',
+                text: 'La persona no existe en el sistema. Complete todos los campos.',
+            });
             document.getElementById('id_persona_capturado').value = "";
             bloquearCamposEmpleado(false);
-            
-            // Asegurarse de que el correo esté habilitado para nuevos
             document.getElementById('correo').disabled = false;
         }
     } catch (error) {
         document.body.style.cursor = 'default';
-        console.error("Error en la petición:", error);
-        alert("Error de conexión: No se pudo verificar la cédula.");
+        Swal.fire('Error', 'No se pudo verificar la cédula.', 'error');
     }
 }
 

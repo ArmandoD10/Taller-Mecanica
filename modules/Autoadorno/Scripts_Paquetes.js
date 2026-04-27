@@ -124,23 +124,35 @@ function quitarDelCombo(index) {
  * @param {number} id - ID del paquete a eliminar
  */
 function eliminarPaquete(id) {
-    if(confirm("¿Seguro que desea eliminar este combo?")){
-        const fd = new FormData();
-        fd.append('id', id);
+    Swal.fire({
+        title: '¿Eliminar este combo?',
+        text: "Esta acción marcará el paquete como eliminado y no podrá facturarse.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id', id);
 
-        fetch("/Taller/Taller-Mecanica/modules/Autoadorno/Archivo_Paquetes.php?action=eliminar", { 
-            method: "POST", 
-            body: fd 
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                listarPaquetes(); // Refrescar la tabla automáticamente
-            } else {
-                alert("Error al eliminar.");
-            }
-        });
-    }
+            fetch("/Taller/Taller-Mecanica/modules/Autoadorno/Archivo_Paquetes.php?action=eliminar", { 
+                method: "POST", 
+                body: fd 
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    Swal.fire('Eliminado', 'El paquete ha sido removido.', 'success');
+                    listarPaquetes();
+                } else {
+                    Swal.fire('Error', 'No se pudo eliminar el registro.', 'error');
+                }
+            });
+        }
+    });
 }
 
 
@@ -178,43 +190,34 @@ function cambiarEstadoPaquete(id, checkbox) {
 }
 
 function guardarPaquete() {
-    // 1. Obtener referencias a los elementos
     const id_edit = document.getElementById('id_paquete_edit').value;
     const nombreInput = document.getElementById('nombre_paquete');
     const nombre = nombreInput.value.trim();
-    
-    // 2. Obtener el estado desde los radio buttons (estilo Ofertas)
     const radioActivo = document.getElementById('paq_activo');
     const estado = radioActivo.checked ? 'activo' : 'inactivo';
 
-    // --- VALIDACIONES DE NEGOCIO ---
-    
-    // A. Validar que el nombre tenga al menos 3 caracteres
+    // --- VALIDACIONES CON SWEETALERT2 ---
     if (nombre.length < 3) {
-        alert("Por favor, asigne un nombre descriptivo al paquete (mínimo 3 caracteres).");
+        Swal.fire('Nombre demasiado corto', 'Por favor, asigne un nombre descriptivo al paquete (mínimo 3 caracteres).', 'warning');
         nombreInput.focus();
         return;
     }
 
-    // B. Validar que sea un COMBO (Mínimo 2 artículos)
     if (productosEnCombo.length < 2) {
-        alert("¡Acción no permitida! Un combo debe estar integrado por al menos 2 productos para aplicar el descuento.");
+        Swal.fire('¡Combo incompleto!', 'Un combo debe estar integrado por al menos 2 productos para aplicar el descuento.', 'error');
         return;
     }
 
-    // 3. Preparar el total (limpiando formato de moneda)
     const totalTexto = document.getElementById('total_paquete').innerText;
     const totalLimpio = totalTexto.replace(/[^\d.]/g, '');
 
-    // 4. Crear el FormData para enviar al PHP
     const fd = new FormData();
-    fd.append('id_paquete', id_edit); // Si está vacío, el backend hace INSERT
+    fd.append('id_paquete', id_edit);
     fd.append('nombre', nombre);
     fd.append('estado', estado);
     fd.append('total', totalLimpio);
-    fd.append('items', JSON.stringify(productosEnCombo)); // Enviamos el array como string JSON
+    fd.append('items', JSON.stringify(productosEnCombo));
 
-    // 5. Petición al servidor
     fetch("/Taller/Taller-Mecanica/modules/Autoadorno/Archivo_Paquetes.php?action=guardar", {
         method: "POST",
         body: fd
@@ -222,19 +225,20 @@ function guardarPaquete() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            // Mostrar mensaje de éxito según la operación
-            const mensaje = id_edit ? "¡Paquete actualizado correctamente!" : "¡Paquete creado y registrado con éxito!";
-            alert(mensaje);
-            
-            // Recargar la página o limpiar y listar para ver los cambios
-            location.reload(); 
+            Swal.fire({
+                title: '¡Éxito!',
+                text: id_edit ? "¡Paquete actualizado correctamente!" : "¡Paquete creado y registrado con éxito!",
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                location.reload(); 
+            });
         } else {
-            alert("Error del sistema: " + data.message);
+            Swal.fire('Error del sistema', data.message, 'error');
         }
     })
     .catch(err => {
-        console.error("Error en la petición guardar:", err);
-        alert("No se pudo conectar con el servidor.");
+        Swal.fire('Error de conexión', 'No se pudo establecer contacto con el servidor.', 'error');
     });
 }
 

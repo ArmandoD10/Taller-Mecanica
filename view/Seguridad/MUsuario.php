@@ -19,12 +19,12 @@ require("../../header.php");
                 </div>
                 <div class="mb-3">
                     <label for="contrasena" class="form-label" style="color: var(--primary-blue)">Contrasena</label>
-                    <input type="password" class="form-control" id="contrasena" name="contrasena" placeholder="xxxxxxxx">
+                    <input type="password" class="form-control" id="contrasena" name="contrasena" placeholder="2026Seguridad" readonly>
                 </div> 
 
                 <div class="mb-3">
                     <label for="telefono" class="form-label" style="color: var(--primary-blue)">Repetir Contrasena</label>
-                    <input type="password" class="form-control" id="contra2" name="contra2" placeholder="xxxxxxxxx">
+                    <input type="password" class="form-control" id="contra2" name="contra2" placeholder="2026Seguridad" readonly>
                 </div> 
             </div>
             
@@ -121,6 +121,7 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="/Taller/Taller-Mecanica/Pdf/jspdf.min.js"></script>
 <script src="/Taller/Taller-Mecanica/Pdf/jspdf.plugin.autotable.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Seguridad/Scripts_Usuario.js"></script>

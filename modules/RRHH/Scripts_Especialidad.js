@@ -68,21 +68,67 @@ document.getElementById("formEspecialidad").onsubmit = function(e) {
     .then(res => res.json())
     .then(res => {
         if(res.success) {
-            bootstrap.Modal.getInstance(document.getElementById('modalEspecialidad')).hide();
-            listar();
+            // Cerramos el modal de Bootstrap
+            const modalEl = document.getElementById('modalEspecialidad');
+            bootstrap.Modal.getInstance(modalEl).hide();
+
+            // Mensaje de éxito estilizado
+            Swal.fire({
+                title: '¡Éxito!',
+                text: 'Especialidad guardada correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listar();
+            });
+        } else {
+            Swal.fire('Error', 'No se pudo guardar la especialidad.', 'error');
         }
     });
 };
 
 function eliminar(id) {
-    if(confirm("¿Eliminar esta especialidad?")) {
-        const fd = new FormData();
-        fd.append('id', id);
-        fetch('../../modules/RRHH/Archivo_Especialidad.php?action=eliminar', { method: 'POST', body: fd })
-        .then(() => listar());
-    }
+    Swal.fire({
+        title: '¿Eliminar especialidad?',
+        text: "Esta acción no se puede deshacer.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id', id);
+            fetch('../../modules/RRHH/Archivo_Especialidad.php?action=eliminar', { method: 'POST', body: fd })
+            .then(() => {
+                Swal.fire('Eliminado', 'La especialidad ha sido borrada.', 'success');
+                listar();
+            });
+        }
+    });
 }
 
+function cambiarEstado(id, nuevoEstado) {
+    const fd = new FormData();
+    fd.append('id', id);
+    fd.append('estado', nuevoEstado);
+    
+    fetch('../../modules/RRHH/Archivo_Especialidad.php?action=cambiar_estado', { method: 'POST', body: fd })
+    .then(() => {
+        // Notificación rápida tipo "Toast" para el cambio de estado
+        Swal.fire({
+            icon: 'success',
+            title: `Estado cambiado a ${nuevoEstado}`,
+            timer: 1500,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+        });
+        listar();
+    });
+}
 function validarNombreLavado(idInput) {
     const input = document.getElementById(idInput);
     

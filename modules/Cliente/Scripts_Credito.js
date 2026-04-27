@@ -11,25 +11,20 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         const formData = new FormData(this);
         
-        fetch("/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=eliminar", { method: "POST", body: formData })
-        .then(res => {
-            if (!res.ok) throw new Error("Error de red o servidor: " + res.status);
-            return res.json();
-        })
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                cerrarModalEliminar();
-                limpiarFormulario();
-                cargarTabla(); 
-            } else {
-                mostrarModalError(data.message);
-            }
-        })
-        .catch(err => {
-            console.error("Falla en la petición de eliminar:", err);
-            mostrarModalError("Ocurrió un error de conexión o sintaxis en el servidor.");
+       // Dentro del DOMContentLoaded, en el evento submit de formEliminar:
+fetch("/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=eliminar", { method: "POST", body: formData })
+.then(res => res.json())
+.then(data => {
+    if (data.success) {
+        Swal.fire('¡Eliminado!', data.message, 'success').then(() => {
+            cerrarModalEliminar();
+            limpiarFormulario();
+            cargarTabla(); 
         });
+    } else {
+        Swal.fire('Error', data.message, 'error');
+    }
+});
     });
 });
 
@@ -73,29 +68,36 @@ function buscarConsultasDataCredito(id_cliente) {
 
 function aplicarDatosConsulta(consulta) {
     document.getElementById('referencia_datacredito').value = consulta.referencia_consulta;
-    
     const score = parseInt(consulta.score_crediticio);
     let monto = 0;
 
     if (score < 150) {
         monto = 0;
-        alert("El score es demasiado bajo para generar un monto aprobado automáticamente (Menor a 150). Utilice el Bypass de Administrador si desea proceder.");
+        Swal.fire({
+            title: 'Score Insuficiente',
+            text: 'El score es demasiado bajo para aprobación automática. Use el Bypass de Administrador si desea proceder manualmente.',
+            icon: 'info'
+        });
     } else if (score >= 150 && score <= 200) { monto = 5000; } 
     else if (score >= 201 && score <= 400) { monto = 10000; } 
     else if (score >= 401 && score <= 700) { monto = 25000; } 
     else if (score >= 701 && score <= 1000) { monto = 35000; }
 
     document.getElementById('monto_credito').value = monto;
-    
-    document.getElementById('monto_credito').classList.add('is-valid');
-    document.getElementById('referencia_datacredito').classList.add('is-valid');
-    
     evaluarSeguridad(); 
-
-    setTimeout(() => {
-        document.getElementById('monto_credito').classList.remove('is-valid');
-        document.getElementById('referencia_datacredito').classList.remove('is-valid');
-    }, 2000);
+    
+    // Notificación rápida de datos aplicados
+    if(monto > 0) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Datos Aplicados',
+            text: `Monto sugerido: RD$ ${monto}`,
+            toast: true,
+            position: 'top-end',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
 }
 
 function limpiarFormulario() {
@@ -372,15 +374,13 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
 
     const idCliente = document.getElementById("id_cliente").value;
     if (idCliente === '') {
-        alert("Debe seleccionar un cliente de la lista desplegable.");
+        Swal.fire('Atención', 'Debe seleccionar un cliente de la lista desplegable.', 'warning');
         document.getElementById('buscador_cliente').focus();
         return;
     }
 
     document.getElementById("buscador_cliente").disabled = false; 
-
     const formData = new FormData(this);
-    
     if (modoEdicion) document.getElementById("buscador_cliente").disabled = true;
 
     let url = modoEdicion
@@ -388,22 +388,25 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
         : "/Taller/Taller-Mecanica/modules/Cliente/Archivo_Credito.php?action=guardar";
 
     fetch(url, { method: "POST", body: formData })
-    .then(res => {
-        if (!res.ok) throw new Error("Error de red o servidor: " + res.status);
-        return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTabla(); 
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTabla(); 
+            });
         } else {
-            mostrarModalError(data.message);
+            Swal.fire('Error de Validación', data.message, 'error');
         }
     })
     .catch(err => {
-        console.error("Falla en la petición de guardar/editar:", err);
-        mostrarModalError("Ocurrió un error de conexión en el servidor.");
+        console.error("Error:", err);
+        Swal.fire('Error Crítico', 'Ocurrió un error de conexión en el servidor.', 'error');
     });
 });
 

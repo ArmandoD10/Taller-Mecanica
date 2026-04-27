@@ -197,6 +197,7 @@ require("../../header.php");
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="/Taller/Taller-Mecanica/modules/Cliente/Scripts_Credito.js"></script>
 </body>
 </html>

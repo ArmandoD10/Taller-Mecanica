@@ -268,28 +268,33 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
 });
 
 window.eliminarRegistro = function(id) {
-    if (confirm(`¿Estás seguro de que quieres desactivar el registro con ID ${id}?`)) {
-        fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=desactivar", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `id_usuario=${id}` // <-- Corrección del nombre del parámetro a "id_sala"
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error("Error en la solicitud:", error);
-            alert('Hubo un problema al conectar con el servidor.');
-        });
-    }
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: `¿Deseas desactivar el registro con ID ${id}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, desactivar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch("/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=desactivar", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id_usuario=${id}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Desactivado!', data.message, 'success')
+                    .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 };
 
 
@@ -351,25 +356,33 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
         url = "/Taller/Taller-Mecanica/modules/Seguridad/Archivo_Usuario.php?action=guardar";
     }
 
-    fetch(url, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
+    // Reemplaza el bloque fetch de guardado/actualización por este:
+fetch(url, {
+    method: 'POST',
+    body: formData
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        // MENSAJE DE ÉXITO ESTILO OFERTAS
+        Swal.fire({
+            title: '¡Éxito!',
+            text: data.message,
+            icon: 'success',
+            confirmButtonColor: '#4e73df' // O el color que prefieras
+        }).then(() => {
             resetearFormulario();
-            // Recargar la tabla o la página para ver el nuevo registro
             location.reload(); 
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error("Error en la solicitud:", error);
-        alert('Hubo un problema al conectar con el servidor.');
-    });
+        });
+    } else {
+        // MENSAJE DE ERROR
+        Swal.fire('Error', data.message, 'error');
+    }
+})
+.catch(error => {
+    console.error("Error en la solicitud:", error);
+    Swal.fire('Error', 'Hubo un problema al conectar con el servidor.', 'error');
+});
 });
 
 // // Llama a la función para cada campo que necesites

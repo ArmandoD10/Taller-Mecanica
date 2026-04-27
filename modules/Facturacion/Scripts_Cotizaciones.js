@@ -362,7 +362,7 @@ function crearCotizacionExpress() {
     if(tipoCli === 'registrado') {
         const id_vehiculo = document.getElementById("id_vehiculo_express").value;
         const id_cliente = document.getElementById("id_cliente_express").value;
-        if(!id_vehiculo) return alert("Debe seleccionar un vehículo.");
+        if(!id_vehiculo) return Swal.fire('Atención', "Debe seleccionar un vehículo de la lista.", 'warning');
         
         fd.append("id_vehiculo", id_vehiculo);
         fd.append("id_cliente", id_cliente);
@@ -375,7 +375,7 @@ function crearCotizacionExpress() {
         const nom = document.getElementById("occ_nombre").value.trim();
         const tel = document.getElementById("occ_telefono").value.trim();
         const veh = document.getElementById("occ_vehiculo").value.trim();
-        if(!nom) return alert("El Nombre es obligatorio para un cliente ocasional.");
+        if(!nom) return Swal.fire('Campo Requerido', "El Nombre es obligatorio para un cliente ocasional.", 'warning');
         
         fd.append("nombre_ocasional", nom);
         fd.append("telefono_ocasional", tel);
@@ -384,33 +384,30 @@ function crearCotizacionExpress() {
         vehiculoDesc = veh;
     }
 
-    const btn = document.querySelector("#modalNuevaCotizacion .btn-success");
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
-    btn.disabled = true;
+    Swal.fire({
+        title: 'Creando Cotización...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
     fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=crear_directa", { method: "POST", body: fd })
     .then(async res => {
         const text = await res.text(); 
-        try { return JSON.parse(text); } 
-        catch (e) { throw new Error(text); }
+        try { return JSON.parse(text); } catch (e) { throw new Error(text); }
     })
     .then(data => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        
+        Swal.close();
         if(data.success) {
             cerrarModalNuevaCotizacion();
             listarPendientes();
             cargarCotizacion(data.id_cotizacion, vehiculoDesc, clienteName, tipoCot, tipoCli === 'ocasional' ? 1 : 0);
         } else {
-            alert("Error de Base de Datos: " + data.message);
+            Swal.fire('Error de Base de Datos', data.message, 'error');
         }
     })
     .catch(err => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        alert("Error fatal del servidor. Consulta la consola o avisa al administrador.\nDetalle: " + err.message.substring(0, 100));
+        Swal.close();
+        Swal.fire('Error Fatal', "Detalle: " + err.message.substring(0, 100), 'error');
     });
 }
 
@@ -418,10 +415,11 @@ function guardarBorrador() {
     const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
     if(!id_cotizacion) return;
 
-    const btn = document.querySelector("button[onclick='guardarBorrador()']");
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    btn.disabled = true;
+    Swal.fire({
+        title: 'Guardando presupuesto...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
     fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
         method: "POST", headers: { 'Content-Type': 'application/json' }, 
@@ -432,53 +430,60 @@ function guardarBorrador() {
         try { return JSON.parse(text); } catch(e) { throw new Error(text); }
     })
     .then(res => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
         if(res.success) { 
-            // 1. Damos feedback visual al usuario
-            alert("Cotización guardada exitosamente."); 
-            
-            // 2. ¡AQUÍ ESTÁ LA MAGIA! Limpiamos y bloqueamos el panel
-            limpiarConstructor(); 
-            
-            // 3. Actualizamos la lista de la izquierda
-            listarPendientes(); 
+            Swal.fire({
+                title: '¡Guardado!',
+                text: "Cotización guardada exitosamente.",
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarConstructor(); 
+                listarPendientes(); 
+            });
         } else {
-            alert("Error al guardar borrador: " + res.message);
+            Swal.fire('Error', res.message, 'error');
         }
     })
     .catch(err => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        alert("Error de Conexión: " + err.message);
+        Swal.fire('Error de Conexión', err.message, 'error');
     });
 }
 
 function aprobarCotizacion() {
     const id_cotizacion = document.getElementById("id_cotizacion_actual").value;
-    if(!id_cotizacion || cotizacionItems.length === 0) return alert("Presupuesto vacío o inválido.");
+    if(!id_cotizacion || cotizacionItems.length === 0) return Swal.fire('Presupuesto Vacío', "No puede aprobar una cotización sin items.", 'warning');
 
-    if(confirm("¿Aprobar y pasar vehículo al Taller (Diagnóstico)?")) {
-        fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
-            method: "POST", headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal })
-        }).then(() => {
-            const fd = new FormData(); fd.append("id_cotizacion", id_cotizacion);
-            fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=aprobar_cotizacion", { method: "POST", body: fd })
-            .then(async res => {
-                const text = await res.text();
-                try { return JSON.parse(text); } catch(e) { throw new Error(text); }
-            })
-            .then(res => {
-                if(res.success) { 
-                    alert(res.message); 
-                    limpiarConstructor(); 
-                    window.location.href = `../Taller/MInspeccion.php?id_orden=${res.id_orden}`;
-                } else alert("Error al Aprobar: " + res.message);
-            })
-            .catch(err => alert("Error fatal del servidor: " + err.message));
-        });
-    }
+    Swal.fire({
+        title: '¿Aprobar Presupuesto?',
+        text: "¿Desea pasar este vehículo al Taller para Diagnóstico?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#1a73e8',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, enviar a taller',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            
+            fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=guardar_cotizacion", {
+                method: "POST", headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ id_cotizacion, items: cotizacionItems, total_final: cotizacionTotal })
+            }).then(() => {
+                const fd = new FormData(); fd.append("id_cotizacion", id_cotizacion);
+                fetch("../../modules/Facturacion/Archivo_Cotizaciones.php?action=aprobar_cotizacion", { method: "POST", body: fd })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.success) { 
+                        Swal.fire('¡Aprobada!', res.message, 'success').then(() => {
+                            limpiarConstructor(); 
+                            window.location.href = `../Taller/MInspeccion.php?id_orden=${res.id_orden}`;
+                        });
+                    } else Swal.fire('Error', res.message, 'error');
+                });
+            });
+        }
+    });
 }
 
 // --- REDIRECCIÓN AL MÓDULO POS ---

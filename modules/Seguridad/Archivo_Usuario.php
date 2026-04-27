@@ -110,7 +110,7 @@ function guardar($conexion) {
         $interfaz = $conexion->real_escape_string($_POST['interfaz'] ?? '');
     
     
-        if (empty($nombre) || empty($contrasena) || empty($correo)) {
+        if (empty($nombre) || empty($correo)) {
             echo json_encode(['success' => false, 'message' => 'Faltan datos para guardar.']);
             exit;
         }
@@ -130,7 +130,7 @@ function guardar($conexion) {
     
         $sql = "INSERT INTO usuario (username, password_hash, correo_org, id_nivel, interfaz_acceso, estado, fecha_creacion, usuario_creacion, id_organizacion)
 
-                VALUES ('$nombre', '$contrasena', '$correo', '$nivel', '$interfaz', 'Activo', NOW(), 1, 1)";
+                VALUES ('$nombre', '2026Seguridad', '$correo', '$nivel', '$interfaz', 'Activo', NOW(), 1, 1)";
               
     
         if ($conexion->query($sql) === TRUE) {

@@ -48,13 +48,15 @@ function guardarSucursal() {
     const id = document.getElementById("id_sucursal").value;
     const nombre = document.getElementById("nombre_sucursal").value;
     
-    if(!nombre) return alert("Nombre obligatorio");
+    if(!nombre) {
+        Swal.fire('Atención', 'El nombre de la sucursal es obligatorio.', 'warning');
+        return;
+    }
 
     const formData = new FormData();
     formData.append("id_sucursal", id);
     formData.append("nombre", nombre);
 
-    // Obtener IDs de departamentos seleccionados
     const checks = document.querySelectorAll(".chk-depto:checked");
     checks.forEach(c => formData.append("deptos[]", c.value));
 
@@ -65,10 +67,21 @@ function guardarSucursal() {
     .then(res => res.json())
     .then(data => {
         if(data.success) {
-            alert("Sucursal actualizada");
-            limpiar();
-            cargarTablaSucursales();
+            Swal.fire({
+                title: '¡Actualizado!',
+                text: 'La sucursal y sus departamentos se han guardado correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiar();
+                cargarTablaSucursales();
+            });
+        } else {
+            Swal.fire('Error', 'No se pudieron guardar los cambios.', 'error');
         }
+    })
+    .catch(err => {
+        Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
     });
 }
 
@@ -80,16 +93,23 @@ function editarSucursal(id) {
     document.getElementById("nombre_sucursal").value = suc.nombre;
     document.getElementById("btnGuardar").textContent = "Modificar Sucursal";
 
-    // Cargar qué departamentos tiene activos
     fetch(`/Taller/Taller-Mecanica/modules/RRHH/Archivo_Gestion_Sucursal.php?action=obtener_asignados&id_sucursal=${id}`)
     .then(res => res.json())
     .then(asignados => {
-        // Desmarcar todos primero
         document.querySelectorAll(".chk-depto").forEach(c => c.checked = false);
-        // Marcar solo los activos
         asignados.forEach(a => {
             const check = document.getElementById(`dep_${a.id_departamento}`);
             if(check && a.estado === 'activo') check.checked = true;
+        });
+
+        // Notificación Toast de carga exitosa
+        Swal.fire({
+            icon: 'info',
+            title: 'Asignaciones cargadas',
+            toast: true,
+            position: 'top-end',
+            timer: 1500,
+            showConfirmButton: false
         });
     });
 }

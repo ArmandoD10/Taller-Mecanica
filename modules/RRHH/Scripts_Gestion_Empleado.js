@@ -114,36 +114,62 @@ function cargarTabla() {
 
 // También asegúrate de que la función guardar llame a cargarTabla() al terminar
 function guardarAsignacion() {
+    const idEmp = document.getElementById("id_empleado").value;
+    const idSuc = document.getElementById("id_sucursal").value;
+
+    if (!idEmp || !idSuc) {
+        Swal.fire('Campos incompletos', 'Debe seleccionar un empleado y una sucursal destino.', 'warning');
+        return;
+    }
+
     const fd = new FormData();
-    fd.append("id_empleado", document.getElementById("id_empleado").value);
-    fd.append("id_sucursal", document.getElementById("id_sucursal").value);
+    fd.append("id_empleado", idEmp);
+    fd.append("id_sucursal", idSuc);
 
     fetch("/Taller/Taller-Mecanica/modules/RRHH/Archivo_Gestion_Empleado.php?action=guardar", { method: "POST", body: fd })
     .then(res => res.json())
     .then(data => {
         if(data.success){
-            alert("Asignación guardada");
-            deseleccionarEmpleado();
-            cargarTabla(); // Recarga la lista automáticamente
+            Swal.fire({
+                title: '¡Asignación Exitosa!',
+                text: 'El empleado ha sido vinculado a la sucursal correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                deseleccionarEmpleado();
+                cargarTabla(); 
+            });
+        } else {
+            Swal.fire('Error', data.message || 'No se pudo realizar la asignación.', 'error');
         }
+    })
+    .catch(err => {
+        Swal.fire('Error', 'Hubo un fallo al conectar con el servidor.', 'error');
     });
 }
 
 // Función para activar el movimiento desde la tabla
 window.moverEmpleado = function(id, nombre, cedula) {
-    // 1. "Seleccionamos" al empleado en el buscador superior
+    // 1. LLAMAMOS a la función que ya existe arriba, pasándole los datos
+    // No la definas aquí, solo ÚSALA.
     seleccionarEmpleado({
         id: id,
         nombre: nombre,
         cedula: cedula
     });
 
-    // 2. Opcional: Ponemos el foco en el select de sucursal para ahorrar un clic
-    document.getElementById('id_sucursal').focus();
+    // 2. Ponemos el foco en el select de sucursal para que el usuario elija rápido
+    const selectSucursal = document.getElementById('id_sucursal');
+    if (selectSucursal) {
+        selectSucursal.focus();
+    }
 
-    // 3. Scroll suave hacia el formulario para que el usuario vea el cambio
-    document.getElementById('formAsignacion').scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-    });
+    // 3. Scroll suave hacia el formulario para que no se pierda el usuario
+    const formulario = document.getElementById('formAsignacion');
+    if (formulario) {
+        formulario.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }
 };

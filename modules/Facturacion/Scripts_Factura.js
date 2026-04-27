@@ -158,13 +158,13 @@ function agregarProductoAlCarrito(p) {
 
     if (itemExistente) {
         if ((itemExistente.cantidad + cantAAgregar) > stockDisponible) {
-            alert(`No puedes agregar más. El stock máximo es ${stockDisponible}`);
+            Swal.fire('Stock insuficiente', `No puedes agregar más. El stock máximo disponible es ${stockDisponible}`, 'error');
             return;
         }
         itemExistente.cantidad += cantAAgregar;
     } else {
         if (cantAAgregar > stockDisponible) {
-            alert(`Stock insuficiente. Solo quedan ${stockDisponible} unidades.`);
+           Swal.fire('Stock insuficiente', `Solo quedan ${stockDisponible} unidades en inventario.`, 'warning');
             return;
         }
         listaItemsFactura.push({
@@ -421,7 +421,7 @@ function finalizarTodo() {
 
 function simularAzul() {
     const tarjeta = document.getElementById("tarjeta_numero").value;
-    if (tarjeta.length < 16) return alert("Número de tarjeta incompleto.");
+    if (tarjeta.length < 16) return Swal.fire('Tarjeta incompleta', 'El número de tarjeta debe tener 16 dígitos.', 'warning');
 
     document.getElementById("azul_formulario").classList.add("d-none");
     document.getElementById("azul_cargando").classList.remove("d-none");
@@ -434,12 +434,17 @@ function simularAzul() {
         .then(res => res.json())
         .then(res => {
             if (res.success) {
-                setTimeout(() => {
-                    alert("TRANSACCIÓN APROBADA POR BANCO POPULAR\nREFERENCIA: " + res.referencia);
+                // MODAL DE ÉXITO ESTILO AZUL
+                Swal.fire({
+                    title: '¡Transacción Aprobada!',
+                    html: `<b>Banco Popular Dominicana</b><br>Referencia: ${res.referencia}`,
+                    icon: 'success',
+                    confirmButtonColor: '#004481' // Azul Azul
+                }).then(() => {
                     guardarFacturaFinal(res.referencia, false);
-                }, 1500);
+                });
             } else {
-                alert("Error Azul: " + res.message);
+                Swal.fire('Transacción Declinada', res.message, 'error');
                 document.getElementById("azul_formulario").classList.remove("d-none");
                 document.getElementById("azul_cargando").classList.add("d-none");
             }
@@ -471,7 +476,15 @@ function guardarFacturaFinal(refAzul, esCredito) {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            alert("¡OPERACIÓN EXITOSA!\nFactura #" + res.id_factura + " generada.");
+            // MODAL DE ÉXITO ESTILO AZUL
+                Swal.fire({
+                    title: '¡Transacción Aprobada!',
+                    html: `<b>Banco Popular Dominicana</b><br>Referencia: ${res.referencia}`,
+                    icon: 'success',
+                    confirmButtonColor: '#004481' // Azul Azul
+                }).then(() => {
+                    guardarFacturaFinal(res.referencia, false);
+                });
             // Si vino de cotización, volver a la pantalla de cotizaciones
             if (cotizacionVinculadaID) {
                 window.location.href = "Cotizaciones.php";

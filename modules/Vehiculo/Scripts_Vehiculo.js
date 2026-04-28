@@ -169,33 +169,56 @@ document.getElementById('formulario').addEventListener('submit', function(e) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTablaVehiculos(currentPage);
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTablaVehiculos(currentPage);
+            });
         } else {
-            alert('Error: ' + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
+    })
+    .catch(err => {
+        console.error("Error:", err);
+        Swal.fire('Error Crítico', 'No se pudo conectar con el servidor de vehículos.', 'error');
     });
 });
 
 window.cambiarEstado = function(id, estadoDeseado) {
     let accion = estadoDeseado === 'activo' ? 'activar' : 'desactivar';
-    if (confirm(`¿Seguro que desea ${accion} este vehículo?`)) {
-        const fd = new FormData();
-        fd.append('sec_vehiculo', id);
-        fd.append('estado', estadoDeseado);
+    let icon = estadoDeseado === 'activo' ? 'question' : 'warning';
+    
+    Swal.fire({
+        title: `¿Desea ${accion} el vehículo?`,
+        text: `El vehículo cambiará su estado a ${estadoDeseado}.`,
+        icon: icon,
+        showCancelButton: true,
+        confirmButtonColor: estadoDeseado === 'activo' ? '#28a745' : '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: `Sí, ${accion}`,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('sec_vehiculo', id);
+            fd.append('estado', estadoDeseado);
 
-        fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Vehiculo.php?action=cambiar_estado", { method: 'POST', body: fd })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                cargarTablaVehiculos(currentPage);
-            } else {
-                alert("Error: " + data.message);
-            }
-        });
-    }
+            fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Vehiculo.php?action=cambiar_estado", { method: 'POST', body: fd })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Actualizado', data.message, 'success');
+                    cargarTablaVehiculos(currentPage);
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 };
 
 window.limpiarFormulario = function() {
@@ -331,14 +354,18 @@ if (inputPlaca) {
     });
 
     // Validación extra al perder el foco (blur)
+    if (inputPlaca) {
     inputPlaca.addEventListener('blur', function () {
         if (this.value.length > 0 && this.value.length < 7) {
-            alert("La placa debe tener exactamente 7 caracteres.");
-            this.classList.add('is-invalid'); // Clase de Bootstrap para marcar error
+            Swal.fire('Placa Incompleta', 'La placa debe tener exactamente 7 caracteres.', 'info');
+            this.classList.add('is-invalid');
         } else {
             this.classList.remove('is-invalid');
         }
     });
+}
+
+
 }
 
 const inputAnio = document.getElementById('anio');
@@ -351,17 +378,22 @@ if (inputAnio) {
         }
     });
 
+   if (inputAnio) {
     inputAnio.addEventListener('blur', function () {
         const anioVal = parseInt(this.value);
         const anioActual = new Date().getFullYear();
 
-        // 2. Validación lógica: No menor a 1950 ni mayor al año actual + 1
-        if (anioVal < 1950 || anioVal > (anioActual + 1)) {
-            alert("Por favor, ingrese un año válido (entre 1950 y " + (anioActual + 1) + ")");
-            this.value = ""; // Limpiamos si es inválido
+        if (this.value !== "" && (anioVal < 1950 || anioVal > (anioActual + 1))) {
+            Swal.fire({
+                title: 'Año Inválido',
+                text: `Por favor, ingrese un año entre 1950 y ${anioActual + 1}`,
+                icon: 'warning'
+            });
+            this.value = "";
             this.focus();
         }
     });
+}
 }
 
 // Agrega esta función al final de Scripts_Vehiculo.js

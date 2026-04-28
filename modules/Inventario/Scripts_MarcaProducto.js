@@ -25,27 +25,46 @@ document.addEventListener("DOMContentLoaded", () => {
     // GUARDADO DEL FORMULARIO
     // ==========================================
     document.getElementById("formMarca").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_MarcaProducto.php?action=guardar", {
-            method: "POST", 
-            body: new FormData(this)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) { 
-                cerrarModalUI('modalMarca'); 
-                listar(); 
-                alert(data.message); 
-            } else { 
-                alert(data.message); 
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar:", error);
-            alert("Error de conexión con el servidor.");
-        });
+    e.preventDefault();
+    
+    // Indicador de carga inicial
+    Swal.fire({
+        title: 'Guardando marca...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
     });
+
+    fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_MarcaProducto.php?action=guardar", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close(); // Cerramos el loading
+
+        if (data.success) {
+            // Cerramos el modal de Bootstrap primero para que no tape al SweetAlert
+            cerrarModalUI('modalMarca'); 
+
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listar(); // Recarga la lista de marcas
+                this.reset(); // Limpia el formulario
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        console.error("Error:", err);
+        Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+    });
+});
 
     // ==========================================
     // EVENTOS PARA CERRAR EL MODAL
@@ -147,25 +166,37 @@ function editar(id) {
     .catch(error => console.error("Error al obtener datos de la marca:", error));
 }
 
-function eliminar(id) {
-    if (confirm("¿Está seguro que desea eliminar esta marca del catálogo?")) {
-        const f = new FormData(); 
-        f.append("id_marca_producto", id);
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_MarcaProducto.php?action=eliminar", {
-            method: "POST", 
-            body: f
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(data.message);
-            if(data.success) {
-                listar();
-            }
-        })
-        .catch(error => console.error("Error al eliminar marca:", error));
-    }
-}
+window.eliminar = function(id) {
+    Swal.fire({
+        title: '¿Eliminar esta marca?',
+        text: "Esto podría afectar a los artículos que usan esta marca actualmente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id_marca_producto', id);
+
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_MarcaProducto.php?action=eliminar", {
+                method: "POST",
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Eliminado!', data.message, 'success');
+                    listar();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
+};
 
 // ==========================================
 // FUNCIONES DEL MODAL A PRUEBA DE FALLOS

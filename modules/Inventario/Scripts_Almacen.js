@@ -46,17 +46,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if(hiddenSuc.value === "") { alert("Seleccione una Sucursal válida."); return; }
 
         fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=guardar_almacen", {
-            method: "POST", body: new FormData(this)
-        }).then(res => res.json()).then(data => {
-            if (data.success) { 
-                alert(data.message);
-                cerrarModalUI('modalAlmacen'); 
-                listarAlmacenes(); 
-            } else {
-                // Aquí el backend nos avisa si el nombre está duplicado
-                alert(data.message); 
-            }
-        });
+    method: "POST", body: new FormData(this)
+}).then(res => res.json()).then(data => {
+    if (data.success) { 
+        cerrarModalUI('modalAlmacen'); 
+        Swal.fire('¡Éxito!', data.message, 'success').then(() => { listarAlmacenes(); });
+    } else {
+        Swal.fire('Error', data.message, 'error'); 
+    }
+});
     });
 
     // ==========================================
@@ -66,21 +64,20 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         const id_almacen = document.getElementById("gondola_id_almacen").value;
         
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=guardar_gondola", {
-            method: "POST", body: new FormData(this)
-        }).then(res => res.json()).then(data => {
-            if (data.success) {
-                // Limpiar inputs para agregar la siguiente rápido
-                document.getElementById("numero_gondola").value = ""; 
-                document.getElementById("niveles_gondola").value = "1"; 
-                
-                listarGondolas(id_almacen); 
-                listarAlmacenes(); 
-            } else {
-                // Aquí el backend nos avisa si el número de góndola está duplicado
-                alert(data.message);
-            }
-        });
+       // === GUARDAR GÓNDOLA (Toast de éxito rápido) ===
+fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=guardar_gondola", {
+    method: "POST", body: new FormData(this)
+}).then(res => res.json()).then(data => {
+    if (data.success) {
+        Swal.fire({ icon: 'success', title: 'Góndola agregada', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+        document.getElementById("numero_gondola").value = ""; 
+        document.getElementById("niveles_gondola").value = "1"; 
+        listarGondolas(id_almacen); 
+        listarAlmacenes(); 
+    } else {
+        Swal.fire('Error', data.message, 'error');
+    }
+});
     });
 
     // Eventos de Cerrar
@@ -161,14 +158,23 @@ function editarAlmacen(id) {
 }
 
 function eliminarAlmacen(id) {
-    if (confirm("Al eliminar este almacén, se eliminarán todas sus góndolas. ¿Desea continuar?")) {
-        const f = new FormData(); f.append("id_almacen", id);
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=eliminar_almacen", {
-            method: "POST", body: f
-        }).then(res => res.json()).then(data => {
-            alert(data.message); if(data.success) listarAlmacenes();
-        });
-    }
+    Swal.fire({
+        title: '¿Eliminar Almacén?',
+        text: "Al eliminar este almacén, se eliminarán todas sus góndolas y ubicaciones. ¿Desea continuar?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar todo'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const f = new FormData(); f.append("id_almacen", id);
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=eliminar_almacen", { method: "POST", body: f })
+            .then(res => res.json()).then(data => {
+                Swal.fire(data.success ? 'Eliminado' : 'Error', data.message, data.success ? 'success' : 'error');
+                if(data.success) listarAlmacenes();
+            });
+        }
+    });
 }
 
 // --- LÓGICA DE GÓNDOLAS ---
@@ -209,17 +215,50 @@ function listarGondolas(id_almacen) {
 }
 
 function eliminarGondola(id_gondola, id_almacen) {
-    if(confirm("¿Seguro de quitar esta góndola? No podrá usarla para guardar repuestos.")) {
-        const f = new FormData(); f.append("id_gondola", id_gondola);
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=eliminar_gondola", {
-            method: "POST", body: f
-        }).then(res => res.json()).then(data => {
-            if(data.success) {
-                listarGondolas(id_almacen);
-                listarAlmacenes(); 
-            }
-        });
-    }
+    // Reemplazamos el confirm nativo por el modal de advertencia de SweetAlert2
+    Swal.fire({
+        title: '¿Quitar esta góndola?',
+        text: "No podrá usarla para guardar repuestos y se perderá su ubicación en este almacén.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33', // Rojo para acciones de eliminar
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const f = new FormData(); 
+            f.append("id_gondola", id_gondola);
+
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Almacen.php?action=eliminar_gondola", {
+                method: "POST", 
+                body: f
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    // Notificación rápida de éxito
+                    Swal.fire({
+                        title: '¡Eliminado!',
+                        text: 'La góndola ha sido quitada del almacén.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    
+                    // Recargamos las listas para refrescar la UI
+                    listarGondolas(id_almacen);
+                    listarAlmacenes(); 
+                } else {
+                    Swal.fire('Error', data.message || 'No se pudo eliminar la góndola.', 'error');
+                }
+            })
+            .catch(err => {
+                console.error("Error:", err);
+                Swal.fire('Error', 'Hubo un fallo al conectar con el servidor.', 'error');
+            });
+        }
+    });
 }
 
 // ==========================================

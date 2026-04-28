@@ -36,27 +36,51 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 7. Envío de formulario
-    if (formArticulo) {
-        formArticulo.onsubmit = function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Articulo.php?action=guardar', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(res => {
-                if (res.success) {
-                    alert(res.message);
-                    modalArticulo.hide();
-                    listarArticulos();
-                } else {
-                    alert("Error: " + res.message);
-                }
-            })
-            .catch(err => console.error("Error al guardar:", err));
-        }
+   if (formArticulo) {
+    formArticulo.onsubmit = function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        Swal.fire({
+            title: 'Procesando...',
+            text: 'Guardando los cambios del artículo',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Articulo.php?action=guardar', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(res => {
+            // PRIMERO cerramos el indicador de carga
+            Swal.close();
+
+            if (res.success) {
+                // SEGUNDO ocultamos el modal de Bootstrap inmediatamente
+                // Esto quita el fondo oscuro y permite que el éxito se vea al frente
+                modalArticulo.hide();
+
+                // TERCERO mostramos el mensaje de éxito
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: res.message,
+                    icon: 'success',
+                    confirmButtonColor: '#1a73e8'
+                }).then(() => {
+                    listarArticulos(); // Recargamos las cards
+                });
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        })
+        .catch(err => {
+            Swal.close();
+            Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+        });
     }
+}
 
 
     const filtroBusqueda = document.getElementById('filtroBusqueda');

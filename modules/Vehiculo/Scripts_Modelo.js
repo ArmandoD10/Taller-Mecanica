@@ -65,22 +65,36 @@ function cargarTablaModelos(page = 1) {
 // Cambiar Estado (Activar/Desactivar)
 window.cambiarEstado = function(id, nuevoEstado) {
     let accion = nuevoEstado === 'activo' ? 'activar' : 'desactivar';
-    if (confirm(`¿Seguro que desea ${accion} este modelo?`)) {
-        const fd = new FormData();
-        fd.append('id_modelo', id);
-        fd.append('estado', nuevoEstado);
+    let icon = nuevoEstado === 'activo' ? 'question' : 'warning';
+    let btnColor = nuevoEstado === 'activo' ? '#28a745' : '#d33';
 
-        fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Modelo.php?action=cambiar_estado", { method: 'POST', body: fd })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                cargarTablaModelos(currentPage);
-            } else {
-                alert("Error: " + data.message);
-            }
-        });
-    }
+    Swal.fire({
+        title: `¿Desea ${accion} el modelo?`,
+        text: `El registro pasará a estado ${nuevoEstado}.`,
+        icon: icon,
+        showCancelButton: true,
+        confirmButtonColor: btnColor,
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: `Sí, ${accion}`,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id_modelo', id);
+            fd.append('estado', nuevoEstado);
+
+            fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Modelo.php?action=cambiar_estado", { method: 'POST', body: fd })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Actualizado!', data.message, 'success');
+                    cargarTablaModelos(currentPage);
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 };
 
 // Guardar / Actualizar
@@ -92,26 +106,40 @@ document.getElementById("formulario").addEventListener("submit", function(e) {
         ? "/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Modelo.php?action=actualizar" 
         : "/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Modelo.php?action=guardar";
 
+    // Indicador de "Procesando"
+    Swal.fire({
+        title: 'Guardando modelo...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
     fetch(url, {
         method: "POST",
         body: formData
     })
     .then(res => res.json())
     .then(data => {
+        Swal.close();
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTablaModelos(currentPage);
+            Swal.fire({
+                title: '¡Éxito!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTablaModelos(currentPage);
+            });
         } else {
-            alert("Error: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
     })
     .catch(error => {
+        Swal.close();
         console.error("Error:", error);
-        alert("Ocurrió un error al procesar la solicitud.");
+        Swal.fire('Error Crítico', 'No se pudo establecer conexión con el servidor.', 'error');
     });
 });
-
 // Editar Registro
 window.editarRegistro = function(id) {
     const mod = modelos.find(reg => reg.id_modelo == id);
@@ -127,6 +155,17 @@ window.editarRegistro = function(id) {
         
         modoEdicion = true;
         document.getElementById('formulario').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Dentro de window.editarRegistro = function(id) { ... }
+// Justo después del scrollIntoView:
+Swal.fire({
+    icon: 'info',
+    title: 'Modo edición activado',
+    text: `Cargando datos de ${mod.modelo_nombre}`,
+    toast: true,
+    position: 'top-end',
+    timer: 2000,
+    showConfirmButton: false
+});
     }
 };
 

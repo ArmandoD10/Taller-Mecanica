@@ -99,45 +99,91 @@ window.editarRegistro = function(id) {
         document.getElementById('btnMostrar').textContent = 'Actualizar';
         modoEdicion = true;
         document.getElementById('formulario').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Dentro de window.editarRegistro = function(id) { ... }
+// Justo después del scrollIntoView:
+Swal.fire({
+    icon: 'info',
+    title: 'Modo edición activado',
+    text: `Cargando datos de ${m.marca_nombre}`,
+    toast: true,
+    position: 'top-end',
+    timer: 2000,
+    showConfirmButton: false
+});
     }
 };
 
 document.getElementById('formulario').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
-    const url = modoEdicion ? "/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=actualizar" : "/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=guardar";
+    const url = modoEdicion 
+        ? "/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=actualizar" 
+        : "/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=guardar";
+
+    // Indicador de carga opcional
+    Swal.fire({
+        title: 'Procesando...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
     fetch(url, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
+        Swal.close();
         if (data.success) {
-            alert(data.message);
-            limpiarFormulario();
-            cargarTablaMarcas(currentPage);
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                limpiarFormulario();
+                cargarTablaMarcas(currentPage);
+            });
         } else {
-            alert('Error: ' + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
+    })
+    .catch(err => {
+        Swal.close();
+        console.error("Error:", err);
+        Swal.fire('Error Crítico', 'No se pudo conectar con el servidor de marcas.', 'error');
     });
 });
 
 window.cambiarEstado = function(id, estadoDeseado) {
     let accion = estadoDeseado === 'activo' ? 'activar' : 'desactivar';
-    if (confirm(`¿Seguro que desea ${accion} esta marca?`)) {
-        const fd = new FormData();
-        fd.append('id_marca', id);
-        fd.append('estado', estadoDeseado);
+    let icon = estadoDeseado === 'activo' ? 'question' : 'warning';
+    let btnColor = estadoDeseado === 'activo' ? '#28a745' : '#d33';
 
-        fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=cambiar_estado", { method: 'POST', body: fd })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                cargarTablaMarcas(currentPage);
-            } else {
-                alert("Error: " + data.message);
-            }
-        });
-    }
+    Swal.fire({
+        title: `¿Desea ${accion} esta marca?`,
+        text: `La marca pasará a estado ${estadoDeseado}.`,
+        icon: icon,
+        showCancelButton: true,
+        confirmButtonColor: btnColor,
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: `Sí, ${accion}`,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id_marca', id);
+            fd.append('estado', estadoDeseado);
+
+            fetch("/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=cambiar_estado", { method: 'POST', body: fd })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Actualizado!', data.message, 'success');
+                    cargarTablaMarcas(currentPage);
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 };
 
 window.limpiarFormulario = function() {

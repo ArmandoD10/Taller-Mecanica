@@ -112,52 +112,68 @@ document.addEventListener("DOMContentLoaded", () => {
     // GUARDADO (PROVEEDOR Y TELÉFONOS)
     // ==========================================
     document.getElementById("formProveedor").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=guardar", {
-            method: "POST", 
-            body: new FormData(this)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) { 
-                cerrarModalUI('modalProveedor'); 
-                listar(); 
-                alert(data.message); 
-            } else { 
-                alert(data.message); 
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar:", error);
-            alert("Error de conexión con el servidor.");
-        });
+    e.preventDefault();
+    
+    Swal.fire({
+        title: 'Guardando Proveedor...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
     });
 
-    document.getElementById("formTelefono").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        const id_proveedor = document.getElementById("prov_tel_id").value;
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=guardar_telefono", {
-            method: "POST", 
-            body: new FormData(this)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                cancelarEdicionTelefono();
-                listarTelefonos(id_proveedor); 
+    fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=guardar", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) { 
+            cerrarModalUI('modalProveedor'); // Cerramos el modal de Bootstrap
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
                 listar(); 
-            } else { 
-                alert(data.message); 
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar teléfono:", error);
-            alert("Error de conexión con el servidor.");
-        });
+            });
+        } else { 
+            Swal.fire('Error', data.message, 'error'); 
+        }
+    })
+    .catch(error => {
+        Swal.close();
+        Swal.fire('Error de Conexión', 'No se pudo contactar con el servidor.', 'error');
     });
+});
+
+    document.getElementById("formTelefono").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const id_proveedor = document.getElementById("prov_tel_id").value;
+    
+    fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=guardar_telefono", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Teléfono Guardado',
+                toast: true,
+                position: 'top-end',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            cancelarEdicionTelefono();
+            listarTelefonos(id_proveedor); 
+            listar(); 
+        } else { 
+            Swal.fire('Error', data.message, 'error'); 
+        }
+    });
+});
 
     // ==========================================
     // EVENTOS PARA CERRAR LOS MODALES
@@ -410,24 +426,26 @@ function editar(id) {
     .catch(error => console.error("Error al obtener los datos del proveedor:", error));
 }
 
+// Eliminación de Proveedor
 function eliminar(id) {
-    if (confirm("¿Está seguro que desea dar de baja este proveedor? Sus registros de compras se mantendrán en el historial.")) {
-        const f = new FormData(); 
-        f.append("id_proveedor", id);
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=eliminar", {
-            method: "POST", 
-            body: f
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(data.message);
-            if(data.success) {
+    Swal.fire({
+        title: '¿Dar de baja proveedor?',
+        text: "Sus registros históricos se mantendrán, pero no aparecerá en nuevas compras.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, dar de baja'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const f = new FormData(); f.append("id_proveedor", id);
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=eliminar", { method: "POST", body: f })
+            .then(res => res.json())
+            .then(data => {
+                Swal.fire('Actualizado', data.message, 'success');
                 listar();
-            }
-        })
-        .catch(error => console.error("Error al eliminar proveedor:", error));
-    }
+            });
+        }
+    });
 }
 
 // ==========================================
@@ -499,27 +517,28 @@ function cancelarEdicionTelefono() {
     document.getElementById('btnCancelarEdicionTel').classList.add('d-none');
 }
 
+// Eliminación de Teléfono
 function eliminarTelefono(id_telefono, id_proveedor) {
-    if(confirm("¿Seguro de quitar este teléfono del proveedor?")) {
-        const f = new FormData(); 
-        f.append("id_telefono", id_telefono);
-        f.append("id_proveedor", id_proveedor);
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=eliminar_telefono", {
-            method: "POST", 
-            body: f
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                listarTelefonos(id_proveedor);
-                listar(); 
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => console.error("Error al eliminar el teléfono:", error));
-    }
+    Swal.fire({
+        title: '¿Quitar teléfono?',
+        text: "¿Seguro de desvincular este número del proveedor?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, quitar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const f = new FormData(); f.append("id_telefono", id_telefono); f.append("id_proveedor", id_proveedor);
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Proveedor.php?action=eliminar_telefono", { method: "POST", body: f })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    listarTelefonos(id_proveedor);
+                    listar(); 
+                }
+            });
+        }
+    });
 }
 
 // ==========================================

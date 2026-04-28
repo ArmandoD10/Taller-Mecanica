@@ -1,5 +1,5 @@
 /**
- * Scripts_Factura.js - Versión Profesional Completa
+ * Scripts_Factura.js - Versión Profesional Completa con Candado de Caja
  * Manejo de POS, Inventario por Sucursal, Pasarela Azul, ITBIS, Crédito Actualizado y Contexto de Cotizaciones.
  */
 
@@ -27,7 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Revisamos si venimos desde el módulo de Cotizaciones
     setTimeout(revisarContextoCotizacion, 500);
 });
 
@@ -45,22 +44,16 @@ function revisarContextoCotizacion() {
             if (res.success) {
                 cotizacionVinculadaID = res.cotizacion.id_cotizacion;
 
-                // Bloquear los campos de búsqueda para que no se altere lo aprobado
                 document.getElementById('buscar_producto').disabled = true;
                 document.getElementById('cant_extra').disabled = true;
                 document.getElementById('buscar_cliente').disabled = true;
                 
-                //const btnOfertas = document.querySelector("button[onclick='abrirAuthOferta()']");
-                //if(btnOfertas) btnOfertas.disabled = true;
-                
-                // Mostrar banner indicativo
                 const banner = document.createElement('div');
                 banner.className = "alert alert-success py-2 mb-3 fw-bold border-success text-center shadow-sm";
                 banner.innerHTML = `<i class="fas fa-file-invoice me-2"></i>Facturando Cotización POS: COT-${cotizacionVinculadaID}`;
                 const panelPrincipal = document.querySelector('.card-body') || document.body;
                 panelPrincipal.prepend(banner);
 
-                // Setear el cliente o consumidor ocasional
                 if (res.cotizacion.id_cliente) {
                     const switchC = document.getElementById("switch_credito");
                     if(switchC) switchC.disabled = false;
@@ -82,7 +75,6 @@ function revisarContextoCotizacion() {
                     document.getElementById("buscar_cliente").value = res.cotizacion.nombre_cliente + " (Ocasional)";
                 }
 
-                // Llenar el carrito con los repuestos
                 listaItemsFactura = res.items.map(i => ({
                     id: i.id_articulo,
                     nombre: i.nombre,
@@ -197,7 +189,6 @@ function actualizarInterfaz() {
         let lineaTotal = item.precio * item.cantidad;
         subtotalGlobal += lineaTotal;
 
-        // Ocultar botón de borrar si viene de una cotización cerrada
         const btnEliminar = cotizacionVinculadaID ? '' : 
             `<button class="btn btn-sm btn-link text-danger p-0" onclick="eliminarItem(${index})"><i class="fas fa-times-circle"></i></button>`;
 
@@ -349,60 +340,85 @@ function seleccionarCliente(c) {
 // ==========================================
 // 5. FLUJO DE PAGO Y VOUCHER
 // ==========================================
+
 function previsualizarVoucher() {
     if (listaItemsFactura.length === 0) return alert("Debe añadir productos al carrito.");
     if (document.getElementById("switch_credito").checked && (!clienteSeleccionado || clienteSeleccionado.id_credito == 0)) {
         return alert("El cliente seleccionado no tiene crédito activo disponible.");
     }
 
-    const modal = new bootstrap.Modal(document.getElementById('modalVoucher'));
-    const cont = document.getElementById("voucher_content");
-    
-    let lineasItems = "";
-    listaItemsFactura.forEach(i => {
-        lineasItems += `
-            <div class="d-flex justify-content-between small py-1">
-                <span>${i.cantidad}x ${i.nombre.substring(0, 18)}</span>
-                <span>$${(i.precio * i.cantidad).toFixed(2)}</span>
-            </div>`;
-    });
+    // === NUEVA VERIFICACIÓN DE CAJA ===
+    fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=verificar_caja_abierta")
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) {
+            Swal.fire({
+                title: 'Turno Cerrado',
+                text: data.message,
+                icon: 'warning',
+                confirmButtonText: 'Ir a Gestión de Caja',
+                allowOutsideClick: false
+            }).then(() => {
+                // Redirigir al cajero a la pantalla de caja si intentó facturar sin abrir turno
+                window.location.href = "/Taller/Taller-Mecanica/view/Facturacion/MCaja.php";
+            });
+            return; // Detenemos la ejecución aquí
+        }
 
-    let itbis = subtotalGlobal * 0.18; // Referencia visual
+        // Si todo está correcto y la caja está abierta, mostramos el voucher normalmente
+        const modal = new bootstrap.Modal(document.getElementById('modalVoucher'));
+        const cont = document.getElementById("voucher_content");
+        
+        let lineasItems = "";
+        listaItemsFactura.forEach(i => {
+            lineasItems += `
+                <div class="d-flex justify-content-between small py-1">
+                    <span>${i.cantidad}x ${i.nombre.substring(0, 18)}</span>
+                    <span>$${(i.precio * i.cantidad).toFixed(2)}</span>
+                </div>`;
+        });
 
-    cont.innerHTML = `
-        <div class="text-center mb-3">
-            <h6 class="fw-bold mb-0">MECÁNICA DÍAZ & PANTALEÓN</h6>
-            <small class="text-muted">RNC: 131-XXXXX-1</small><br>
-            <small class="text-muted">Tel: 809-545-6872</small>
-        </div>
-        <hr style="border-style: dashed;">
-        <div class="text-start mb-3 small">
-            <b>CLIENTE:</b> ${clienteSeleccionado ? clienteSeleccionado.nombre : 'CONSUMIDOR FINAL'}<br>
-            <b>NCF:</b> ${document.getElementById("ncf_factura").value || 'B0200000001'}<br>
-            <b>FECHA:</b> ${new Date().toLocaleString()}
-        </div>
-        <div class="mb-2 border-bottom pb-2">
-            <div class="d-flex justify-content-between fw-bold small">
-                <span>DESCRIPCIÓN</span><span>VALOR</span>
+        let itbis = subtotalGlobal * 0.18; // Referencia visual
+
+        cont.innerHTML = `
+            <div class="text-center mb-3">
+                <h6 class="fw-bold mb-0">MECÁNICA DÍAZ & PANTALEÓN</h6>
+                <small class="text-muted">RNC: 131-XXXXX-1</small><br>
+                <small class="text-muted">Tel: 809-545-6872</small>
             </div>
-            ${lineasItems}
-        </div>
-        <div class="d-flex justify-content-between small text-muted">
-            <span>Sub-Total:</span>
-            <span>$${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-        </div>
-        <div class="d-flex justify-content-between small text-muted border-bottom pb-2 mb-2">
-            <span>ITBIS (18%):</span>
-            <span>$${itbis.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-        </div>
-        <div class="d-flex justify-content-between fw-bold h5 mb-0 mt-3">
-            <span>TOTAL:</span>
-            <span>${document.getElementById("total_final_valor").innerText}</span>
-        </div>
-        <p class="mt-4 small text-muted">*** GRACIAS POR SU PREFERENCIA ***</p>
-    `;
-    
-    modal.show();
+            <hr style="border-style: dashed;">
+            <div class="text-start mb-3 small">
+                <b>CLIENTE:</b> ${clienteSeleccionado ? clienteSeleccionado.nombre : 'CONSUMIDOR FINAL'}<br>
+                <b>NCF:</b> ${document.getElementById("ncf_factura").value || 'B0200000001'}<br>
+                <b>FECHA:</b> ${new Date().toLocaleString()}
+            </div>
+            <div class="mb-2 border-bottom pb-2">
+                <div class="d-flex justify-content-between fw-bold small">
+                    <span>DESCRIPCIÓN</span><span>VALOR</span>
+                </div>
+                ${lineasItems}
+            </div>
+            <div class="d-flex justify-content-between small text-muted">
+                <span>Sub-Total:</span>
+                <span>$${subtotalGlobal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            </div>
+            <div class="d-flex justify-content-between small text-muted border-bottom pb-2 mb-2">
+                <span>ITBIS (18%):</span>
+                <span>$${itbis.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            </div>
+            <div class="d-flex justify-content-between fw-bold h5 mb-0 mt-3">
+                <span>TOTAL:</span>
+                <span>${document.getElementById("total_final_valor").innerText}</span>
+            </div>
+            <p class="mt-4 small text-muted">*** GRACIAS POR SU PREFERENCIA ***</p>
+        `;
+        
+        modal.show();
+
+    })
+    .catch(err => {
+        Swal.fire('Error', 'No se pudo verificar el estado de la caja con el servidor.', 'error');
+    });
 }
 
 function finalizarTodo() {
@@ -476,23 +492,20 @@ function guardarFacturaFinal(refAzul, esCredito) {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            // MODAL DE ÉXITO ESTILO AZUL
-                Swal.fire({
-                    title: '¡Transacción Aprobada!',
-                    html: `<b>Banco Popular Dominicana</b><br>Referencia: ${res.referencia}`,
-                    icon: 'success',
-                    confirmButtonColor: '#004481' // Azul Azul
-                }).then(() => {
-                    guardarFacturaFinal(res.referencia, false);
-                });
-            // Si vino de cotización, volver a la pantalla de cotizaciones
-            if (cotizacionVinculadaID) {
-                window.location.href = "Cotizaciones.php";
-            } else {
-                location.reload();
-            }
+            Swal.fire({
+                title: '¡Factura Procesada!',
+                text: 'La operación se guardó correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#198754'
+            }).then(() => {
+                if (cotizacionVinculadaID) {
+                    window.location.href = "Cotizaciones.php";
+                } else {
+                    location.reload();
+                }
+            });
         } else {
-            alert("ERROR CRÍTICO: " + res.message);
+            Swal.fire("ERROR CRÍTICO", res.message, "error");
         }
     });
 }

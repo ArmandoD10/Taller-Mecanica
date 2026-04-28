@@ -164,7 +164,7 @@ require("../../header.php");
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <label class="small fw-bold text-dark">Método de Pago</label>
                                             <div class="form-check form-switch m-0">
-                                                <input class="form-check-input" type="checkbox" id="fac_switch_credito" onchange="toggleCreditoTaller(this.checked); gestionarModalCredito(this)">
+                                                <input class="form-check-input" type="checkbox" id="fac_switch_credito" onchange="toggleCreditoTaller(this.checked)">
                                                 <label class="form-check-label fw-bold text-danger small" for="fac_switch_credito">Facturar a Crédito</label>
                                             </div>
                                         </div>
@@ -451,6 +451,7 @@ require("../../header.php");
 </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../../modules/Taller/Scripts_Entrega.js"></script>
 </body>

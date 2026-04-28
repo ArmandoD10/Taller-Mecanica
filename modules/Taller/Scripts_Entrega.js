@@ -8,12 +8,12 @@ let clienteActualID = 0;
 
 let ofertasSeleccionadasParaFactura = [];
 let descuentoTotalOfertas = 0;
-let catalogoPoliticasGarantia = []; // NUEVO
+let catalogoPoliticasGarantia = [];
 
 document.addEventListener("DOMContentLoaded", () => {
     listar();
     cargarImpuestosTaller();
-    cargarCatalogoGarantias(); // NUEVO
+    cargarCatalogoGarantias(); 
 
     const inputNCF = document.getElementById("fac_ncf");
     if (inputNCF) {
@@ -29,7 +29,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // ACTUALIZADO: Manejo de entrega con la tabla de garantías
     const formEntrega = document.getElementById("formEntrega");
     if(formEntrega) {
         formEntrega.addEventListener("submit", function(e) {
@@ -37,15 +36,14 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const id_orden_procesada = document.getElementById("id_orden_entrega").value;
             
-            // Recolectar las decisiones de garantía de la tabla línea por línea
             let garantiasAsignadas = [];
             const selectores = document.querySelectorAll('.select-garantia-item');
             
             selectores.forEach(select => {
                 garantiasAsignadas.push({
                     id_linea: select.getAttribute('data-id'),
-                    tipo_linea: select.getAttribute('data-tipo'), // 'servicio' o 'repuesto'
-                    id_politica: select.value // Puede estar vacío si no aplica
+                    tipo_linea: select.getAttribute('data-tipo'), 
+                    id_politica: select.value 
                 });
             });
 
@@ -66,13 +64,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     listar(); 
                     mostrarComprobanteInmediato(id_orden_procesada);
                     
-                    // Si se asignó al menos 1 garantía a 1 línea, abrimos el certificado para impresión
                     if (data.generar_certificado) {
                         window.open(`../../view/Garantias/CertificadoGarantia.php?id_orden=${id_orden_procesada}`, '_blank');
                     }
-                } else { alert("ERROR:\n" + data.message); }
+                } else { Swal.fire('Error', data.message, 'error'); }
             })
-            .catch(err => alert("Error de conexión al procesar entrega y garantía."));
+            .catch(err => Swal.fire('Error', 'Error de conexión al procesar entrega y garantía.', 'error'));
         });
     }
 
@@ -86,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (decision === "Rechazado") {
                 const rechazados = Array.from(document.querySelectorAll('.chk-calidad:checked')).map(cb => cb.value);
                 if (rechazados.length === 0) {
-                    alert("⚠️ Debe seleccionar al menos un servicio para devolver a reparación.");
+                    Swal.fire('Atención', 'Debe seleccionar al menos un servicio para devolver a reparación.', 'warning');
                     return;
                 }
                 formData.append('servicios_rechazados', JSON.stringify(rechazados));
@@ -96,12 +93,12 @@ document.addEventListener("DOMContentLoaded", () => {
             .then(res => res.json())
             .then(data => {
                 if (data.success) { 
-                    alert(data.message);
+                    Swal.fire('Éxito', data.message, 'success');
                     cerrarModalCalidad(); 
                     listar(); 
-                } else { alert("ACCESO DENEGADO:\n" + data.message); }
+                } else { Swal.fire('Acceso Denegado', data.message, 'error'); }
             })
-            .catch(err => alert("Error de conexión al procesar calidad."));
+            .catch(err => Swal.fire('Error', 'Error de conexión al procesar calidad.', 'error'));
         });
     }
 });
@@ -206,9 +203,9 @@ function validarAccesoOfertas() {
         if (data.success) {
             cerrarModalUI('modalAuthAdmin');
             cargarOfertasVigentes();
-        } else { alert(data.message); }
+        } else { Swal.fire('Error', data.message, 'error'); }
     })
-    .catch(err => alert("Error validando administrador."));
+    .catch(err => Swal.fire('Error', 'Error validando administrador.', 'error'));
 }
 
 function cargarOfertasVigentes() {
@@ -234,7 +231,7 @@ function cargarOfertasVigentes() {
         }
         abrirModalUI('modalSeleccionOfertas');
     })
-    .catch(err => alert("Error cargando ofertas."));
+    .catch(err => Swal.fire('Error', 'Error cargando ofertas.', 'error'));
 }
 
 function aplicarOfertasSeleccionadas() {
@@ -304,12 +301,12 @@ function abrirModalFacturacion(id_orden, cliente, vehiculo, id_cliente) {
             detallesFacturaActual = data.data;
             renderizarTablaFactura();
         } else {
-            alert("Error al cargar los detalles de la orden.");
+            Swal.fire('Error', "Error al cargar los detalles de la orden.", 'error');
             cerrarModalFacturacion();
         }
     })
     .catch(err => {
-        alert("Error de conexión al obtener detalles.");
+        Swal.fire('Error', "Error de conexión al obtener detalles.", 'error');
         cerrarModalFacturacion();
     });
 }
@@ -365,10 +362,10 @@ function agregarRepuestoExtra(p) {
     const itemExistente = repuestosExtra.find(item => item.id === p.id_articulo);
 
     if (itemExistente) {
-        if ((itemExistente.cantidad + cantAAgregar) > stockDisponible) return alert("Supera el stock disponible en almacén.");
+        if ((itemExistente.cantidad + cantAAgregar) > stockDisponible) return Swal.fire('Stock insuficiente', "Supera el stock disponible en almacén.", 'error');
         itemExistente.cantidad += cantAAgregar;
     } else {
-        if (cantAAgregar > stockDisponible) return alert("Stock insuficiente.");
+        if (cantAAgregar > stockDisponible) return Swal.fire('Stock insuficiente', "No hay unidades suficientes en inventario.", 'warning');
         repuestosExtra.push({
             id: p.id_articulo,
             descripcion: p.nombre,
@@ -486,7 +483,7 @@ function toggleCreditoTaller(checked) {
 
     if (checked) {
         if (!id_cliente || id_cliente == "0") {
-            alert("No se ha podido identificar al cliente de esta orden.");
+            Swal.fire("Atención", "No se ha podido identificar al cliente de esta orden.", "warning");
             document.getElementById("fac_switch_credito").checked = false;
             return;
         }
@@ -512,7 +509,7 @@ function toggleCreditoTaller(checked) {
                     document.getElementById('fac_credito_disponible').classList.replace('text-danger', 'text-success');
                 }
             } else {
-                alert(data.message);
+                Swal.fire("Sin Crédito", data.message, "warning");
                 document.getElementById("fac_switch_credito").checked = false;
                 toggleCreditoTaller(false);
             }
@@ -525,23 +522,45 @@ function toggleCreditoTaller(checked) {
     }
 }
 
+// === VERIFICACIÓN DE CAJA CON SWEETALERT2 ===
 function iniciarCobroOrden() {
-    const esCredito = document.getElementById("fac_switch_credito").checked;
-    const metodo = document.getElementById("fac_metodo_pago").value;
+    fetch("../../modules/Taller/Archivo_Entrega.php?action=verificar_caja_abierta")
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Turno Cerrado',
+                text: data.message,
+                confirmButtonText: 'Ir a Gestión de Caja',
+                confirmButtonColor: '#6f42c1', 
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "/Taller/Taller-Mecanica/view/Facturacion/MCaja.php";
+                }
+            });
+            return;
+        }
 
-    if (esCredito) {
-        ejecutarFacturacionFinal(null, true);
-    } else if (metodo === "2") { 
-        cerrarModalFacturacion();
-        abrirModalUI('modalAzulTaller');
-    } else {
-        ejecutarFacturacionFinal(null, false);
-    }
+        const esCredito = document.getElementById("fac_switch_credito").checked;
+        const metodo = document.getElementById("fac_metodo_pago").value;
+
+        if (esCredito) {
+            ejecutarFacturacionFinal(null, true);
+        } else if (metodo === "2") { 
+            cerrarModalFacturacion();
+            abrirModalUI('modalAzulTaller');
+        } else {
+            ejecutarFacturacionFinal(null, false);
+        }
+    })
+    .catch(err => Swal.fire('Error', 'Error de comunicación verificando la caja.', 'error'));
 }
 
 function procesarAzulTaller() {
     const tarjeta = document.getElementById("azul_tarjeta_taller").value;
-    if (tarjeta.length < 15) return alert("Número de tarjeta inválido.");
+    if (tarjeta.length < 15) return Swal.fire("Tarjeta incompleta", "Número de tarjeta inválido.", "warning");
 
     document.getElementById("azul_formulario_taller").classList.add("d-none");
     document.getElementById("azul_cargando_taller").classList.remove("d-none");
@@ -555,28 +574,33 @@ function procesarAzulTaller() {
         .then(res => {
             if (res.success) {
                 setTimeout(() => {
-                    alert("TRANSACCIÓN AZUL APROBADA\nRef: " + res.referencia);
-                    ejecutarFacturacionFinal(res.referencia, false);
-                    cerrarModalUI('modalAzulTaller');
-                    document.getElementById("azul_formulario_taller").classList.remove("d-none");
-                    document.getElementById("azul_cargando_taller").classList.add("d-none");
-                    document.getElementById("azul_tarjeta_taller").value = "";
+                    Swal.fire({
+                        title: '¡Transacción Aprobada!',
+                        html: `<b>Banco Popular Dominicana</b><br>Referencia: ${res.referencia}`,
+                        icon: 'success',
+                        confirmButtonColor: '#004481'
+                    }).then(() => {
+                        ejecutarFacturacionFinal(res.referencia, false);
+                        cerrarModalUI('modalAzulTaller');
+                        document.getElementById("azul_formulario_taller").classList.remove("d-none");
+                        document.getElementById("azul_cargando_taller").classList.add("d-none");
+                        document.getElementById("azul_tarjeta_taller").value = "";
+                    });
                 }, 1500);
             } else {
-                alert("Error Pasarela: " + res.message);
+                Swal.fire("Error Pasarela", res.message, "error");
                 document.getElementById("azul_formulario_taller").classList.remove("d-none");
                 document.getElementById("azul_cargando_taller").classList.add("d-none");
             }
         })
         .catch(err => {
-            alert("Error de conexión con la pasarela.");
+            Swal.fire("Error", "Error de conexión con la pasarela.", "error");
             document.getElementById("azul_formulario_taller").classList.remove("d-none");
             document.getElementById("azul_cargando_taller").classList.add("d-none");
         });
 }
 
 function ejecutarFacturacionFinal(refAzul, esCredito) {
-    // 1. Preparamos el objeto base con los datos de facturación
     const data = {
         id_orden: document.getElementById("fac_id_orden").value,
         id_cliente: document.getElementById("fac_id_cliente").value,
@@ -589,14 +613,11 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
         id_credito: document.getElementById("fac_id_credito").value,
         repuestos_extra: repuestosExtra,
         ofertas_ids: ofertasSeleccionadasParaFactura,
-        
-        // --- AGREGADO: Enviar el acuerdo de pago si es crédito ---
         acuerdo_pago: esCredito ? window.acuerdoPagoGlobal : null 
     };
 
-    // 2. Validación de seguridad para crédito
     if (esCredito && (!data.acuerdo_pago || data.acuerdo_pago.length === 0)) {
-        alert("⚠️ No se ha definido un plan de cuotas. Por favor, active el switch de crédito nuevamente.");
+        Swal.fire("Atención", "No se ha definido un plan de cuotas. Por favor, active el switch de crédito nuevamente.", "warning");
         return;
     }
 
@@ -608,19 +629,22 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            alert("✅ Factura generada y acuerdo de pago registrado.");
-            cerrarModalFacturacion();
-            
-            // Limpiamos la variable global para la siguiente factura
-            window.acuerdoPagoGlobal = null;
-            
-            imprimirFacturaVoucher(res.id_factura, data);
-            listar(); 
+            Swal.fire({
+                title: '¡Factura Procesada!',
+                text: 'La operación se guardó correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#198754'
+            }).then(() => {
+                cerrarModalFacturacion();
+                window.acuerdoPagoGlobal = null;
+                imprimirFacturaVoucher(res.id_factura, data);
+                listar(); 
+            });
         } else {
-            alert("ERROR AL FACTURAR:\n" + res.message);
+            Swal.fire("ERROR AL FACTURAR", res.message, "error");
         }
     })
-    .catch(err => alert("Error de red al intentar facturar."));
+    .catch(err => Swal.fire("Error", "Error de red al intentar facturar.", "error"));
 }
 
 function mostrarComprobanteInmediato(id_orden) {
@@ -747,7 +771,6 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
     setTimeout(() => { ventana.print(); ventana.close(); }, 500);
 }
 
-// ==== LOGICA DEL RECHAZO DE CALIDAD ====
 function toggleServiciosCalidad() {
     const decision = document.getElementById("decision_calidad").value;
     const cont = document.getElementById("contenedor_servicios_calidad");
@@ -790,7 +813,6 @@ function abrirModalCalidad(id_orden, vehiculo) {
     abrirModalUI('modalCalidad');
 }
 
-// ==== NUEVA LOGICA DE PREPARACIÓN DE ENTREGA CON LA TABLA ====
 function cargarCatalogoGarantias() {
     fetch('../../modules/Taller/Archivo_Entrega.php?action=obtener_catalogo_politicas')
     .then(res => res.json())
@@ -810,13 +832,11 @@ function prepararEntrega(id_orden, cliente, vehiculo) {
     const tbody = document.getElementById('tbody_items_garantia');
     tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Cargando ítems...</td></tr>';
     
-    // Generar opciones del Select desde el catálogo guardado en memoria
     let opcionesHTML = '<option value="">-- Sin Cobertura --</option>';
     catalogoPoliticasGarantia.forEach(pol => {
         opcionesHTML += `<option value="${pol.id_politica}">${pol.nombre} (${pol.tiempo_cobertura} ${pol.unidad_tiempo})</option>`;
     });
 
-    // Buscar los servicios y repuestos reales de la orden
     fetch(`../../modules/Taller/Archivo_Entrega.php?action=obtener_items_para_garantia&id_orden=${id_orden}`)
     .then(res => res.json())
     .then(res => {
@@ -909,61 +929,41 @@ function cerrarModalUI(id) {
     }
 }
 
-// FUCNION DE ACUERDO DE PAGO
-// 1. FUNCIÓN PRINCIPAL: Se activa al mover el Switch
-/**
- * LÓGICA INTEGRADA PARA ACUERDO DE PAGO
- */
 document.addEventListener('change', function(e) {
-    // Detectamos el cambio en el switch de crédito
     if (e.target && e.target.id === 'switch_credito') {
         if (e.target.checked) {
-            console.log("Switch de crédito activado. Buscando montos...");
-
-            // Intentamos obtener el total desde los posibles IDs de tu interfaz
-            // Según tu imagen, el monto verde es el objetivo
             const elTotal = document.getElementById('total_facturar_txt') || 
                             document.getElementById('total_a_cobrar_id') ||
-                            document.querySelector('.text-success.fw-bold.h3'); // Selector genérico por clase si fallan los IDs
+                            document.querySelector('.text-success.fw-bold.h3') ||
+                            document.getElementById('fac_total_final'); 
             
             if (elTotal) {
-                // Extraemos solo los números y el punto decimal
                 const montoTexto = elTotal.innerText || elTotal.textContent;
                 const montoLimpio = montoTexto.replace(/[^\d.]/g, ''); 
                 
-                console.log("Monto detectado:", montoLimpio);
-
-                // Seteamos el valor en el modal
                 const inputAcuerdo = document.getElementById('total_acuerdo');
                 if (inputAcuerdo) {
                     inputAcuerdo.value = "RD$ " + parseFloat(montoLimpio).toLocaleString('en-US', {minimumFractionDigits: 2});
                 }
                 
-                // Abrimos el modal
                 const modalDiv = document.getElementById('modalAcuerdoPago');
                 if (modalDiv) {
                     const myModal = new bootstrap.Modal(modalDiv);
                     myModal.show();
-                    
-                    // IMPORTANTE: Asegúrate de que esta función exista abajo
                     generarCronograma(); 
-                } else {
-                    alert("Error: No se encontró el modal de acuerdo de pago en el HTML.");
                 }
             } else {
-                alert("Primero debe haber un monto total calculado para habilitar el crédito.");
+                Swal.fire("Atención", "Primero debe haber un monto total calculado para habilitar el crédito.", "warning");
                 e.target.checked = false; 
             }
         } else {
             window.acuerdoPagoGlobal = null;
-            console.log("Crédito desactivado, acuerdo limpiado.");
         }
     }
 });
 
 function gestionarModalCredito(checkbox) {
     if (checkbox.checked) {
-        // En EntregaServicio.php, el total está en 'fac_total_final'
         const elTotal = document.getElementById('fac_total_final');
         const inputAcuerdo = document.getElementById('total_acuerdo');
         
@@ -971,21 +971,17 @@ function gestionarModalCredito(checkbox) {
             const montoLimpio = elTotal.innerText.replace(/[^\d.]/g, ''); 
             inputAcuerdo.value = "RD$ " + parseFloat(montoLimpio).toLocaleString('en-US', {minimumFractionDigits: 2});
             
-            // Abrir el modal correctamente con Bootstrap 5
             const modalDiv = document.getElementById('modalAcuerdoPago');
             const myModal = new bootstrap.Modal(modalDiv);
             myModal.show();
             
             generarCronograma(); 
-        } else {
-            console.error("No se encontró el elemento total o el input del modal.");
         }
     } else {
         window.acuerdoPagoGlobal = null;
     }
 }
 
-// Función de cronograma (re-asegurada)
 function generarCronograma() {
     const inputTotal = document.getElementById('total_acuerdo');
     if (!inputTotal) return;
@@ -1033,5 +1029,5 @@ function confirmarAcuerdo() {
     const instance = bootstrap.Modal.getInstance(modalEl);
     if (instance) instance.hide();
     
-    alert("✅ Acuerdo de pago guardado correctamente.");
+    Swal.fire("Acuerdo Confirmado", "Plan de pago guardado correctamente.", "success");
 }

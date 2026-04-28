@@ -42,7 +42,7 @@ switch ($action) {
         echo json_encode(['success' => $res->num_rows > 0]);
         break;
 
-  case 'listar_ofertas_vigentes':
+    case 'listar_ofertas_vigentes':
         $hoy = date('Y-m-d');
         // Consulta directa: Solo ofertas activas y vigentes
         $sql = "SELECT id_oferta, nombre_oferta, porciento 
@@ -70,9 +70,26 @@ switch ($action) {
         echo json_encode(['success' => true, 'stock' => $res['stock'] ?? 0]);
         break;
 
-    // === NUEVO: ACCIÓN PARA CARGAR DATOS DE COTIZACIÓN AL POS ===
     case 'cargar_datos_cotizacion':
         cargar_datos_cotizacion($conexion);
+        break;
+
+    // === NUEVO: VERIFICAR QUE LA CAJA ESTÉ ABIERTA ANTES DE MOSTRAR VOUCHER ===
+    case 'verificar_caja_abierta':
+        try {
+            $sql = "SELECT id_sesion FROM caja_sesion WHERE id_sucursal = ? AND estado = 'Abierta' LIMIT 1";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("i", $id_sucursal);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res->num_rows > 0) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'El turno está cerrado. Debe abrir la caja en el módulo de Gestión de Caja antes de procesar cobros.']);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
         break;
 
     default:
@@ -133,11 +150,9 @@ function simular_api_azul($conexion) {
     }
 }
 
-// === NUEVA FUNCIÓN: CARGAR LA COTIZACIÓN AL POS ===
 function cargar_datos_cotizacion($conexion) {
     $id_cotizacion = (int)($_GET['id_cotizacion'] ?? 0);
     
-    // Obtener datos de la cotización y el crédito disponible si el cliente está registrado
     $sqlCot = "SELECT c.id_cotizacion, c.nombre_cliente, c.id_cliente, 
                       IFNULL(cr.id_credito, 0) as id_credito, IFNULL(cr.saldo_disponible, 0) as disponible
                FROM cotizacion c
@@ -154,7 +169,6 @@ function cargar_datos_cotizacion($conexion) {
         return;
     }
 
-    // Obtener solo los repuestos de la cotización
     $sqlDet = "SELECT cd.id_item as id_articulo, cd.descripcion as nombre, cd.precio_unitario as precio_venta, cd.cantidad 
                FROM cotizacion_detalle cd 
                WHERE cd.id_cotizacion = ? AND cd.tipo_item = 'repuesto'";
@@ -171,6 +185,15 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
     $conexion->begin_transaction();
 
     try {
+        // === 0. VERIFICACIÓN CRÍTICA: ¿HAY CAJA ABIERTA? ===
+        $sqlCaja = "SELECT id_sesion FROM caja_sesion WHERE id_sucursal = ? AND estado = 'Abierta' LIMIT 1";
+        $stmtCaja = $conexion->prepare($sqlCaja);
+        $stmtCaja->bind_param("i", $id_sucursal);
+        $stmtCaja->execute();
+        if ($stmtCaja->get_result()->num_rows === 0) {
+            throw new Exception("Operación denegada. No existe una caja abierta en esta sucursal. Por favor, aperture su turno en el módulo de Gestión de Caja.");
+        }
+
         // 1. VALIDACIÓN DE CRÉDITO (Si aplica)
         if ($data['es_credito']) {
             $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
@@ -195,7 +218,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
-        // GUARDAR OFERTAS (CON INSERT IGNORE POR SEGURIDAD)
+        // GUARDAR OFERTAS
         if (!empty($data['ofertas_aplicadas'])) {
             $ofertas_unicas = array_unique($data['ofertas_aplicadas']);
             foreach ($ofertas_unicas as $id_o) {
@@ -222,16 +245,14 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtUpdC->execute();
         }
 
-        // 5. DETALLE DE PRODUCTOS, INVENTARIO Y MOVIMIENTOS
+        // 5. DETALLE DE PRODUCTOS E INVENTARIO
         foreach ($data['items'] as $item) {
-            // Guardar detalle de factura
             $sqlD = "INSERT INTO Detalle_Factura (id_factura, id_articulo, cantidad, precio, subtotal) VALUES (?, ?, ?, ?, ?)";
             $sub = $item['precio'] * $item['cantidad'];
             $stmtD = $conexion->prepare($sqlD);
             $stmtD->bind_param("iiidd", $id_factura, $item['id'], $item['cantidad'], $item['precio'], $sub);
             $stmtD->execute();
 
-            // Rebajar inventario por sucursal
             $sqlU = "UPDATE Inventario i 
                      INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
                      INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
@@ -241,7 +262,6 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
             $stmtU->execute();
 
-            // Registrar movimiento de salida (Tipo 2)
             $motivo = "Venta POS #" . $id_factura;
             $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
                        VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
@@ -250,7 +270,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtM->execute();
         }
 
-        // 6. GUARDAR IMPUESTOS APLICADOS A LA FACTURA
+        // 6. GUARDAR IMPUESTOS APLICADOS
         if (!empty($data['impuestos_ids'])) {
             foreach ($data['impuestos_ids'] as $id_imp) {
                 $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
@@ -260,7 +280,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             }
         }
 
-        // === NUEVO: MARCAR COTIZACIÓN COMO APROBADA SI EXISTE ===
+        // 7. MARCAR COTIZACIÓN COMO APROBADA
         $id_cotizacion_vinculada = !empty($data['id_cotizacion']) ? (int)$data['id_cotizacion'] : null;
         if ($id_cotizacion_vinculada) {
             $conexion->query("UPDATE cotizacion SET estado = 'Aprobada' WHERE id_cotizacion = $id_cotizacion_vinculada");

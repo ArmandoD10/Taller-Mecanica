@@ -137,7 +137,7 @@ require("../../header.php");
                                     
                                     <div class="mb-3">
                                         <label class="small fw-bold">NCF Comprobante</label>
-                                        <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)">
+                                        <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)" style="text-transform: uppercase;">
                                     </div>
 
                                     <div class="bg-light p-3 rounded mb-3 border">
@@ -168,11 +168,25 @@ require("../../header.php");
                                                 <label class="form-check-label fw-bold text-danger small" for="fac_switch_credito">Facturar a Crédito</label>
                                             </div>
                                         </div>
-                                        <select id="fac_metodo_pago" class="form-select fw-bold">
+                                        <select id="fac_metodo_pago" class="form-select fw-bold" onchange="toggleMetodoPagoTaller(this.value)">
                                             <option value="1">💵 Efectivo</option>
                                             <option value="2">💳 Tarjeta (Pasarela AZUL)</option>
                                             <option value="3">🏦 Transferencia Bancaria</option>
                                         </select>
+                                    </div>
+
+                                    <div id="panel_efectivo" class="bg-light p-3 rounded border border-success mb-3 shadow-sm">
+                                        <div class="mb-2">
+                                            <label class="small fw-bold text-success">Efectivo Recibido</label>
+                                            <div class="input-group input-group-sm shadow-sm">
+                                                <span class="input-group-text bg-white text-success fw-bold">RD$</span>
+                                                <input type="number" step="0.01" class="form-control border-success text-center fw-bold fs-6" id="efectivo_recibido" placeholder="0.00" oninput="calcularCambioTaller()">
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-success-subtle">
+                                            <span class="fw-bold text-dark text-uppercase small">Su Cambio:</span>
+                                            <h6 class="fw-bold text-success mb-0" id="cambio_devolver">RD$ 0.00</h6>
+                                        </div>
                                     </div>
                                     
                                     <div id="fac_info_credito" class="alert alert-info d-none p-2 small mb-0 shadow-sm border-info">

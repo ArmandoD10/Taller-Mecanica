@@ -103,6 +103,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// ==========================================
+// NUEVO: MANEJO DE EFECTIVO Y CAMBIO
+// ==========================================
+function toggleMetodoPagoTaller(metodo) {
+    const panelEfectivo = document.getElementById("panel_efectivo");
+    const esCredito = document.getElementById("fac_switch_credito").checked;
+    
+    if (metodo === "1" && !esCredito) {
+        panelEfectivo.classList.remove("d-none");
+        calcularCambioTaller();
+    } else {
+        panelEfectivo.classList.add("d-none");
+    }
+}
+
+function calcularCambioTaller() {
+    const recibido = parseFloat(document.getElementById("efectivo_recibido").value) || 0;
+    let cambio = recibido - totalFacturaFinalNum;
+    const labelCambio = document.getElementById("cambio_devolver");
+    
+    if (cambio < 0 && recibido > 0) {
+        labelCambio.innerText = "Faltan RD$ " + Math.abs(cambio).toLocaleString(undefined, {minimumFractionDigits: 2});
+        labelCambio.className = "fw-bold text-danger mb-0";
+    } else {
+        labelCambio.innerText = "RD$ " + Math.max(0, cambio).toLocaleString(undefined, {minimumFractionDigits: 2});
+        labelCambio.className = "fw-bold text-success mb-0";
+    }
+}
+
 function listar() {
     fetch("../../modules/Taller/Archivo_Entrega.php?action=listar")
     .then(res => res.json())
@@ -278,10 +307,18 @@ function abrirModalFacturacion(id_orden, cliente, vehiculo, id_cliente) {
     document.getElementById('fac_lbl_cliente').innerText = cliente;
     document.getElementById('fac_lbl_vehiculo').innerText = vehiculo;
     document.getElementById('fac_ncf').value = '';
-    document.getElementById('fac_metodo_pago').value = '1';
+    
+    // Restablecemos el método de pago por defecto (Efectivo)
+    const selMetodoPago = document.getElementById('fac_metodo_pago');
+    selMetodoPago.value = '1';
     
     document.getElementById('fac_switch_credito').checked = false;
     toggleCreditoTaller(false);
+
+    // Activamos el panel de efectivo por defecto y lo limpiamos
+    document.getElementById("panel_efectivo").classList.remove("d-none");
+    document.getElementById("efectivo_recibido").value = "";
+    document.getElementById("cambio_devolver").innerText = "RD$ 0.00";
 
     repuestosExtra = [];
     ofertasSeleccionadasParaFactura = [];
@@ -474,6 +511,11 @@ function renderizarTablaFactura() {
     
     const displayAzul = document.getElementById('azul_monto_display');
     if(displayAzul) displayAzul.innerText = `RD$ ${totalFacturaFinalNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+
+    // Actualizamos el panel de efectivo en tiempo real si está activo
+    if (document.getElementById("fac_metodo_pago").value === "1") {
+        calcularCambioTaller();
+    }
 }
 
 function toggleCreditoTaller(checked) {
@@ -491,6 +533,7 @@ function toggleCreditoTaller(checked) {
         selPago.value = "1";
         selPago.disabled = true;
         infoCredito.classList.remove("d-none");
+        document.getElementById("panel_efectivo").classList.add("d-none");
         
         document.getElementById('fac_credito_disponible').innerText = 'Cargando...';
         document.getElementById('fac_credito_limite').innerText = '...';
@@ -519,11 +562,27 @@ function toggleCreditoTaller(checked) {
         infoCredito.classList.add("d-none");
         selPago.disabled = false;
         document.getElementById('fac_id_credito').value = '';
+        if(selPago.value === "1") {
+            document.getElementById("panel_efectivo").classList.remove("d-none");
+            calcularCambioTaller();
+        }
     }
 }
 
-// === VERIFICACIÓN DE CAJA CON SWEETALERT2 ===
 function iniciarCobroOrden() {
+    // 1. Verificamos que el efectivo sea suficiente (Si aplica)
+    const esCredito = document.getElementById("fac_switch_credito").checked;
+    const metodo = document.getElementById("fac_metodo_pago").value;
+    let recibido = 0;
+
+    if (!esCredito && metodo === "1") {
+        recibido = parseFloat(document.getElementById("efectivo_recibido").value) || 0;
+        if (recibido < totalFacturaFinalNum) {
+            return Swal.fire("Efectivo Insuficiente", "El cliente debe entregar un monto igual o mayor al total de la orden.", "error");
+        }
+    }
+
+    // 2. Verificamos que la caja esté abierta
     fetch("../../modules/Taller/Archivo_Entrega.php?action=verificar_caja_abierta")
     .then(res => res.json())
     .then(data => {
@@ -543,16 +602,14 @@ function iniciarCobroOrden() {
             return;
         }
 
-        const esCredito = document.getElementById("fac_switch_credito").checked;
-        const metodo = document.getElementById("fac_metodo_pago").value;
-
+        // Si la caja está abierta, procedemos
         if (esCredito) {
             ejecutarFacturacionFinal(null, true);
         } else if (metodo === "2") { 
             cerrarModalFacturacion();
             abrirModalUI('modalAzulTaller');
         } else {
-            ejecutarFacturacionFinal(null, false);
+            ejecutarFacturacionFinal(null, false, recibido);
         }
     })
     .catch(err => Swal.fire('Error', 'Error de comunicación verificando la caja.', 'error'));
@@ -600,7 +657,7 @@ function procesarAzulTaller() {
         });
 }
 
-function ejecutarFacturacionFinal(refAzul, esCredito) {
+function ejecutarFacturacionFinal(refAzul, esCredito, efectivo_recibido = 0) {
     const data = {
         id_orden: document.getElementById("fac_id_orden").value,
         id_cliente: document.getElementById("fac_id_cliente").value,
@@ -613,7 +670,8 @@ function ejecutarFacturacionFinal(refAzul, esCredito) {
         id_credito: document.getElementById("fac_id_credito").value,
         repuestos_extra: repuestosExtra,
         ofertas_ids: ofertasSeleccionadasParaFactura,
-        acuerdo_pago: esCredito ? window.acuerdoPagoGlobal : null 
+        acuerdo_pago: esCredito ? window.acuerdoPagoGlobal : null,
+        efectivo_recibido: efectivo_recibido
     };
 
     if (esCredito && (!data.acuerdo_pago || data.acuerdo_pago.length === 0)) {
@@ -674,6 +732,7 @@ function mostrarComprobanteInmediato(id_orden) {
     .catch(err => console.error("Error obteniendo acta:", err));
 }
 
+// === NUEVA FUNCIÓN DE IMPRESIÓN POR IFRAME PARA EL TALLER ===
 function imprimirFacturaVoucher(id_factura, dataCobro) {
     const cliente = document.getElementById('fac_lbl_cliente').innerText;
     const vehiculo = document.getElementById('fac_lbl_vehiculo').innerText;
@@ -700,12 +759,29 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
         </div>`;
     }
 
+    // BLOQUE DE EFECTIVO (Si aplica)
+    let htmlEfectivo = "";
+    if (dataCobro && dataCobro.metodo_pago === "1" && !dataCobro.es_credito && dataCobro.efectivo_recibido) {
+        let recibido = parseFloat(dataCobro.efectivo_recibido);
+        let cambio = recibido - dataCobro.total_final;
+        htmlEfectivo = `
+        <div class="divider"></div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px; color:#555;">
+            <span>Efectivo Recibido:</span>
+            <span>RD$ ${recibido.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold;">
+            <span>Cambio Entregado:</span>
+            <span>RD$ ${cambio.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+        </div>`;
+    }
+
     const htmlFactura = `
     <html>
     <head>
         <title>Factura ${id_factura}</title>
         <style>
-            body { font-family: 'Courier New', monospace; width: 300px; margin: 0 auto; color: #000; }
+            body { font-family: 'Courier New', monospace; width: 300px; margin: 0 auto; color: #000; padding: 10px; }
             .text-center { text-align: center; }
             .fw-bold { font-weight: bold; }
             .divider { border-bottom: 1px dashed #000; margin: 10px 0; }
@@ -724,7 +800,7 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
         
         <div style="font-size:12px;">
             <div><b>Factura N°:</b> ${id_factura}</div>
-            <div><b>NCF:</b> ${dataCobro.ncf}</div>
+            <div><b>NCF:</b> ${dataCobro.ncf || 'B0200000001'}</div>
             <div><b>Fecha:</b> ${fecha}</div>
             <div><b>Cliente:</b> ${cliente}</div>
             <div><b>Vehículo:</b> ${vehiculo}</div>
@@ -752,8 +828,10 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
 
         <div class="row-flex fw-bold" style="font-size:16px; margin-top:5px;">
             <span>TOTAL A PAGAR:</span>
-            <span>RD$ ${totalFacturaFinalNum.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+            <span>RD$ ${dataCobro.total_final.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
         </div>
+
+        ${htmlEfectivo}
 
         <div class="divider"></div>
         <div class="text-center" style="font-size:11px;">
@@ -763,12 +841,18 @@ function imprimirFacturaVoucher(id_factura, dataCobro) {
     </body>
     </html>`;
 
-    const ventana = window.open('', '_blank', 'width=350,height=600');
-    if (!ventana) { alert("Tu navegador bloqueó el pop-up del recibo."); return; }
-    ventana.document.write(htmlFactura);
-    ventana.document.close();
-    ventana.focus();
-    setTimeout(() => { ventana.print(); ventana.close(); }, 500);
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    iframe.contentDocument.write(htmlFactura);
+    iframe.contentDocument.close();
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+    }, 500);
 }
 
 function toggleServiciosCalidad() {
@@ -869,16 +953,25 @@ function prepararEntrega(id_orden, cliente, vehiculo) {
 
 function imprimirComprobante() {
     const contenido = document.getElementById('areaImpresionEntrega').innerHTML;
-    const ventana = window.open('', '_blank', 'width=800,height=600');
-    if (!ventana) { alert("Tu navegador bloqueó el pop-up del acta."); return; }
-    ventana.document.write(`
+    const htmlActa = `
         <html><head><title>Acta de Entrega</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>body{font-family:Arial;padding:30px;} .text-center{text-align:center;} .border-bottom{border-bottom:2px solid #ddd;padding-bottom:10px;margin-bottom:15px;} .border-top{border-top:1px solid #000;padding-top:10px;margin-top:50px;} .row{display:flex;width:100%;} .col-6{width:50%;float:left;} .card{background:#f8f9fa;padding:20px;border-radius:5px;} p{margin:5px 0;}</style>
         </head><body>${contenido}</body></html>
-    `);
-    ventana.document.close(); ventana.focus();
-    setTimeout(() => { ventana.print(); ventana.close(); }, 500);
+    `;
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    iframe.contentDocument.write(htmlActa);
+    iframe.contentDocument.close();
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+    }, 500); 
 }
 
 function cerrarModalFacturacion() { cerrarModalUI('modalFacturacion'); }

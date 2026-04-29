@@ -8,9 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     listar();
     cargarDependencias();
 
-    // ==========================================
-    // MOSTRAR TARIFA SUGERIDA EN EL LABEL
-    // ==========================================
+    // Listener para precio sugerido
     const selTipoServicio = document.getElementById("id_tipo_servicio");
     const lblPrecioSugerido = document.getElementById("lbl_precio_sugerido");
 
@@ -28,11 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // ==========================================
-    // 1. BUSCADORES DINÁMICOS (HÍBRIDOS)
-    // ==========================================
-    
-    // --- BUSCADOR DE ÓRDENES ---
+    // Buscador de Órdenes
     const txtOrden = document.getElementById('txt_buscar_orden');
     const listaOrdenes = document.getElementById('lista_ordenes');
     const hiddenOrden = document.getElementById('id_orden');
@@ -96,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // --- BUSCADOR DE MECÁNICOS ---
+    // Buscador de Mecánicos
     const txtMecanico = document.getElementById('txt_buscar_empleado');
     const listaMecanico = document.getElementById('lista_empleado');
     const hiddenMecanicoTemp = document.getElementById('id_empleado_temp');
@@ -125,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // --- BUSCADOR DE MAQUINARIA ---
+    // Buscador de Maquinaria
     const txtMaquinaria = document.getElementById('txt_buscar_maquinaria');
     const listaMaquinaria = document.getElementById('lista_maquinaria');
     const hiddenMaquinariaTemp = document.getElementById('id_maquinaria_temp');
@@ -172,17 +166,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (txtMaquinaria && !txtMaquinaria.contains(e.target)) listaMaquinaria.classList.add('d-none');
     });
 
-    // ==========================================
-    // 2. GUARDAR / EDITAR ASIGNACIÓN
-    // ==========================================
+    // Envío del Formulario de Asignación
     const formAsig = document.getElementById("formAsignacion");
     if(formAsig) {
         formAsig.addEventListener("submit", function(e) {
             e.preventDefault();
-            if(document.getElementById('id_orden').value === "") { alert("Seleccione una Orden válida usando el buscador."); return; }
-            if(document.getElementById('id_bahia').value === "") { alert("Seleccione una Bahía."); return; }
-            if(document.getElementById('id_precio').value === "") { alert("Seleccione una Tarifa a aplicar."); return; }
-            if(mecanicosSeleccionados.length === 0) { alert("Asigne al menos un mecánico."); return; }
+            if(document.getElementById('id_orden').value === "") { Swal.fire('Atención', 'Seleccione una Orden válida.', 'warning'); return; }
+            if(document.getElementById('id_bahia').value === "") { Swal.fire('Atención', 'Seleccione una Bahía.', 'warning'); return; }
+            if(document.getElementById('id_precio').value === "") { Swal.fire('Atención', 'Seleccione una Tarifa a aplicar.', 'warning'); return; }
+            if(mecanicosSeleccionados.length === 0) { Swal.fire('Atención', 'Asigne al menos un mecánico.', 'warning'); return; }
             
             const formData = new FormData(this);
             
@@ -203,18 +195,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     cerrarModalAsignacion(); 
                     listar(); 
                     cargarDependencias(); 
-                    alert(data.message); 
+                    Swal.fire('Éxito', data.message, 'success'); 
                 } else {
-                    alert("ATENCIÓN:\n" + data.message);
+                    Swal.fire('Atención', data.message, 'warning');
                 }
             })
             .catch(err => console.error("Error al guardar:", err));
         });
     }
 
-    // ==========================================
-    // 3. FINALIZAR TIEMPO
-    // ==========================================
+    // Finalizar Tiempo
     const formTiempos = document.getElementById("formTiempos");
     if(formTiempos) {
         formTiempos.addEventListener("submit", function(e) {
@@ -227,8 +217,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     cerrarModalTiempos(); 
                     listar(); 
                     cargarDependencias(); 
-                    alert(data.message); 
-                } else { alert(data.message); }
+                    Swal.fire('Completado', data.message, 'success'); 
+                } else { Swal.fire('Error', data.message, 'error'); }
             })
             .catch(err => console.error("Error al finalizar:", err));
         });
@@ -362,7 +352,7 @@ function cargarServiciosPorOrden(id_orden, id_servicio_preseleccionado = null, i
 function agregarMecanicoLista() {
     const id = document.getElementById('id_empleado_temp').value;
     const nombre = document.getElementById('txt_buscar_empleado').value;
-    if (!id || !nombre) { alert("Seleccione un mecánico de la lista."); return; }
+    if (!id || !nombre) { Swal.fire('Atención', 'Seleccione un mecánico de la lista.', 'warning'); return; }
     agregarMecanicoVisual(id, nombre);
     document.getElementById('id_empleado_temp').value = '';
     document.getElementById('txt_buscar_empleado').value = '';
@@ -391,7 +381,7 @@ function removerMecanico(id) {
 function agregarMaquinariaLista() {
     const id = document.getElementById('id_maquinaria_temp').value;
     const nombre = document.getElementById('txt_buscar_maquinaria').value;
-    if (!id || !nombre) { alert("Seleccione una maquinaria de la lista."); return; }
+    if (!id || !nombre) { Swal.fire('Atención', 'Seleccione una maquinaria de la lista.', 'warning'); return; }
     agregarMaquinariaVisual(id, nombre);
     document.getElementById('id_maquinaria_temp').value = '';
     document.getElementById('txt_buscar_maquinaria').value = '';
@@ -418,41 +408,56 @@ function removerMaquinaria(id) {
 }
 
 function iniciarTrabajo(id) {
-    if (confirm("¿Desea iniciar el cronómetro para este trabajo? Se ocupará la Bahía y Maquinaria asignada.")) {
-        const f = new FormData();
-        f.append("id_asignacion", id);
-        fetch("../../modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
-        .then(res => res.json())
-        .then(data => { 
-            if(data.success) {
-                listar();
-                cargarDependencias(); 
-            } else {
-                alert("NO SE PUDO INICIAR:\n" + data.message);
-            }
-        });
-    }
+    Swal.fire({ 
+        title: '¿Iniciar este trabajo?', 
+        text: 'Se ocupará la bahía y maquinaria asignada.', 
+        icon: 'question', 
+        showCancelButton: true, 
+        confirmButtonText: 'Sí, empezar ahora',
+        cancelButtonText: 'Cancelar'
+    }).then(r => {
+        if(r.isConfirmed) {
+            const f = new FormData(); 
+            f.append("id_asignacion", id);
+            fetch("../../modules/Taller/Archivo_Tiempos.php?action=iniciar_tiempo", { method: "POST", body: f })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) { 
+                    listar(); 
+                    cargarDependencias(); 
+                } else { 
+                    Swal.fire('Acceso Denegado', data.message, 'error'); 
+                } 
+            });
+        }
+    });
 }
 
 function eliminarAsignacion(id) {
-    if(confirm("¿Está seguro que desea ELIMINAR esta asignación?\nEsta acción liberará la Bahía y la Maquinaria asociada si es el único trabajo pendiente de este vehículo.")) {
-        const fd = new FormData();
-        fd.append("id_asignacion", id);
-        fetch("../../modules/Taller/Archivo_Tiempos.php?action=eliminar_asignacion", {
-            method: "POST",
-            body: fd
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                listar();
-                cargarDependencias();
-            } else {
-                alert("Error al eliminar: " + data.message);
-            }
-        })
-        .catch(err => console.error("Error al eliminar:", err));
-    }
+    Swal.fire({ 
+        title: '¿Eliminar asignación?', 
+        text: "Esta acción liberará la Bahía y la Maquinaria asociada si es el único trabajo pendiente.", 
+        icon: 'warning', 
+        showCancelButton: true, 
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar'
+    }).then(r => {
+        if(r.isConfirmed) {
+            const fd = new FormData(); 
+            fd.append("id_asignacion", id);
+            fetch("../../modules/Taller/Archivo_Tiempos.php?action=eliminar_asignacion", { method: "POST", body: fd })
+            .then(res => res.json())
+            .then(data => { 
+                if(data.success) { 
+                    listar(); 
+                    cargarDependencias(); 
+                    Swal.fire('Eliminado', data.message, 'success');
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 }
 
 // ==========================================
@@ -460,8 +465,11 @@ function eliminarAsignacion(id) {
 // ==========================================
 
 function nuevaAsignacion() {
-    document.getElementById("tituloModalAsignacion").innerHTML = "Nueva Asignación Detallada";
-    document.getElementById("btnGuardarAsig").innerHTML = '<i class="fas fa-save me-2"></i>Crear Asignación';
+    const titulo = document.getElementById("tituloModalAsignacion");
+    const btnGuardar = document.getElementById("btnGuardarAsig");
+    
+    if(titulo) titulo.innerHTML = "Nueva Asignación Detallada";
+    if(btnGuardar) btnGuardar.innerHTML = '<i class="fas fa-save me-2"></i>Crear Asignación';
     
     document.getElementById("formAsignacion").reset();
     document.getElementById("id_asignacion").value = "";
@@ -473,7 +481,8 @@ function nuevaAsignacion() {
     document.getElementById('lbl_orden_cliente').innerText = "---";
     document.getElementById('lbl_orden_vehiculo').innerText = "---";
     
-    document.getElementById('lbl_precio_sugerido').innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span>`;
+    const lblPrecio = document.getElementById('lbl_precio_sugerido');
+    if(lblPrecio) lblPrecio.innerHTML = `Sugerido por servicio: <span class="fw-bold text-muted">RD$ 0.00</span>`;
     
     mecanicosSeleccionados = [];
     document.getElementById('contenedor_mecanicos').innerHTML = '<p class="text-muted small m-0" id="msg_sin_mecanicos">No hay mecánicos asignados.</p>';
@@ -485,9 +494,16 @@ function nuevaAsignacion() {
     selServicio.innerHTML = '<option value="" data-precio="">Seleccione primero una orden válida...</option>';
     selServicio.disabled = true;
 
+    // AUTOCOMPLETADO FECHA Y HORA ACTUAL
     const now = new Date();
-    document.getElementById("fecha_asignacion").value = now.toISOString().split('T')[0];
-    document.getElementById("hora_asignacion").value = now.toTimeString().split(' ')[0].substring(0, 5);
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    document.getElementById("fecha_asignacion").value = `${year}-${month}-${day}`;
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById("hora_asignacion").value = `${hours}:${minutes}`;
     
     abrirModalUI('modalAsignacion');
 }
@@ -539,7 +555,7 @@ function editarAsignacion(id) {
 
             abrirModalUI('modalAsignacion');
         } else {
-            alert("Error al cargar datos: " + data.message);
+            Swal.fire('Error', data.message, 'error');
         }
     })
     .catch(err => console.error("Error en editarAsignacion:", err));
@@ -550,7 +566,6 @@ function abrirModalTiempos(id, inicio) {
     document.getElementById("lbl_hora_inicio").innerText = inicio;
     document.getElementById("lbl_hora_fin").innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
-    // Limpiamos el checkbox por si acaso
     const cb = document.getElementById("forzar_calidad");
     if(cb) cb.checked = false;
     
@@ -560,6 +575,7 @@ function abrirModalTiempos(id, inicio) {
 function cerrarModalAsignacion() { cerrarModalUI('modalAsignacion'); }
 function cerrarModalTiempos() { cerrarModalUI('modalTiempos'); }
 
+// Funciones Robusetas Originales para abrir Modales
 function abrirModalUI(id) {
     const el = document.getElementById(id);
     if(!el) return;

@@ -170,13 +170,16 @@ function agregarTrabajo(trabajo) {
 }
 
 function eliminarTrabajo(id) {
-    trabajosAgregados = trabajosAgregados.filter(t => t.id_trabajo !== id);
+    // Filtramos el array para quitar el elemento que coincida con el ID
+    trabajosAgregados = trabajosAgregados.filter(t => parseInt(t.id_trabajo) !== parseInt(id));
+    
+    // Volvemos a renderizar la lista para que desaparezca visualmente
     renderizarTrabajos();
 }
 
 function renderizarTrabajos() {
     const contenedor = document.getElementById("lista_trabajos_agregados");
-    contenedor.innerHTML = "";
+    contenedor.innerHTML = ""; // Limpiamos el contenedor
     
     if(trabajosAgregados.length === 0) {
         contenedor.innerHTML = '<span class="text-muted w-100 text-center pt-1" style="font-style: italic;">No se han añadido trabajos específicos.</span>';
@@ -184,47 +187,95 @@ function renderizarTrabajos() {
     }
 
     trabajosAgregados.forEach(t => {
-        contenedor.innerHTML += `
-            <span class="badge bg-primary d-flex align-items-center py-1 px-2 fw-normal rounded" style="font-size: 11px;">
-                ${t.descripcion}
-                <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 8px;" onclick="eliminarTrabajo(${t.id_trabajo})"></button>
-                <input type="hidden" name="trabajos[]" value="${t.id_trabajo}">
-            </span>
+        // Creamos el elemento del badge
+        const badge = document.createElement('span');
+        badge.className = "badge bg-primary d-flex align-items-center py-1 px-2 fw-normal rounded me-1 mb-1";
+        badge.style.fontSize = "11px";
+        badge.innerHTML = `
+            ${t.descripcion}
+            <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 8px;" aria-label="Eliminar"></button>
+            <input type="hidden" name="trabajos[]" value="${t.id_trabajo}">
         `;
+
+        // Asignamos el evento de eliminar al botón de la "x"
+        badge.querySelector('.btn-close').addEventListener('click', () => {
+            eliminarTrabajo(t.id_trabajo);
+        });
+
+        contenedor.appendChild(badge);
     });
 }
 
 // --- GUARDAR INSPECCIÓN ---
+// --- GUARDAR INSPECCIÓN (MODERNIZADO) ---
 document.getElementById("formulario_inspeccion").addEventListener("submit", function(e) {
     e.preventDefault();
-    const formData = new FormData(this);
+    
+    // 1. Validaciones básicas antes de confirmar
+    const idVehiculo = document.getElementById('id_vehiculo').value;
+    const idAsesor = document.getElementById('id_empleado').value;
 
-    // Forzamos la captura de datos si vienen deshabilitados por la URL
-    if (document.getElementById('id_vehiculo').disabled) {
-        formData.append('id_vehiculo', document.getElementById('id_vehiculo').value);
+    if (!idVehiculo || !idAsesor) {
+        Swal.fire({
+            title: 'Datos Incompletos',
+            text: "⚠️ Debe seleccionar el vehículo y el asesor responsable de la inspección.",
+            icon: 'warning',
+            confirmButtonColor: '#1a73e8'
+        });
+        return;
     }
 
-    const btnGuardar = document.getElementById("btnGuardar");
-    btnGuardar.disabled = true;
-    btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+    // 2. Confirmación institucional
+    Swal.fire({
+        title: '¿Guardar Inspección?',
+        text: "Se registrarán los hallazgos y trabajos solicitados para este vehículo.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Revisar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // 3. Pantalla de carga
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Guardando reporte técnico y hallazgos',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
-    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Inspeccion.php?action=guardar", { 
-        method: "POST", 
-        body: formData 
-    })
-    .then(res => res.json())
-    .then(data => {
-        alert(data.message);
-        if (data.success) {
-            window.location.href = "MInspeccion.php"; 
-        } else {
-            btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Inspección';
+            const formData = new FormData(this);
+
+            // Aseguramos la captura si el campo está disabled por contexto de orden
+            if (document.getElementById('id_vehiculo').disabled) {
+                formData.append('id_vehiculo', document.getElementById('id_vehiculo').value);
+            }
+
+            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Inspeccion.php?action=guardar", { 
+                method: "POST", 
+                body: formData 
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Inspección Guardada!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonColor: '#1a73e8'
+                    }).then(() => {
+                        window.location.href = "MInspeccion.php"; 
+                    });
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire('Error Crítico', 'Fallo de conexión al servidor.', 'error');
+            });
         }
-    })
-    .catch(err => {
-        alert("Error de conexión al guardar.");
-        btnGuardar.disabled = false;
-        btnGuardar.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Inspección';
     });
 });

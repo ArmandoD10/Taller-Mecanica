@@ -41,35 +41,74 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // 2. GUARDAR FORMULARIO
     // ==========================================
-    document.getElementById("formMaquinaria").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        if(hiddenSuc.value === "") {
-            alert("Por favor, busque y seleccione una Sucursal válida de la lista.");
-            return;
+    // ==========================================
+// GUARDAR O ACTUALIZAR RECURSO/MAQUINARIA
+// ==========================================
+document.getElementById("formMaquinaria").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    const hiddenSuc = document.getElementById('id_sucursal');
+
+    // 1. Validación de Sucursal seleccionada
+    if(hiddenSuc.value === "") {
+        Swal.fire({
+            title: 'Dato Requerido',
+            text: "Por favor, busque y seleccione una Sucursal válida de la lista.",
+            icon: 'warning',
+            target: document.getElementById('modalMaquinaria') // Aparece sobre el modal
+        });
+        return;
+    }
+
+    // 2. Indicador de carga institucional
+    Swal.fire({
+        title: 'Guardando Recurso...',
+        text: 'Actualizando el inventario de equipamiento técnico',
+        target: document.getElementById('modalMaquinaria'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    const formData = new FormData(this);
+
+    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Maquinaria.php?action=guardar", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            // Cerramos modal antes de mostrar el éxito
+            cerrarModalUI();
+
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listar(); // Refrescar la tabla principal
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalMaquinaria')
+            });
         }
-
-        const formData = new FormData(this);
-
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Maquinaria.php?action=guardar", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                cerrarModalUI();
-                listar();
-                alert(data.message);
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar:", error);
-            alert("Error de conexión al intentar guardar.");
+    })
+    .catch(error => {
+        Swal.close();
+        Swal.fire({
+            title: 'Fallo de Red',
+            text: 'Error de conexión al intentar guardar.',
+            icon: 'error',
+            target: document.getElementById('modalMaquinaria')
         });
     });
+});
 
     // Eventos para cerrar el modal
     document.querySelectorAll('#modalMaquinaria [data-bs-dismiss="modal"], #modalMaquinaria .btn-close').forEach(btn => {
@@ -197,21 +236,42 @@ function editar(id) {
     });
 }
 
+/**
+ * Procesa la eliminación física o lógica de una maquinaria
+ */
 function eliminar(id) {
-    if (confirm("¿Está seguro que desea eliminar este recurso?")) {
-        const f = new FormData(); 
-        f.append("id_maquinaria", id);
-        
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Maquinaria.php?action=eliminar", {
-            method: "POST", 
-            body: f
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(data.message);
-            if(data.success) listar();
-        });
-    }
+    Swal.fire({
+        title: '¿Eliminar Recurso?',
+        text: "Esta acción quitará el equipo del catálogo de activos del taller.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            const f = new FormData(); 
+            f.append("id_maquinaria", id);
+            
+            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Maquinaria.php?action=eliminar", {
+                method: "POST", 
+                body: f
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if(data.success) {
+                    Swal.fire('¡Eliminado!', data.message, 'success');
+                    listar();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 }
 
 // ==========================================

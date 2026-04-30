@@ -28,30 +28,74 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    document.getElementById("formServicio").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
+    // ==========================================
+// GUARDAR O ACTUALIZAR SERVICIO
+// ==========================================
+document.getElementById("formServicio").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    // 1. Validación de tiempo antes de enviar
+    const regex = /^([0-9]{2}):([0-5][0-9])$/;
+    const tiempo = document.getElementById('tiempo_estimado').value;
+    if (tiempo !== "" && !regex.test(tiempo)) {
+        Swal.fire({
+            title: 'Formato de Tiempo Inválido',
+            text: "Use el formato HH:MM (Ej. 01:30).",
+            icon: 'warning',
+            target: document.getElementById('modalServicio')
+        });
+        return;
+    }
 
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_TipoServicio.php?action=guardar", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                cerrarModalUI();
-                listar();
-                alert(data.message);
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar:", error);
-            alert("Error de conexión al intentar guardar.");
+    // 2. Indicador de carga
+    Swal.fire({
+        title: 'Guardando Servicio...',
+        text: 'Actualizando el catálogo del taller',
+        target: document.getElementById('modalServicio'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    const formData = new FormData(this);
+
+    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_TipoServicio.php?action=guardar", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            // Cerramos modal antes de mostrar éxito para evitar conflictos visuales
+            cerrarModalUI();
+
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listar(); // Refrescar tabla
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalServicio')
+            });
+        }
+    })
+    .catch(error => {
+        Swal.close();
+        Swal.fire({
+            title: 'Fallo de Red',
+            text: 'Error de conexión al intentar guardar.',
+            icon: 'error',
+            target: document.getElementById('modalServicio')
         });
     });
+});
 
     document.querySelectorAll('#modalServicio [data-bs-dismiss="modal"], #modalServicio .btn-close').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -127,20 +171,38 @@ function editar(id) {
 }
 
 function eliminar(id) {
-    if (confirm("¿Está seguro que desea eliminar este servicio del catálogo?")) {
-        const formData = new FormData();
-        formData.append("id_tipo_servicio", id);
+    Swal.fire({
+        title: '¿Eliminar Servicio?',
+        text: "Esta acción quitará el servicio del catálogo. No afectará órdenes ya creadas, pero no podrá seleccionarse en el futuro.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_TipoServicio.php?action=eliminar", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(data.message);
-            if (data.success) listar();
-        });
-    }
+            const formData = new FormData();
+            formData.append("id_tipo_servicio", id);
+
+            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_TipoServicio.php?action=eliminar", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if (data.success) {
+                    Swal.fire('¡Eliminado!', data.message, 'success');
+                    listar();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 }
 
 // ==========================================

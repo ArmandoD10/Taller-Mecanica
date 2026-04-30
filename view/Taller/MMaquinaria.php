@@ -104,6 +104,7 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="/Taller/Taller-Mecanica/modules/Taller/Scripts_Maquinaria.js"></script>
 </body>
 </html>

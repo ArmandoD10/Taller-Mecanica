@@ -1,42 +1,127 @@
 document.addEventListener("DOMContentLoaded", () => {
     listar();
 
-    document.getElementById("formNuevoReclamo").addEventListener("submit", function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        
-        // Verificar que haya seleccionado un radio button
-        if(!document.querySelector('input[name="item_afectado"]:checked')) {
-            return alert("Debe seleccionar un ítem afectado de la lista.");
+    // --- GUARDAR NUEVO RECLAMO ---
+document.getElementById("formNuevoReclamo").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    // 1. Validación de ítem seleccionado
+    if(!document.querySelector('input[name="item_afectado"]:checked')) {
+        Swal.fire({
+            title: 'Ítem no seleccionado',
+            text: "Debe marcar un repuesto o servicio de la lista de cobertura vigente.",
+            icon: 'warning',
+            target: document.getElementById('modalNuevoReclamo')
+        });
+        return;
+    }
+
+    // 2. Confirmación de apertura de expediente
+    Swal.fire({
+        title: '¿Abrir Expediente de Reclamo?',
+        text: "Se iniciará el proceso de evaluación técnica para este caso.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#1a73e8',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, registrar reclamo',
+        cancelButtonText: 'Cancelar',
+        target: document.getElementById('modalNuevoReclamo')
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Generando número de expediente',
+                allowOutsideClick: false,
+                target: document.getElementById('modalNuevoReclamo'),
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const formData = new FormData(this);
+            fetch('../../modules/Taller/Archivo_ReclamoGarantia.php?action=guardar_reclamo', {
+                method: 'POST', body: formData
+            })
+            .then(res => res.json())
+            .then(res => {
+                Swal.close();
+                if(res.success) {
+                    // Cerramos modal de Bootstrap
+                    bootstrap.Modal.getInstance(document.getElementById('modalNuevoReclamo')).hide();
+                    
+                    Swal.fire('¡Éxito!', res.message, 'success').then(() => { listar(); });
+                } else { 
+                    Swal.fire('Error', res.message, 'error'); 
+                }
+            })
+            .catch(() => Swal.fire('Error de Conexión', 'No se pudo registrar el reclamo.', 'error'));
         }
-
-        fetch('../../modules/Taller/Archivo_ReclamoGarantia.php?action=guardar_reclamo', {
-            method: 'POST', body: formData
-        })
-        .then(res => res.json())
-        .then(res => {
-            if(res.success) {
-                alert(res.message);
-                bootstrap.Modal.getInstance(document.getElementById('modalNuevoReclamo')).hide();
-                listar();
-            } else { alert("❌ Error: " + res.message); }
-        }).catch(err => alert("Error de conexión."));
     });
+});
 
-    document.getElementById("formEvaluar").addEventListener("submit", function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        fetch('../../modules/Taller/Archivo_ReclamoGarantia.php?action=evaluar_reclamo', {
-            method: 'POST', body: formData
-        })
-        .then(res => res.json())
-        .then(res => {
-            if(res.success) {
-                bootstrap.Modal.getInstance(document.getElementById('modalEvaluar')).hide();
-                listar();
-            } else { alert("❌ Error: " + res.message); }
-        }).catch(err => alert("Error de conexión."));
+    // --- EVALUAR RECLAMO (APROBAR/RECHAZAR) ---
+// --- EVALUAR RECLAMO (CORREGIDO) ---
+document.getElementById("formEvaluar").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    // Búsqueda flexible: por nombre o primer select disponible
+    const selectEstado = this.querySelector('[name="estado_evaluacion"]') || this.querySelector('select');
+    
+    if (!selectEstado || !selectEstado.value) {
+        Swal.fire({
+            title: 'Dato faltante',
+            text: "Por favor, seleccione el veredicto (Aprobado/Rechazado).",
+            icon: 'warning',
+            target: document.getElementById('modalEvaluar')
+        });
+        return;
+    }
+
+    const estado = selectEstado.value;
+    const titulo = estado === 'Aprobado' ? '¿Confirmar Aprobación?' : '¿Confirmar Rechazo?';
+    
+    Swal.fire({
+        title: titulo,
+        text: "Esta decisión actualizará el estado del expediente y notificará al cliente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: estado === 'Aprobado' ? '#28a745' : '#d33',
+        confirmButtonText: 'Confirmar Decisión',
+        target: document.getElementById('modalEvaluar')
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ 
+                title: 'Actualizando...', 
+                allowOutsideClick: false, 
+                target: document.getElementById('modalEvaluar'),
+                didOpen: () => { Swal.showLoading(); } 
+            });
+
+            const formData = new FormData(this);
+            fetch('../../modules/Taller/Archivo_ReclamoGarantia.php?action=evaluar_reclamo', {
+                method: 'POST', body: formData
+            })
+            .then(res => res.json())
+            .then(res => {
+                Swal.close();
+                if(res.success) {
+                    // Cerramos el modal de Bootstrap
+                    const modalElement = document.getElementById('modalEvaluar');
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if (modalInstance) modalInstance.hide();
+
+                    Swal.fire('Estado Actualizado', 'El reclamo ha sido procesado.', 'success')
+                        .then(() => { listar(); });
+                } else { 
+                    Swal.fire('Error', res.message, 'error', { target: document.getElementById('modalEvaluar') }); 
+                }
+            })
+            .catch(() => {
+                Swal.close();
+                Swal.fire('Error', 'Fallo de conexión.', 'error');
+            });
+        }
     });
+});
 });
 
 function listar() {

@@ -45,29 +45,73 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Guardar formulario
-    document.getElementById("formBahia").addEventListener("submit", function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
+   // ==========================================
+// GUARDAR O ACTUALIZAR BAHÍA
+// ==========================================
+document.getElementById("formBahia").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    // 1. Validación de sucursal seleccionada
+    const idSucursal = document.getElementById('id_sucursal').value;
+    if (!idSucursal) {
+        Swal.fire({
+            title: 'Sucursal Requerida',
+            text: "Debe buscar y seleccionar una sucursal válida para la bahía.",
+            icon: 'warning',
+            target: document.getElementById('modalBahia')
+        });
+        return;
+    }
 
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Bahia.php?action=guardar", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                cerrarModalUI();
-                cargarBahias();
-                alert(data.message);
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            console.error("Error al guardar:", error);
-            alert("Error de conexión al intentar guardar.");
+    // 2. Indicador de carga institucional
+    Swal.fire({
+        title: 'Guardando Bahía...',
+        text: 'Actualizando la infraestructura del taller',
+        target: document.getElementById('modalBahia'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    const formData = new FormData(this);
+
+    fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Bahia.php?action=guardar", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            // Cerramos modal antes de mostrar éxito
+            cerrarModalUI();
+
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                cargarBahias(); // Refrescar tabla principal
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalBahia')
+            });
+        }
+    })
+    .catch(error => {
+        Swal.close();
+        Swal.fire({
+            title: 'Fallo de Red',
+            text: 'Error de conexión al intentar guardar.',
+            icon: 'error',
+            target: document.getElementById('modalBahia')
         });
     });
+});
 
     document.querySelectorAll('#modalBahia [data-bs-dismiss="modal"], #modalBahia .btn-close').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -160,23 +204,43 @@ function editarBahia(id) {
     });
 }
 
+/**
+ * Procesa la eliminación (baja lógica) de una bahía
+ */
 function eliminarBahia(id) {
-    if (confirm("¿Está seguro que desea eliminar (ocultar) esta bahía?")) {
-        const formData = new FormData();
-        formData.append("id_bahia", id);
+    Swal.fire({
+        title: '¿Eliminar (Ocultar) Bahía?',
+        text: "La bahía dejará de estar disponible para asignación de órdenes de trabajo.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-        fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Bahia.php?action=eliminar", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(data.message);
-            if (data.success) cargarBahias();
-        });
-    }
+            const formData = new FormData();
+            formData.append("id_bahia", id);
+
+            fetch("/Taller/Taller-Mecanica/modules/Taller/Archivo_Bahia.php?action=eliminar", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if (data.success) {
+                    Swal.fire('¡Eliminada!', data.message, 'success');
+                    cargarBahias();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 }
-
 function abrirModalUI() {
     const modalElement = document.getElementById('modalBahia');
     try {

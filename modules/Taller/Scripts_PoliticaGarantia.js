@@ -49,28 +49,48 @@ function listar() {
 }
 
 // NUEVA FUNCIÓN: Cambiar Estado
+// FUNCIÓN: Cambiar Estado (Activa/Inactiva)
 function cambiarEstado(id, nuevoEstado) {
     const accionTexto = nuevoEstado === 'activo' ? 'activar' : 'desactivar';
-    
-    if(confirm(`¿Seguro que desea ${accionTexto} esta política?`)) {
-        const fd = new FormData();
-        fd.append('id', id);
-        fd.append('estado', nuevoEstado);
-        
-        fetch('../../modules/Taller/Archivo_PoliticaGarantia.php?action=cambiar_estado', { 
-            method: 'POST', 
-            body: fd 
-        })
-        .then(res => res.json())
-        .then(res => {
-            if(res.success) {
-                listar(); // Refresca la tabla automáticamente
-            } else {
-                alert("❌ Error al cambiar el estado: " + res.message);
-            }
-        })
-        .catch(err => console.error("Error cambiando estado:", err));
-    }
+    const colorBtn = nuevoEstado === 'activo' ? '#28a745' : '#f0ad4e';
+
+    Swal.fire({
+        title: `¿Desea ${accionTexto} esta política?`,
+        text: `La política quedará en estado ${nuevoEstado} para nuevas órdenes.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: colorBtn,
+        cancelButtonColor: '#d33',
+        confirmButtonText: `Sí, ${accionTexto}`,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id', id);
+            fd.append('estado', nuevoEstado);
+            
+            fetch('../../modules/Taller/Archivo_PoliticaGarantia.php?action=cambiar_estado', { 
+                method: 'POST', 
+                body: fd 
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Estado actualizado',
+                        toast: true,
+                        position: 'top-end',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    listar();
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            });
+        }
+    });
 }
 
 // Limpia el formulario antes de abrirlo para crear uno nuevo
@@ -97,8 +117,19 @@ function cerrarModal() {
     }
 }
 
+// EVENTO: GUARDAR POLÍTICA
 document.getElementById("formPolitica").onsubmit = function(e) {
     e.preventDefault();
+    
+    // Indicador de carga institucional
+    Swal.fire({
+        title: 'Guardando...',
+        text: 'Actualizando términos de garantía del taller',
+        target: document.getElementById('modalPolitica'), // Se muestra sobre el modal
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
     const formData = new FormData(this);
     
     fetch('../../modules/Taller/Archivo_PoliticaGarantia.php?action=guardar', {
@@ -107,33 +138,61 @@ document.getElementById("formPolitica").onsubmit = function(e) {
     })
     .then(res => res.json())
     .then(res => {
+        Swal.close(); // Cerramos el loading
         if(res.success) {
-            alert("✅ Política guardada correctamente");
-            cerrarModal();
-            listar();
+            cerrarModal(); // Cerramos el modal de Bootstrap
+            Swal.fire({
+                title: '¡Guardado!',
+                text: "La política de garantía ha sido registrada correctamente.",
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listar();
+            });
         } else {
-            alert("❌ Error al guardar: " + res.message);
+            Swal.fire({
+                title: 'Error',
+                text: res.message,
+                icon: 'error',
+                target: document.getElementById('modalPolitica')
+            });
         }
     })
-    .catch(err => console.error("Error guardando política:", err));
+    .catch(err => {
+        Swal.close();
+        Swal.fire('Error Crítico', 'No se pudo conectar con el servidor técnico.', 'error');
+    });
 };
 
+// FUNCIÓN: Eliminar permanentemente
 function eliminar(id) {
-    if(confirm("¿Seguro que desea eliminar permanentemente esta política?")) {
-        const fd = new FormData();
-        fd.append('id', id);
-        
-        fetch('../../modules/Taller/Archivo_PoliticaGarantia.php?action=eliminar', { 
-            method: 'POST', 
-            body: fd 
-        })
-        .then(res => res.json())
-        .then(res => {
-            if(res.success) {
-                listar();
-            } else {
-                alert("❌ Error al eliminar: " + res.message);
-            }
-        });
-    }
+    Swal.fire({
+        title: '¿Eliminar Permanentemente?',
+        text: "¡Esta acción no se puede deshacer! Se borrará el registro de la política del sistema.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar de por vida',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('id', id);
+            
+            fetch('../../modules/Taller/Archivo_PoliticaGarantia.php?action=eliminar', { 
+                method: 'POST', 
+                body: fd 
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success) {
+                    Swal.fire('¡Eliminado!', 'La política ha sido removida del catálogo.', 'success');
+                    listar();
+                } else {
+                    Swal.fire('Error de eliminación', res.message, 'error');
+                }
+            });
+        }
+    });
 }

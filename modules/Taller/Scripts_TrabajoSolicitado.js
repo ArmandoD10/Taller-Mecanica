@@ -20,34 +20,57 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Lógica del formulario
-    document.getElementById("formTrabajo").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        const url = modoEdicion 
-            ? "../../modules/Taller/Archivo_TrabajoSolicitado.php?action=actualizar" 
-            : "../../modules/Taller/Archivo_TrabajoSolicitado.php?action=guardar";
-
-        document.getElementById("btnGuardar").disabled = true;
-
-        fetch(url, { method: "POST", body: formData })
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById("btnGuardar").disabled = false;
-            if (data.success) {
-                cerrarModalUI('modalTrabajo');
-                listarTrabajos();
-                // Limpiar form
-                document.getElementById("formTrabajo").reset();
-            } else {
-                alert("ERROR: " + data.message);
-            }
-        })
-        .catch(err => {
-            document.getElementById("btnGuardar").disabled = false;
-            alert("Error de conexión al servidor.");
-        });
+   // ==========================================
+// GUARDAR O ACTUALIZAR TRABAJO SOLICITADO
+// ==========================================
+document.getElementById("formTrabajo").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    // Indicador de carga institucional
+    Swal.fire({
+        title: 'Guardando...',
+        text: 'Actualizando catálogo de motivos de taller',
+        target: document.getElementById('modalTrabajo'), // Para que se vea sobre el modal
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
     });
+
+    const formData = new FormData(this);
+    const url = modoEdicion 
+        ? "../../modules/Taller/Archivo_TrabajoSolicitado.php?action=actualizar" 
+        : "../../modules/Taller/Archivo_TrabajoSolicitado.php?action=guardar";
+
+    fetch(url, { method: "POST", body: formData })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            // Cerramos el modal antes de mostrar el éxito para limpiar la pantalla
+            cerrarModalUI('modalTrabajo');
+
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message || 'El catálogo ha sido actualizado correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listarTrabajos();
+                document.getElementById("formTrabajo").reset();
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalTrabajo')
+            });
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
+    });
+});
 });
 
 function listarTrabajos() {
@@ -115,9 +138,43 @@ function editarTrabajo(id) {
     abrirModalUI('modalTrabajo');
 }
 
+/**
+ * Procesa la eliminación de un trabajo del catálogo con advertencia
+ */
 function abrirModalEliminar(id) {
-    document.getElementById("id_eliminar").value = id;
-    abrirModalUI('modalEliminar');
+    Swal.fire({
+        title: '¿Eliminar Trabajo?',
+        text: "Esta acción quitará este motivo del catálogo de sugerencias. No afectará inspecciones pasadas.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            const fd = new FormData();
+            fd.append('id_trabajo', id);
+
+            fetch("../../modules/Taller/Archivo_TrabajoSolicitado.php?action=eliminar", { method: "POST", body: fd })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if(data.success) {
+                    Swal.fire('¡Eliminado!', 'El trabajo ha sido removido del catálogo.', 'success');
+                    listarTrabajos();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .catch(() => {
+                Swal.close();
+                Swal.fire('Error', 'Fallo de conexión al intentar eliminar.', 'error');
+            });
+        }
+    });
 }
 
 function confirmarEliminar() {

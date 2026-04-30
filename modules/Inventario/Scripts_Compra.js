@@ -448,25 +448,33 @@ function bloquearFormulario(isLocked, mensaje) {
 }
 
 function eliminar(id) {
-    if (confirm("ATENCIÓN: Solo los administradores pueden realizar esta acción.\n\n¿Está seguro que desea ANULAR esta orden de compra?")) {
-        const f = new FormData(); 
-        f.append("id_compra", id);
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Compra.php?action=eliminar", { 
-            method: "POST", 
-            body: f 
-        })
-        .then(res => res.json())
-        .then(data => { 
-            if (data.success) {
-                alert(data.message); 
-                listar(); 
-            } else {
-                alert("❌ " + data.message);
-            }
-        })
-        .catch(error => console.error("Error al anular compra:", error));
-    }
+    Swal.fire({
+        title: '¿Anular Orden de Compra?',
+        text: "ATENCIÓN: Esta acción es irreversible y solo debe realizarse por administradores.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, anular orden',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Anulando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            const f = new FormData(); 
+            f.append("id_compra", id);
+            
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_Compra.php?action=eliminar", { method: "POST", body: f })
+            .then(res => res.json())
+            .then(data => { 
+                if (data.success) {
+                    Swal.fire('¡Anulada!', data.message, 'success');
+                    listar(); 
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            });
+        }
+    });
 }
 
 function imprimirOrden(id_compra) {

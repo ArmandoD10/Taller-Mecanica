@@ -304,32 +304,95 @@ function actualizarCant(tipo, index, nuevaCant) {
 /**
  * 4. GUARDADO FINAL
  */
+/**
+ * Realiza el guardado de la Orden Maestra (Servicios + Repuestos)
+ * integrando SweetAlert2 para confirmaciones y estados de carga.
+ */
 function guardarOrdenServicio() {
+    // 1. Validación inicial del "Carrito"
     if(serviciosAgregados.length === 0) {
-        alert("⚠️ Debe agregar al menos un servicio a la orden.");
+        Swal.fire({
+            title: 'Orden Incompleta',
+            text: "⚠️ Debe agregar al menos un servicio (mano de obra) a la orden.",
+            icon: 'warning',
+            target: document.getElementById('modalCrearOrden') // Se muestra sobre el modal
+        });
         return;
     }
 
-    const payload = {
-        id_inspeccion: idInspeccionSeleccionada,
-        descripcion: document.getElementById('obs_orden').value,
-        monto_total: window.montoTotalCalculado,
-        servicios: serviciosAgregados,
-        repuestos: repuestosAgregados
-    };
+    // 2. Mensaje de confirmación antes de procesar
+    Swal.fire({
+        title: '¿Crear Orden de Servicio?',
+        text: "Se generará la orden de trabajo y se reservarán los repuestos en el inventario.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, crear orden',
+        cancelButtonText: 'Cancelar',
+        target: document.getElementById('modalCrearOrden')
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // 3. Estado de carga mientras se procesa en el servidor
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Generando registro maestro de taller',
+                allowOutsideClick: false,
+                target: document.getElementById('modalCrearOrden'),
+                didOpen: () => { Swal.showLoading(); }
+            });
 
-    fetch('../../modules/Taller/Archivo_Orden.php?action=guardar_orden_maestra', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(res => {
-        if(res.success) {
-            alert("✅ Orden de Servicio #" + res.id_orden + " creada correctamente.");
-            location.reload();
-        } else {
-            alert("❌ Error: " + res.message);
+            const payload = {
+                id_inspeccion: idInspeccionSeleccionada,
+                descripcion: document.getElementById('obs_orden').value,
+                monto_total: window.montoTotalCalculado,
+                servicios: serviciosAgregados,
+                repuestos: repuestosAgregados
+            };
+
+            fetch('../../modules/Taller/Archivo_Orden.php?action=guardar_orden_maestra', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                Swal.close(); // Cerramos el loading
+
+                if(res.success) {
+                    // 4. Cerramos el modal de Bootstrap primero
+                    const modalEl = document.getElementById('modalCrearOrden');
+                    const modalBS = bootstrap.Modal.getInstance(modalEl);
+                    if (modalBS) modalBS.hide();
+
+                    // 5. Mensaje de éxito final en la pantalla principal
+                    Swal.fire({
+                        title: '¡Orden Creada!',
+                        text: `La Orden de Servicio #ORD-${res.id_orden} ha sido registrada con éxito.`,
+                        icon: 'success',
+                        confirmButtonColor: '#1a73e8'
+                    }).then(() => {
+                        location.reload(); // Recargamos para actualizar el monitor del taller
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error de Guardado',
+                        text: res.message,
+                        icon: 'error',
+                        target: document.getElementById('modalCrearOrden')
+                    });
+                }
+            })
+            .catch(err => {
+                Swal.close();
+                console.error("Error en la petición:", err);
+                Swal.fire({
+                    title: 'Error de Conexión',
+                    text: 'No se pudo comunicar con el servidor de taller.',
+                    icon: 'error',
+                    target: document.getElementById('modalCrearOrden')
+                });
+            });
         }
     });
 }

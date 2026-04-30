@@ -74,7 +74,6 @@ switch ($action) {
         cargar_datos_cotizacion($conexion);
         break;
 
-    // === NUEVO: VERIFICAR QUE LA CAJA ESTÉ ABIERTA ANTES DE MOSTRAR VOUCHER ===
     case 'verificar_caja_abierta':
         try {
             $sql = "SELECT id_sesion FROM caja_sesion WHERE id_sucursal = ? AND estado = 'Abierta' LIMIT 1";
@@ -194,15 +193,27 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             throw new Exception("Operación denegada. No existe una caja abierta en esta sucursal. Por favor, aperture su turno en el módulo de Gestión de Caja.");
         }
 
+        // --- NUEVO: VALIDACIÓN DE EFECTIVO ---
+        $es_credito = $data['es_credito'] ?? false;
+        $metodo_pago = $data['metodo_pago'] ?? null;
+        $total_final = (float)($data['total_final'] ?? 0);
+        $efectivo_recibido = isset($data['efectivo_recibido']) ? (float)$data['efectivo_recibido'] : 0;
+
+        if (!$es_credito && $metodo_pago == 1) { // 1 es Efectivo
+            if ($efectivo_recibido < $total_final) {
+                throw new Exception("El monto en efectivo recibido (RD$ {$efectivo_recibido}) es insuficiente para cubrir la factura (RD$ {$total_final}).");
+            }
+        }
+
         // 1. VALIDACIÓN DE CRÉDITO (Si aplica)
-        if ($data['es_credito']) {
+        if ($es_credito) {
             $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
             $stmtC->bind_param("i", $data['id_credito']);
             $stmtC->execute();
             $cred = $stmtC->get_result()->fetch_assoc();
 
-            if (!$cred || $cred['saldo_disponible'] < $data['total_final']) {
+            if (!$cred || $cred['saldo_disponible'] < $total_final) {
                 throw new Exception("Saldo de crédito insuficiente para esta operación.");
             }
         }
@@ -211,10 +222,10 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         $sqlF = "INSERT INTO Factura_Central (id_cliente, id_sucursal, id_metodo, id_moneda, NCF, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
                  VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'activo')";
         $id_cliente = $data['id_cliente'] ?? null;
-        $estado_pago = $data['es_credito'] ? 'Pendiente' : 'Pagado';
+        $estado_pago = $es_credito ? 'Pendiente' : 'Pagado';
         
         $stmtF = $conexion->prepare($sqlF);
-        $stmtF->bind_param("iiisdssi", $id_cliente, $id_sucursal, $data['metodo_pago'], $data['ncf'], $data['total_final'], $data['referencia_azul'], $estado_pago, $id_usuario);
+        $stmtF->bind_param("iiisdssi", $id_cliente, $id_sucursal, $metodo_pago, $data['ncf'], $total_final, $data['referencia_azul'], $estado_pago, $id_usuario);
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
@@ -230,7 +241,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         }
 
         // 4. ACTUALIZACIÓN DE SALDOS DE CRÉDITO
-        if ($data['es_credito']) {
+        if ($es_credito) {
             $sqlFC = "INSERT INTO Factura_Credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
             $stmtFC = $conexion->prepare($sqlFC);
             $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
@@ -241,7 +252,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
                             saldo_pendiente = saldo_pendiente + ? 
                         WHERE id_credito = ?";
             $stmtUpdC = $conexion->prepare($sqlUpdC);
-            $stmtUpdC->bind_param("ddi", $data['total_final'], $data['total_final'], $data['id_credito']);
+            $stmtUpdC->bind_param("ddi", $total_final, $total_final, $data['id_credito']);
             $stmtUpdC->execute();
         }
 

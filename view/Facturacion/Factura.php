@@ -83,49 +83,63 @@ require("../../header.php");
             </div>
 
             <div class="col-lg-4">
-    <div class="card shadow-sm border-0">
-        <div class="card-body">
-            <div class="mb-3">
-                <label class="small fw-bold">NCF Comprobante</label>
-                <input type="text" id="ncf_factura" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)" style="text-transform: uppercase;">
-            </div>
-            
-            <div class="bg-light p-3 rounded mb-3 border">
-                <div class="d-flex justify-content-between mb-1 small text-muted">
-                    <span>Sub-Total Bruto:</span>
-                    <span id="subtotal_valor" class="text-dark fw-bold">RD$ 0.00</span>
-                </div>
-                
-                <div id="fila_ofertas" class="d-flex justify-content-between mb-2 small d-none border-top pt-2">
-                    <span class="text-danger fw-bold">Descuento Ofertas:</span>
-                    <span id="ofertas_valor" class="text-danger fw-bold">- RD$ 0.00</span>
-                </div>
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="small fw-bold">NCF Comprobante</label>
+                            <input type="text" id="ncf_factura" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)" style="text-transform: uppercase;">
+                        </div>
+                        
+                        <div class="bg-light p-3 rounded mb-3 border">
+                            <div class="d-flex justify-content-between mb-1 small text-muted">
+                                <span>Sub-Total Bruto:</span>
+                                <span id="subtotal_valor" class="text-dark fw-bold">RD$ 0.00</span>
+                            </div>
+                            
+                            <div id="fila_ofertas" class="d-flex justify-content-between mb-2 small d-none border-top pt-2">
+                                <span class="text-danger fw-bold">Descuento Ofertas:</span>
+                                <span id="ofertas_valor" class="text-danger fw-bold">- RD$ 0.00</span>
+                            </div>
 
-                <div id="desglose_impuestos_dinamico" class="border-top pt-2">
-                </div>
+                            <div id="desglose_impuestos_dinamico" class="border-top pt-2">
+                            </div>
 
-                <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
-                    <span class="fw-bold text-uppercase">Total Neto:</span>
-                    <h4 class="fw-bold text-success mb-0" id="total_final_valor">RD$ 0.00</h4>
+                            <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+                                <span class="fw-bold text-uppercase">Total Neto:</span>
+                                <h4 class="fw-bold text-success mb-0" id="total_final_valor">RD$ 0.00</h4>
+                            </div>
+                        </div>
+
+                        <label class="small fw-bold mb-2">Método de Pago</label>
+                        <div class="input-group mb-3">
+                            <span class="input-group-text bg-white"><i class="fas fa-wallet text-muted"></i></span>
+                            <select id="metodo_pago" class="form-select fw-bold" onchange="toggleMetodoPago(this.value)">
+                                <option value="1">💵 Efectivo</option>
+                                <option value="2">💳 Tarjeta (AZUL / POPULAR)</option>
+                                <option value="3">🏦 Transferencia</option>
+                            </select>
+                        </div>
+                        
+                        <div id="panel_efectivo" class="bg-light p-3 rounded border border-success mb-4 shadow-sm">
+                            <div class="mb-2">
+                                <label class="small fw-bold text-success">Efectivo Recibido</label>
+                                <div class="input-group input-group-lg shadow-sm">
+                                    <span class="input-group-text bg-white text-success fw-bold">RD$</span>
+                                    <input type="number" step="0.01" class="form-control border-success text-center fw-bold fs-5" id="efectivo_recibido" placeholder="0.00" oninput="calcularCambio()">
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-success-subtle">
+                                <span class="fw-bold text-dark text-uppercase small">Su Cambio:</span>
+                                <h5 class="fw-bold text-success mb-0" id="cambio_devolver">RD$ 0.00</h5>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-primary w-100 py-3 fw-bold shadow-sm" onclick="previsualizarVoucher()">
+                            <i class="fas fa-file-invoice-dollar me-2"></i> PROCESAR FACTURACIÓN
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <label class="small fw-bold mb-2">Método de Pago</label>
-            <div class="input-group mb-4">
-                <span class="input-group-text bg-white"><i class="fas fa-wallet text-muted"></i></span>
-                <select id="metodo_pago" class="form-select fw-bold">
-                    <option value="1">💵 Efectivo</option>
-                    <option value="2">💳 Tarjeta (AZUL / POPULAR)</option>
-                    <option value="3">🏦 Transferencia</option>
-                </select>
-            </div>
-            
-            <button class="btn btn-primary w-100 py-3 fw-bold shadow-sm" onclick="previsualizarVoucher()">
-                <i class="fas fa-file-invoice-dollar me-2"></i> PROCESAR FACTURACIÓN
-            </button>
-        </div>
-    </div>
-</div>
         </div>
     </div>
 </main>
@@ -211,3 +225,5 @@ require("../../header.php");
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Facturacion/Scripts_Factura.js"></script>
+</body>
+</html>

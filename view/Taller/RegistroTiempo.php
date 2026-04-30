@@ -185,6 +185,7 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="../../modules/Taller/Scripts_Tiempos.js"></script>
 </body>
 </html>

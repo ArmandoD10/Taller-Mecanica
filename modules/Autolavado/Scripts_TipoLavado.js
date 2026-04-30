@@ -1,40 +1,53 @@
 document.addEventListener("DOMContentLoaded", () => {
     listarTipos();
 
-    const form = document.getElementById("formTipoLavado");
-    if (form) {
-        form.addEventListener("submit", function(e) {
-            e.preventDefault();
-            
-            const btn = this.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
-            btn.disabled = true;
+   document.getElementById("formTipoLavado").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    // Indicador de carga institucional
+    Swal.fire({
+        title: 'Guardando...',
+        text: 'Actualizando catálogo de servicios',
+        target: document.getElementById('modalTipoLavado'), // Fuerza al frente
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-            const formData = new FormData(this);
+    const formData = new FormData(this);
 
-            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=guardar", {
-                method: "POST", body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                if (data.success) {
-                    cerrarModalUI('modalTipoLavado');
-                    listarTipos();
-                    // Opcional: mostrar un toast o alerta suave aquí
-                } else {
-                    alert("Error: " + data.message);
-                }
-            })
-            .catch(err => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                alert("Error de conexión.");
+    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=guardar", {
+        method: "POST", 
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            // Cerramos modal antes de mostrar éxito para evitar conflictos de Z-Index
+            cerrarModalUI('modalTipoLavado');
+
+            Swal.fire({
+                title: '¡Operación Exitosa!',
+                text: data.message || 'El tipo de lavado ha sido guardado.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listarTipos();
             });
-        });
-    }
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalTipoLavado')
+            });
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
+    });
+});
 });
 
 function listarTipos() {
@@ -97,19 +110,43 @@ function editarTipo(id) {
 
 function cambiarEstadoTipo(id, nuevo_estado) {
     let accion = nuevo_estado === 'activo' ? 'activar' : 'desactivar';
-    if(!confirm(`¿Seguro que desea ${accion} este servicio?`)) return;
+    let color = nuevo_estado === 'activo' ? '#28a745' : '#d33';
 
-    const fd = new FormData();
-    fd.append("id_tipo", id);
-    fd.append("estado", nuevo_estado);
+    Swal.fire({
+        title: `¿Desea ${accion} este servicio?`,
+        text: `El tipo de lavado aparecerá como ${nuevo_estado} en el sistema.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: color,
+        confirmButtonText: `Sí, ${accion}`,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append("id_tipo", id);
+            fd.append("estado", nuevo_estado);
 
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=cambiar_estado", {
-        method: "POST", body: fd
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) listarTipos();
-        else alert("Error al cambiar estado.");
+            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_TipoLavado.php?action=cambiar_estado", {
+                method: "POST", 
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Estado actualizado',
+                        toast: true,
+                        position: 'top-end',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    listarTipos();
+                } else {
+                    Swal.fire('Error', 'No se pudo cambiar el estado.', 'error');
+                }
+            });
+        }
     });
 }
 

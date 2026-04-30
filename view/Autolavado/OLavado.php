@@ -183,13 +183,7 @@ require("../../header.php");
             <div class="modal-content border-dark">
                 <div class="modal-body p-4" id="areaImpresionTicket">
                     <style>
-                        @media print {
-                            body * { visibility: hidden; }
-                            #areaImpresionTicket, #areaImpresionTicket * { visibility: visible; }
-                            #areaImpresionTicket { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
-                            .no-print { display: none !important; }
-                            .modal-content { border: none !important; }
-                        }
+                       
                     </style>
                     <div class="text-center mb-3">
                         <h5 class="fw-bold mb-0 text-dark">Mecánica Automotriz Díaz Pantaleón</h5>
@@ -223,6 +217,7 @@ require("../../header.php");
     </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="/Taller/Taller-Mecanica/modules/Autolavado/Scripts_Lavado.js"></script>
 </body>
 </html>

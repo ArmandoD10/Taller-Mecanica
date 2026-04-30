@@ -6,52 +6,103 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarReporte();
 
     // Guardar Plan (Mantenimiento)
-    const formPlan = document.getElementById("formPlanMembresia");
-    if (formPlan) {
-        formPlan.addEventListener("submit", function(e) {
-            e.preventDefault();
-            const btn = this.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>...';
-            btn.disabled = true;
+    // Guardar o Editar Plan de Membresía
+document.getElementById("formPlanMembresia").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    Swal.fire({
+        title: 'Guardando Plan...',
+        text: 'Configurando beneficios de membresía',
+        target: document.getElementById('modalPlanMembresia'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=guardar_plan", {
-                method: "POST", body: new FormData(this)
-            })
-            .then(res => res.json())
-            .then(data => {
-                btn.innerHTML = originalText; btn.disabled = false;
-                if (data.success) {
-                    cerrarModalManual('modalPlanMembresia');
-                    listarPlanes();
-                    cargarDependencias(); 
-                } else alert("Error: " + data.message);
-            }).catch(err => { btn.disabled = false; alert("Error de conexión."); });
-        });
-    }
+    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=guardar_plan", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            cerrarModalManual('modalPlanMembresia');
+            
+            Swal.fire({
+                title: '¡Plan Guardado!',
+                text: 'El catálogo de membresías ha sido actualizado.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listarPlanes();
+                cargarDependencias(); 
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalPlanMembresia')
+            });
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
+    });
+});
 
     // Guardar Asignación (Suscripción)
-    const formAsig = document.getElementById("formAsignarMembresia");
-    if (formAsig) {
-        formAsig.addEventListener("submit", function(e) {
-            e.preventDefault();
-            const btn = this.querySelector('button[type="submit"]');
-            btn.disabled = true;
-
-            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=asignar_membresia", {
-                method: "POST", body: new FormData(this)
-            })
-            .then(res => res.json())
-            .then(data => {
-                btn.disabled = false;
-                if (data.success) {
-                    alert(data.message);
-                    cerrarModalManual('modalAsignarMembresia');
-                    cargarReporte();
-                } else alert(data.message);
-            }).catch(err => { btn.disabled = false; alert("Error de red."); });
-        });
+    // Asignar Membresía a un Cliente
+document.getElementById("formAsignarMembresia").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    const idCliente = document.getElementById("id_cliente_asig").value;
+    if(!idCliente) {
+        Swal.fire({ title: 'Cliente Requerido', text: "Busque y seleccione un cliente registrado.", icon: 'warning', target: document.getElementById('modalAsignarMembresia') });
+        return;
     }
+
+    Swal.fire({
+        title: 'Procesando Suscripción...',
+        text: 'Activando beneficios para el cliente',
+        target: document.getElementById('modalAsignarMembresia'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=asignar_membresia", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            cerrarModalManual('modalAsignarMembresia');
+            
+            Swal.fire({
+                title: '¡Suscripción Activa!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#28a745'
+            }).then(() => {
+                cargarReporte(); // Refrescar historial de suscritos
+            });
+        } else {
+            Swal.fire({
+                title: 'Fallo en Asignación',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalAsignarMembresia')
+            });
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        Swal.fire('Error de Red', 'No se pudo completar la suscripción.', 'error');
+    });
+});
 
     // Buscador Rápido del Reporte Principal
     document.getElementById("buscadorReporte").addEventListener("keyup", function() {
@@ -184,10 +235,35 @@ function editarPlan(id) {
 }
 
 function cambiarEstadoPlan(id, estado) {
-    if(!confirm(`¿Desea cambiar el estado a ${estado}?`)) return;
-    const fd = new FormData(); fd.append("id_plan", id); fd.append("estado", estado);
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=cambiar_estado_plan", { method: "POST", body: fd })
-    .then(res => res.json()).then(data => { if(data.success) { listarPlanes(); cargarDependencias(); }});
+    const accion = estado === 'activo' ? 'activar' : 'desactivar';
+    
+    Swal.fire({
+        title: `¿Desea ${accion} este plan?`,
+        text: `Los clientes ${estado === 'activo' ? 'podrán' : 'ya no podrán'} suscribirse a este plan.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: estado === 'activo' ? '#28a745' : '#d33',
+        confirmButtonText: `Sí, ${accion}`
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData(); 
+            fd.append("id_plan", id); 
+            fd.append("estado", estado);
+
+            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=cambiar_estado_plan", { 
+                method: "POST", 
+                body: fd 
+            })
+            .then(res => res.json())
+            .then(data => { 
+                if(data.success) {
+                    Swal.fire({ icon: 'success', title: 'Estado actualizado', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+                    listarPlanes(); 
+                    cargarDependencias(); 
+                }
+            });
+        }
+    });
 }
 
 // ==== ASIGNACIÓN ====

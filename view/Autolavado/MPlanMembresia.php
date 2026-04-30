@@ -176,7 +176,7 @@ require("../../header.php");
         </div>
     </div>
 
-    <style>
+    <!-- <style>
         @media print {
             body { background-color: white !important; }
             .no-print, nav, .sidebar { display: none !important; }
@@ -186,8 +186,10 @@ require("../../header.php");
             table { width: 100% !important; border-collapse: collapse; }
             th, td { border: 1px solid #ddd !important; padding: 8px !important; }
         }
-    </style>
+    </style> -->
 </main>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="/Taller/Taller-Mecanica/modules/Autolavado/Scripts_Membresia.js"></script>
 </body>
 </html>

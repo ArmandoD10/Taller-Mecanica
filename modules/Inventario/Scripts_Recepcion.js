@@ -243,16 +243,25 @@ function confirmarRecepcion() {
     const idEmpleado = document.getElementById('id_empleado_seleccionado').value;
     const inputEmpBusqueda = document.getElementById('buscar_empleado');
     
-    // 1. Validaciones
+    // 1. Validaciones con SweetAlert2
     if (!idEmpleado) {
-        alert("⚠️ Por favor, seleccione un empleado responsable de la lista de sugerencias.");
-        inputEmpBusqueda.focus();
+        Swal.fire({
+            title: 'Empleado Requerido',
+            text: "Debe buscar y seleccionar un empleado responsable de la lista de sugerencias.",
+            icon: 'warning',
+            confirmButtonColor: '#1a73e8'
+        });
         inputEmpBusqueda.classList.add('is-invalid');
         return;
     }
 
     if (!numConduze) {
-        alert("⚠️ Por favor, ingrese el número de conduce.");
+        Swal.fire({
+            title: 'Dato Faltante',
+            text: "Por favor, ingrese el número de conduce del proveedor.",
+            icon: 'warning',
+            confirmButtonColor: '#1a73e8'
+        });
         inputConduze.focus();
         return;
     }
@@ -270,45 +279,74 @@ function confirmarRecepcion() {
     });
 
     if (items.length === 0) {
-        alert("Debe ingresar al menos una cantidad para recibir.");
+        Swal.fire('Atención', "Debe ingresar al menos una cantidad para recibir.", 'info');
         return;
     }
 
-    if (!confirm("¿Desea confirmar la entrada de mercancía?")) return;
+    // 2. Confirmación Institucional
+    Swal.fire({
+        title: '¿Confirmar Entrada?',
+        text: "Se registrará el ingreso de mercancía y se actualizará el stock en los almacenes seleccionados.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, recibir mercancía',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Indicador de carga
+            Swal.fire({
+                title: 'Procesando entrada...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
-    // 2. Preparar Payload
-    const payload = {
-        id_compra: compraActiva.id_compra,
-        num_conduze: numConduze,
-        id_empleado: idEmpleado, // Nuevo campo enviado al backend
-        items: items
-    };
+            const payload = {
+                id_compra: compraActiva.id_compra,
+                num_conduze: numConduze,
+                id_empleado: idEmpleado,
+                items: items
+            };
 
-    // 3. Envío al servidor
-    fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Recepcion.php?action=guardar_recepcion', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
-    })
-    .then(res => res.json())
-    .then(res => {
-        if (res.success) {
-            alert("✅ " + res.message);
-            location.reload(); 
-        } else {
-            alert("❌ " + res.message);
+            fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_Recepcion.php?action=guardar_recepcion', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(res => {
+                Swal.close();
+                if (res.success) {
+                    Swal.fire('¡Éxito!', res.message, 'success').then(() => {
+                        location.reload(); 
+                    });
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire('Error Crítico', 'Ocurrió un error en la comunicación con el servidor.', 'error');
+            });
         }
-    })
-    .catch(err => {
-        console.error("Error:", err);
-        alert("Ocurrió un error en la comunicación con el servidor.");
     });
 }
 
 function cerrarRecepcion() {
-    if (confirm("¿Cerrar el formulario de recepción? Los datos no guardados se perderán.")) {
-        document.getElementById('area_recepcion').classList.add('d-none');
-        compraActiva = null;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    Swal.fire({
+        title: '¿Cerrar formulario?',
+        text: "Los datos de recepción no guardados se perderán.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, cerrar',
+        cancelButtonText: 'Continuar recibiendo'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('area_recepcion').classList.add('d-none');
+            compraActiva = null;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
 }

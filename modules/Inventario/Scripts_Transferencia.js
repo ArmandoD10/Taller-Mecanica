@@ -58,17 +58,54 @@ function cargarPorDespachar() {
 
 // FUNCIONES DE ACCIÓN
 function despacharTransferencia(id) {
-    if(!confirm("¿Confirmar salida de mercancía? Se descontará del stock actual.")) return;
-    fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Transferencia.php?action=despachar&id=${id}`)
-    .then(res => res.json())
-    .then(res => res.success ? cargarTablas() : alert(res.message));
+    Swal.fire({
+        title: '¿Confirmar despacho?',
+        text: "Se descontará el stock de su sucursal y el repuesto pasará a estado 'En Tránsito'.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#1a73e8',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, despachar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Transferencia.php?action=despachar&id=${id}`)
+            .then(res => res.json())
+            .then(res => {
+                if(res.success){
+                    Swal.fire('¡Enviado!', 'La mercancía ha salido de sucursal.', 'success');
+                    cargarTablas();
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            });
+        }
+    });
 }
 
 function recibirTransferencia(id) {
-    if(!confirm("¿Ha llegado el repuesto a sucursal?")) return;
-    fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Transferencia.php?action=recibir&id=${id}`)
-    .then(res => res.json())
-    .then(res => res.success ? cargarTablas() : alert("Error al recibir"));
+    Swal.fire({
+        title: '¿Recibir mercancía?',
+        text: "¿Confirma que el repuesto ha llegado físicamente a su sucursal?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        confirmButtonText: 'Sí, recibir',
+        cancelButtonText: 'No todavía'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/Taller/Taller-Mecanica/modules/Inventario/Archivo_Transferencia.php?action=recibir&id=${id}`)
+            .then(res => res.json())
+            .then(res => {
+                if(res.success){
+                    Swal.fire('¡Recibido!', 'El stock ha sido sumado a su inventario local.', 'success');
+                    cargarTablas();
+                } else {
+                    Swal.fire('Error', 'No se pudo completar la recepción.', 'error');
+                }
+            });
+        }
+    });
 }
 
 function abrirModalSolicitud() {
@@ -198,10 +235,23 @@ function guardarSolicitud() {
     const idArticulo = window.articuloSeleccionadoId;
     const cantidad = parseInt(document.getElementById('cant_pedir').value);
 
+    // Validaciones con SweetAlert2 sobre el modal
     if (!idArticulo || sucursalesSeleccionadas.length === 0 || isNaN(cantidad) || cantidad <= 0) {
-        alert("⚠️ Por favor, seleccione al menos una sucursal y defina una cantidad válida.");
+        Swal.fire({
+            title: 'Solicitud Incompleta',
+            text: "Debe seleccionar un artículo, al menos una sucursal de origen y una cantidad válida.",
+            icon: 'warning',
+            target: document.getElementById('modalNuevaSolicitud')
+        });
         return;
     }
+
+    Swal.fire({
+        title: 'Creando Solicitud...',
+        target: document.getElementById('modalNuevaSolicitud'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
     const payload = {
         id_articulo: idArticulo,
@@ -214,27 +264,25 @@ function guardarSolicitud() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(async res => {
-        const text = await res.text();
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            // Si el servidor manda un error HTML, lo veremos aquí
-            console.error("Respuesta cruda del servidor:", text);
-            throw new Error("El servidor no devolvió JSON válido.");
-        }
-    })
+    .then(res => res.json())
     .then(res => {
+        Swal.close();
         if (res.success) {
-            alert("✅ Solicitudes de transferencia creadas correctamente.");
-            location.reload();
+            // Cerrar modal de Bootstrap
+            const modalEl = document.getElementById('modalNuevaSolicitud');
+            const modalBS = bootstrap.Modal.getInstance(modalEl);
+            if (modalBS) modalBS.hide();
+
+            Swal.fire('¡Éxito!', "Solicitudes de transferencia enviadas correctamente.", 'success').then(() => {
+                location.reload(); // Recargar para ver los nuevos pedidos
+            });
         } else {
-            alert("❌ Error: " + res.message);
+            Swal.fire({ title: 'Error', text: res.message, icon: 'error', target: document.getElementById('modalNuevaSolicitud') });
         }
     })
     .catch(err => {
-        console.error("Error en la petición:", err);
-        alert("❌ Error crítico: Revise la consola del navegador.");
+        Swal.close();
+        Swal.fire({ title: 'Fallo Crítico', text: 'Revise su conexión con el servidor.', icon: 'error', target: document.getElementById('modalNuevaSolicitud') });
     });
 }
 

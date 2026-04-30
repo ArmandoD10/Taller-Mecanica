@@ -3,90 +3,94 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarHistorialCaja();
 
     // ==========================================
-    // APERTURA DE CAJA
-    // ==========================================
-    document.getElementById("formApertura").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        const btn = document.getElementById("btnAbrir");
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando...';
-
-        const formData = new FormData(this);
-
-        fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Caja.php?action=abrir_caja', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert("✅ Caja abierta correctamente");
-                verificarEstadoCaja();
-                cargarHistorialCaja();
-            } else {
-                alert("❌ " + data.message);
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-unlock-alt me-2"></i> Abrir Caja';
-            }
-        })
-        .catch(err => {
-            alert("Error de conexión.");
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-unlock-alt me-2"></i> Abrir Caja';
-        });
+// APERTURA DE CAJA
+// ==========================================
+document.getElementById("formApertura").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById("btnAbrir");
+    
+    // Indicador de carga con SweetAlert2
+    Swal.fire({
+        title: 'Abriendo Caja...',
+        text: 'Iniciando sesión de trabajo',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
     });
 
+    const formData = new FormData(this);
+
+    fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Caja.php?action=abrir_caja', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            Swal.fire({
+                title: '¡Caja Abierta!',
+                text: 'El turno ha iniciado correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                verificarEstadoCaja();
+                cargarHistorialCaja();
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+            btn.disabled = false;
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        Swal.fire('Error de Red', 'No se pudo conectar con el servidor.', 'error');
+    });
+});
+
     // ==========================================
-    // CIERRE DE CAJA
-    // ==========================================
-    document.getElementById("formCierre").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        if(!confirm("¿Está seguro de cerrar el turno? Ya no podrá facturar hasta abrir una nueva caja.")) return;
+// CIERRE DE CAJA
+// ==========================================
+document.getElementById("formCierre").addEventListener("submit", function(e) {
+    e.preventDefault();
 
-        const btn = document.getElementById("btnCerrarTurno");
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Cerrando...';
+    Swal.fire({
+        title: '¿Finalizar Turno?',
+        text: "Al cerrar la caja se generará el reporte de cuadre y no podrá realizar más cobros hasta una nueva apertura.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, cerrar caja',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Procesando Cierre...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-        const formData = new FormData(this);
-
-        fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Caja.php?action=cerrar_caja', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                const diff = parseFloat(data.diferencia);
-                let msjCuadre = "";
-
-                if (diff === 0) {
-                    msjCuadre = "✅ CUADRE PERFECTO. La caja cerró exacta.";
-                } else if (diff > 0) {
-                    msjCuadre = `⚠️ SOBRANTE DE CAJA. Hay un sobrante de RD$ ${diff.toLocaleString(undefined, {minimumFractionDigits: 2})}.`;
+            const formData = new FormData(this);
+            fetch('/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Caja.php?action=cerrar_caja', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if (data.success) {
+                    Swal.fire('Caja Cerrada', 'El turno ha finalizado con éxito.', 'success').then(() => {
+                        verificarEstadoCaja();
+                        cargarHistorialCaja();
+                    });
                 } else {
-                    msjCuadre = `❌ FALTANTE DE CAJA. Faltan RD$ ${Math.abs(diff).toLocaleString(undefined, {minimumFractionDigits: 2})}.`;
+                    Swal.fire('Error al Cerrar', data.message, 'error');
                 }
-
-                alert(data.message + "\n\n" + msjCuadre);
-                
-                cerrarModalCierreDefinitivo();
-                verificarEstadoCaja();
-                cargarHistorialCaja();
-
-            } else {
-                alert("❌ Error al cerrar: " + data.message);
-                btn.disabled = false;
-                btn.innerHTML = 'Confirmar Cierre Definitivo';
-            }
-        })
-        .catch(err => {
-            alert("Error de conexión durante el cierre.");
-            btn.disabled = false;
-            btn.innerHTML = 'Confirmar Cierre Definitivo';
-        });
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire('Error', 'Hubo un fallo en la conexión.', 'error');
+            });
+        }
     });
+});
 });
 
 function verificarEstadoCaja() {

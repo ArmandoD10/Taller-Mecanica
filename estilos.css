@@ -318,3 +318,12 @@ input:checked + .slider:before { transform: translateX(26px); }
 .sidebar {
     z-index: 1000 !important;
 } 
+
+
+ @media print {
+                            body * { visibility: hidden; }
+                            #areaImpresionTicket, #areaImpresionTicket * { visibility: visible; }
+                            #areaImpresionTicket { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+                            .no-print { display: none !important; }
+                            .modal-content { border: none !important; }
+                        }

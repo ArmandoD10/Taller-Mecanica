@@ -2,40 +2,65 @@ document.addEventListener("DOMContentLoaded", () => {
     listarLavados();
     cargarDependenciasLavado();
 
-    const formNuevoLavado = document.getElementById("formNuevoLavado");
-    if (formNuevoLavado) {
-        formNuevoLavado.addEventListener("submit", function(e) {
-            e.preventDefault();
-            
-            const idOrden = document.getElementById("id_orden_taller").value;
-            const tipoCliente = document.querySelector('input[name="tipo_cliente_lav"]:checked').value;
-            
-            if (!idOrden) {
-                if (tipoCliente === 'registrado') {
-                    if(!document.getElementById("id_vehiculo_express").value) return alert("⚠️ Debe buscar un Vehículo Registrado.");
-                } else {
-                    if(!document.getElementById("occ_nombre_lav").value.trim() || !document.getElementById("occ_vehiculo_lav").value.trim()) return alert("⚠️ Complete los datos del cliente ocasional.");
-                }
+    document.getElementById("formNuevoLavado").addEventListener("submit", function(e) {
+    e.preventDefault();
+    
+    const tipoCliente = document.querySelector('input[name="tipo_cliente_lav"]:checked').value;
+    const idOrden = document.getElementById("id_orden_taller").value;
+
+    // 1. Validaciones preventivas con SweetAlert2
+    if (!idOrden) {
+        if (tipoCliente === 'registrado') {
+            if(!document.getElementById("id_vehiculo_express").value) {
+                Swal.fire({ title: 'Vehículo Requerido', text: "Debe buscar y seleccionar un vehículo registrado.", icon: 'warning', target: document.getElementById('modalNuevoLavado') });
+                return;
             }
-
-            const btn = this.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
-            btn.disabled = true;
-
-            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=registrar_lavado", {
-                method: "POST", body: new FormData(this)
-            })
-            .then(res => res.json())
-            .then(data => {
-                btn.innerHTML = originalText; btn.disabled = false;
-                if (data.success) {
-                    cerrarModalLavado();
-                    listarLavados();
-                } else alert("Error: " + data.message);
-            }).catch(err => { btn.innerHTML = originalText; btn.disabled = false; alert("Error de conexión."); });
-        });
+        } else {
+            if(!document.getElementById("occ_nombre_lav").value.trim() || !document.getElementById("occ_vehiculo_lav").value.trim()) {
+                Swal.fire({ title: 'Datos Incompletos', text: "Complete el nombre y vehículo del cliente ocasional.", icon: 'warning', target: document.getElementById('modalNuevoLavado') });
+                return;
+            }
+        }
     }
+
+    // 2. Indicador de carga institucional
+    Swal.fire({
+        title: 'Registrando Lavado...',
+        text: 'Generando ticket de servicio',
+        target: document.getElementById('modalNuevoLavado'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=registrar_lavado", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close();
+        if (data.success) {
+            // --- CAMBIO CLAVE: CERRAR MODAL ANTES ---
+            cerrarModalUI('modalNuevoLavado');
+
+            Swal.fire({
+                title: '¡Servicio Registrado!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                listarLavados();
+                this.reset(); // Limpiar formulario
+            });
+        } else {
+            Swal.fire({ title: 'Error', text: data.message, icon: 'error', target: document.getElementById('modalNuevoLavado') });
+        }
+    })
+    .catch(err => {
+        Swal.close();
+        Swal.fire({ title: 'Fallo de Red', text: 'No se pudo conectar con el servidor de facturación.', icon: 'error', target: document.getElementById('modalNuevoLavado') });
+    });
+});
 
     document.getElementById("id_orden_taller").addEventListener("change", function() {
         const panelDirecto = document.getElementById("panel_nuevo_lavado_directo");
@@ -115,20 +140,148 @@ function listarLavados() {
     });
 }
 
+/**
+ * Cambia el estado de un servicio de lavado (En Cola -> Lavando -> Listo)
+ * @param {number} id_lavado - ID del registro
+ * @param {string} nuevo_estado - El estado al que pasará
+ */
 function cambiarEstadoLavado(id_lavado, nuevo_estado) {
-    const fd = new FormData(); fd.append("id_lavado", id_lavado); fd.append("nuevo_estado", nuevo_estado);
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=cambiar_estado", { method: "POST", body: fd })
-    .then(res => res.json()).then(data => {
-        if(data.success) listarLavados(); else alert("Error: " + data.message);
+    const titulos = {
+        'En Proceso': '¿Iniciar lavado?',
+        'Listo': '¿Finalizar lavado?'
+    };
+    
+    const mensajes = {
+        'En Proceso': 'El vehículo entrará a pista ahora.',
+        'Listo': 'Confirme que el vehículo está limpio y listo para entrega.'
+    };
+
+    Swal.fire({
+        title: titulos[nuevo_estado] || '¿Cambiar estado?',
+        text: mensajes[nuevo_estado] || 'Se actualizará el progreso del servicio.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#1a73e8',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, actualizar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Indicador de carga rápido
+            Swal.fire({
+                title: 'Actualizando...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const fd = new FormData(); 
+            fd.append("id_lavado", id_lavado); 
+            fd.append("nuevo_estado", nuevo_estado);
+
+            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=cambiar_estado", { 
+                method: "POST", 
+                body: fd 
+            })
+            .then(res => {
+                // Verificamos si la respuesta es JSON válido
+                return res.text().then(text => {
+                    try {
+                        return JSON.parse(text);
+                    } catch (err) {
+                        console.error("Respuesta no válida del servidor:", text);
+                        throw new Error("El servidor devolvió un error interno (revise el log de PHP).");
+                    }
+                });
+            })
+            .then(data => {
+                Swal.close();
+                if(data.success) {
+                    // Notificación rápida tipo Toast
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Estado actualizado',
+                        toast: true,
+                        position: 'top-end',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    listarLavados(); // Refrescar la tabla
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.close();
+                Swal.fire('Fallo del Servidor', error.message, 'error');
+            });
+        }
     });
 }
 
+/**
+ * Procesa la facturación de un servicio de lavado directo (Express)
+ * @param {number} id_lavado - ID del servicio en pista
+ * @param {string} id_orden - Identificador de orden (normalmente 'Express')
+ */
 function facturarLavadoExpress(id_lavado, id_orden) {
-    if(!confirm("¿Generar factura y comprobante para este vehículo?")) return;
-    const fd = new FormData(); fd.append("id_lavado", id_lavado); fd.append("id_orden", id_orden);
-    fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=facturar_express", { method: "POST", body: fd })
-    .then(res => res.json()).then(data => {
-        if(data.success) { listarLavados(); abrirTicketLavado(data.id_factura); } else alert("Error: " + data.message);
+    Swal.fire({
+        title: '¿Generar Factura de Venta?',
+        text: "Se registrará el ingreso en caja y se generará el ticket con comprobante fiscal para este servicio.",
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#d33',
+        confirmButtonText: '<i class="fas fa-print me-1"></i> Sí, Facturar y Cobrar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Pantalla de bloqueo mientras el servidor genera el NCF y el PDF
+            Swal.fire({
+                title: 'Procesando Venta...',
+                text: 'Generando comprobante fiscal...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const fd = new FormData(); 
+            fd.append("id_lavado", id_lavado); 
+            fd.append("id_orden", id_orden);
+
+            fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=facturar_express", { 
+                method: "POST", 
+                body: fd 
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close(); // Cerramos el cargando
+                
+                if (data.success) {
+                    // Notificación de éxito antes de abrir el ticket
+                    Swal.fire({
+                        title: '¡Factura Generada!',
+                        text: 'La venta se registró correctamente en el sistema.',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    listarLavados(); // Refrescamos la pista de lavado
+                    abrirTicketLavado(data.id_factura); // Mostramos el ticket para imprimir
+                } else {
+                    Swal.fire({
+                        title: 'Error de Facturación',
+                        text: data.message,
+                        icon: 'error'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.close();
+                console.error("Error al facturar:", error);
+                Swal.fire('Error Crítico', 'No se pudo conectar con el módulo de facturación.', 'error');
+            });
+        }
     });
 }
 

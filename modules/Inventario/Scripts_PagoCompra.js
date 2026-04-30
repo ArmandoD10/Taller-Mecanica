@@ -78,35 +78,56 @@ document.addEventListener("DOMContentLoaded", () => {
     // GUARDAR EL PAGO
     // ==========================================
     document.getElementById("formPago").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        const btnGuardar = document.getElementById("btnGuardar");
-        btnGuardar.disabled = true; 
-        btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando Pago...';
+    e.preventDefault();
+    
+    // Indicador de carga con SweetAlert2
+    Swal.fire({
+        title: 'Procesando Pago...',
+        text: 'Registrando la transacción en contabilidad',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=guardar", {
-            method: "POST", 
-            body: new FormData(this)
-        })
-        .then(res => res.json())
-        .then(data => {
-            btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Procesar Pago';
+    fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=guardar", {
+        method: "POST", 
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        Swal.close(); // Cerramos el loading
+        
+        if (data.success) { 
+            // Cerramos el modal de Bootstrap antes para evitar conflictos de Z-Index
+            cerrarModalUI('modalPago'); 
             
-            if (data.success) { 
-                cerrarModalUI('modalPago'); 
-                listar(); 
-                alert(data.message); 
-            } else { 
-                alert(data.message); 
-            }
-        })
-        .catch(error => {
-            console.error("Error al registrar el pago:", error);
-            btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Procesar Pago';
+            Swal.fire({
+                title: '¡Pago Exitoso!',
+                text: data.message,
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => { 
+                listar(); // Recargamos la tabla de pagos realizados
+            });
+        } else { 
+            Swal.fire({
+                title: 'Error en Pago',
+                text: data.message,
+                icon: 'error',
+                target: document.getElementById('modalPago') // Lo mostramos sobre el modal
+            });
+        }
+    })
+    .catch(error => {
+        Swal.close();
+        console.error("Error:", error);
+        Swal.fire({
+            title: 'Fallo de Red',
+            text: 'No se pudo registrar el pago. Verifique su conexión.',
+            icon: 'error',
+            target: document.getElementById('modalPago')
         });
     });
+});
 
     // ==========================================
     // EVENTO PARA CERRAR EL MODAL PRINCIPAL
@@ -273,28 +294,42 @@ function nuevoPago() {
 }
 
 function anular(id_pago) {
-    if (confirm("ATENCIÓN: Solo los administradores pueden realizar esta acción.\n\n¿Está seguro que desea ANULAR este pago? El dinero volverá a aparecer como deuda pendiente en la Orden de Compra.")) {
-        const f = new FormData(); 
-        f.append("id_pago_compra", id_pago);
-        
-        fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=anular", { 
-            method: "POST", 
-            body: f 
-        })
-        .then(res => res.json())
-        .then(data => { 
-            if(data.success) {
-                alert(data.message); 
-                listar(); 
-            } else {
-                // Si el PHP devuelve error de roles
-                alert("❌ " + data.message);
-            }
-        })
-        .catch(error => {
-            console.error("Error al anular el pago:", error);
-        });
-    }
+    Swal.fire({
+        title: '¿Anular este pago?',
+        text: "ATENCIÓN: Solo los administradores pueden realizar esta acción. El dinero volverá a aparecer como deuda pendiente en la Orden de Compra.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, anular pago',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Anulando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            const f = new FormData(); 
+            f.append("id_pago_compra", id_pago);
+            
+            fetch("/Taller/Taller-Mecanica/modules/Inventario/Archivo_PagoCompra.php?action=anular", { 
+                method: "POST", 
+                body: f 
+            })
+            .then(res => res.json())
+            .then(data => { 
+                Swal.close();
+                if(data.success) {
+                    Swal.fire('¡Anulado!', data.message, 'success');
+                    listar(); 
+                } else {
+                    Swal.fire('Acceso Denegado', data.message, 'error');
+                }
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire('Error', 'No se pudo procesar la anulación.', 'error');
+            });
+        }
+    });
 }
 
 // ==========================================

@@ -145,6 +145,7 @@ require("../../header.php");
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Facturacion/Scripts_Caja.js"></script>
 </body>

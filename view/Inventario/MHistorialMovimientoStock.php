@@ -16,10 +16,15 @@
                         <input type="date" id="f_fin" class="form-control">
                     </div>
                     <div class="col-md-4">
-                        <button class="btn btn-primary w-100 fw-bold" onclick="cargarHistorialStock()">
-                            <i class="fas fa-search me-2"></i>APLICAR FILTRO
-                        </button>
-                    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary flex-grow-1 fw-bold" onclick="cargarHistorialStock()">
+            <i class="fas fa-search me-2"></i>APLICAR FILTRO
+        </button>
+        <button class="btn btn-outline-secondary fw-bold" onclick="location.reload()" title="Recargar página">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
+</div>
                 </div>
             </div>
         </div>

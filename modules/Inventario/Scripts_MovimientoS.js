@@ -101,7 +101,16 @@ function seleccionarSucursal(id, nombre) {
     document.getElementById('buscar_sucursal').classList.add('d-none');
     document.getElementById('res_sucursales').classList.add('d-none');
     
-    // Habilitar y cargar almacenes de esa sucursal
+    // Notificación tipo Toast rápida
+    Swal.fire({
+        icon: 'success',
+        title: `Sucursal ${nombre} seleccionada`,
+        toast: true,
+        position: 'top-end',
+        timer: 2000,
+        showConfirmButton: false
+    });
+
     const selAlmacen = document.getElementById('m_almacen');
     selAlmacen.disabled = false;
     cargarAlmacenesDestino(id);
@@ -207,35 +216,36 @@ function abrirModalUbicar(item) {
 
 // Al confirmar la ubicación, incluimos el id_compra en el envío
 function confirmarUbicacion() {
-    // 1. Capturar los valores del modal
     const cant = parseInt(document.getElementById('m_cant').value);
     const idGondola = document.getElementById('m_gondola').value;
     const nivel = document.getElementById('m_nivel').value;
     const idSucursalDestino = document.getElementById('id_sucursal_dest').value;
 
-    // 2. Validaciones básicas de seguridad
+    // Validaciones con SweetAlert2 sobre el modal
     if (!idSucursalDestino) {
-        alert("⚠️ Por favor, busque y seleccione una sucursal de destino.");
+        Swal.fire({ title: 'Atención', text: "Debe buscar y seleccionar una sucursal de destino.", icon: 'warning', target: document.getElementById('modalUbicar') });
         return;
     }
 
-    if (!idGondola) {
-        alert("⚠️ Debe seleccionar una góndola y nivel de destino.");
+    if (!idGondola || !nivel) {
+        Swal.fire({ title: 'Ubicación Incompleta', text: "Seleccione la góndola y el nivel del tramo.", icon: 'warning', target: document.getElementById('modalUbicar') });
         return;
     }
 
-    if (isNaN(cant) || cant <= 0) {
-        alert("⚠️ Ingrese una cantidad válida mayor a cero.");
+    if (isNaN(cant) || cant <= 0 || cant > itemParaUbicar.cantidad_recibida) {
+        Swal.fire({ title: 'Cantidad Inválida', text: `Ingrese un número entre 1 y ${itemParaUbicar.cantidad_recibida}.`, icon: 'error', target: document.getElementById('modalUbicar') });
         return;
     }
 
-    if (cant > itemParaUbicar.cantidad_recibida) {
-        alert("❌ No puede ubicar más de lo que hay pendiente (" + itemParaUbicar.cantidad_recibida + ").");
-        return;
-    }
+    // Indicador de carga
+    Swal.fire({
+        title: 'Procesando...',
+        text: 'Actualizando ubicación en el inventario',
+        target: document.getElementById('modalUbicar'),
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-    // 3. Preparar el paquete de datos (Payload)
-    // Incluimos id_compra para evitar el error de Foreign Key
     const payload = {
         id_articulo: itemParaUbicar.id_articulo,
         id_compra: itemParaUbicar.id_compra, 
@@ -244,7 +254,6 @@ function confirmarUbicacion() {
         nivel: nivel
     };
 
-    // 4. Envío al servidor
     fetch('/Taller/Taller-Mecanica/modules/Inventario/Archivo_MovimientoS.php?action=procesar_ubicacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -252,28 +261,27 @@ function confirmarUbicacion() {
     })
     .then(res => res.json())
     .then(res => {
+        Swal.close();
         if (res.success) {
-            alert("✅ Ubicación física actualizada correctamente.");
-
-            // 5. CERRAR EL MODAL
-            // Usamos la API de Bootstrap para cerrar el modal suavemente
+            // Cerramos modal de Bootstrap
             const modalElement = document.getElementById('modalUbicar');
             const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.hide();
-            }
+            if (modalInstance) modalInstance.hide();
 
-            // 6. REFRESCAR LA TABLA DE PENDIENTES
-            // Esto hará que la cantidad baje de 15 a 10 (o desaparezca si es 0)
-            cargarPendientesRecepcion(); 
-
+            Swal.fire({
+                title: '¡Ubicado!',
+                text: "El stock ha sido asignado a su nueva posición física.",
+                icon: 'success',
+                confirmButtonColor: '#1a73e8'
+            }).then(() => {
+                cargarPendientesRecepcion(); // Recargar tabla
+            });
         } else {
-            // Si el PHP devuelve un error (como el de la llave foránea)
-            alert("❌ Error del servidor: " + res.message);
+            Swal.fire({ title: 'Error', text: res.message, icon: 'error', target: document.getElementById('modalUbicar') });
         }
     })
     .catch(err => {
-        console.error("Error en la petición:", err);
-        alert("❌ No se pudo conectar con el servidor.");
+        Swal.close();
+        Swal.fire({ title: 'Error de Red', text: 'No se pudo conectar con el servidor.', icon: 'error', target: document.getElementById('modalUbicar') });
     });
 }

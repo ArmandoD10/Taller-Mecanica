@@ -543,6 +543,12 @@ for($i = 6; $i >= 0; $i--) {
             <?php if (in_array("Impuestos", $modulos)) : ?>
             <a href="/Taller/Taller-Mecanica/view/Submodulos/impuestos.php"><i class="fas fa-file-invoice-dollar"></i> Impuestos</a>
             <?php endif; ?>
+            <?php if (in_array("Maestro Empleado", $modulos)) : ?>
+            <a href="/Taller/Taller-Mecanica/view/Submodulos/maestro.php"><i class="fas fa-user-friends"></i> M. Empleado</a>
+            <?php endif; ?>
+            <?php if (in_array("Directorio DP", $modulos)) : ?>
+            <a href="/Taller/Taller-Mecanica/view/Submodulos/directorio.php"><i class="fas fa-address-book"></i> Directorio DP</a>
+            <?php endif; ?>
         </div>
     </div>
 

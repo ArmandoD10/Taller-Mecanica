@@ -327,3 +327,51 @@ input:checked + .slider:before { transform: translateX(26px); }
                             .no-print { display: none !important; }
                             .modal-content { border: none !important; }
                         }
+
+
+/* Ajustes para que el texto se pinte con más autoridad */
+.hoja-blanca {
+    background: white;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 30mm 25mm; /* Más margen superior para elegancia */
+    margin: 10px auto;
+    font-family: 'Times New Roman', Times, serif; /* Fuente clásica legal */
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    position: relative;
+    color: #000;
+}
+
+#preview_contenido {
+    font-size: 13pt; /* Letras más grandes */
+    font-weight: 500; /* Más contorno (un poco más que normal) */
+    line-height: 1.6; /* Espaciado entre líneas más profesional */
+    text-align: justify; /* Justificado legal automático */
+    white-space: pre-wrap; /* Mantiene saltos de línea y espacios */
+    color: #1a1a1a;
+}
+
+.header-doc h5 {
+    font-size: 18pt;
+    letter-spacing: 1px;
+    color: #000;
+}
+
+.card-a4-preview {
+    aspect-ratio: 210 / 297;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.card-a4-preview:hover {
+    transform: scale(1.02);
+    border: 1px solid #1a73e8;
+}
+
+#titulo_dinamico_hoja {
+    margin-top: 20px;
+    margin-bottom: 40px;
+    color: #000;
+    font-family: 'Times New Roman', serif;
+    letter-spacing: 2px; /* Un poco de separación para elegancia */
+}

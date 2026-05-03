@@ -222,6 +222,55 @@ require("../../header.php");
     </div>
 </div>
 
+<!-- Copia este modal al final de tu archivo factura_pos.php -->
+<div class="modal fade" id="modalAcuerdoPagoPOS" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-handshake me-2"></i> Plan de Pago (Venta POS)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Monto a Financiar</label>
+                        <input type="text" id="total_acuerdo_pos" class="form-control fw-bold text-primary" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Cantidad de Pagos</label>
+                        <select id="cant_cuotas_pos" class="form-select" onchange="generarCronogramaPOS()">
+                            <option value="1">1 Pago Único</option>
+                            <option value="2">2 Pagos</option>
+                            <option value="3">3 Pagos</option>
+                            <option value="4">4 Pagos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small fw-bold">Días de frecuencia</label>
+                        <input type="number" id="frecuencia_pos" class="form-control" value="15" onchange="generarCronogramaPOS()">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Cuota</th>
+                                <th>Monto sugerido</th>
+                                <th>Fecha de Vencimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista_cuotas_pos"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold" onclick="confirmarAcuerdoPOS()">Guardar Plan de Cuotas</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/Taller/Taller-Mecanica/modules/Facturacion/Scripts_Factura.js"></script>

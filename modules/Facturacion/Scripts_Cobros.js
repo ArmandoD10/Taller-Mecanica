@@ -160,16 +160,22 @@ function cerrarModalDetalle() {
 // ==========================================
 function abrirModalCobro(id_factura, id_credito, restante, cliente) {
     document.getElementById("formCobro").reset();
+    document.getElementById("id_cuota_seleccionada").value = ""; // Limpiar cuota previa
     
     document.getElementById("cobro_id_factura").value = id_factura;
     document.getElementById("cobro_id_credito").value = id_credito;
     document.getElementById("cobro_maximo").value = restante;
+    document.getElementById("monto_pago").readOnly = false;
     
     document.getElementById("lbl_cobro_factura").innerText = "FAC-" + id_factura;
     document.getElementById("lbl_cobro_cliente").innerText = cliente;
     document.getElementById("lbl_balance_pendiente").innerText = "RD$ " + parseFloat(restante).toLocaleString(undefined, {minimumFractionDigits:2});
     
     verificarMetodo();
+    
+    // NUEVO: Intentar cargar cuotas si existen[cite: 21]
+    cargarCuotasFactura(id_factura);
+    
     abrirModalUI('modalCobro');
 }
 
@@ -319,4 +325,47 @@ function cerrarModalUI(id) {
             document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
         }
     }
+}
+
+function cargarCuotasFactura(id_factura) {
+    const lista = document.getElementById("lista_cuotas_pago");
+    const contenedor = document.getElementById("contenedor_cuotas_pendientes");
+    const inputIdCuota = document.getElementById("id_cuota_seleccionada");
+    
+    // Resetear estado
+    inputIdCuota.value = "";
+    lista.innerHTML = '<div class="p-3 text-center small text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Buscando acuerdos de pago...</div>';
+    
+    fetch(`../../modules/Facturacion/Archivo_Cobros.php?action=listar_cuotas&id_factura=${id_factura}`)
+    .then(res => res.json())
+    .then(res => {
+        if(res.success && res.data.length > 0) {
+            contenedor.classList.remove("d-none");
+            lista.innerHTML = res.data.map(c => `
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2" 
+                        onclick="seleccionarCuotaParaPago(this, ${c.id_cuota}, ${c.monto_cuota})">
+                    <div>
+                        <div class="fw-bold text-dark">Cuota #${c.numero_cuota}</div>
+                        <small class="text-muted"><i class="far fa-clock me-1"></i>Vence: ${c.fecha_vencimiento}</small>
+                    </div>
+                    <span class="badge bg-primary fs-6 shadow-sm">RD$ ${parseFloat(c.monto_cuota).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                </button>
+            `).join('');
+        } else {
+            contenedor.classList.add("d-none");
+        }
+    });
+}
+
+function seleccionarCuotaParaPago(btn, id, monto) {
+    // Quitar clase activa de otros
+    document.querySelectorAll('#lista_cuotas_pago .list-group-item').forEach(el => el.classList.remove('active', 'bg-primary', 'text-white'));
+    
+    // Marcar este como activo
+    btn.classList.add('active');
+    
+    document.getElementById("id_cuota_seleccionada").value = id;
+    document.getElementById("monto_pago").value = monto;
+    document.getElementById("check_saldar").checked = false;
+    document.getElementById("monto_pago").readOnly = true; // Bloquear para que pague el monto exacto de la cuota
 }

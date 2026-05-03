@@ -70,6 +70,19 @@ require("../../header.php");
                                 <span class="fw-bold text-dark" id="lbl_cobro_cliente">---</span>
                             </div>
                         </div>
+                        <!-- Insertar dentro del formCobro en el modal de MCobros.php -->
+<div id="contenedor_cuotas_pendientes" class="mb-4 d-none">
+    <label class="fw-bold small mb-2 text-primary">
+        <i class="fas fa-calendar-alt me-1"></i> SELECCIONE LA CUOTA A PAGAR:
+    </label>
+    <div class="list-group shadow-sm border" id="lista_cuotas_pago" style="max-height: 180px; overflow-y: auto; border-radius: 8px;">
+        <!-- Se llena con JS -->
+    </div>
+    <input type="hidden" id="id_cuota_seleccionada" name="id_cuota">
+    <div class="form-text text-muted small mt-1">
+        <i class="fas fa-info-circle me-1"></i> Al seleccionar una cuota, el monto se ajustará automáticamente.
+    </div>
+</div>
 
                         <div class="mb-4">
                             <label class="fw-bold small mb-1 text-dark">Monto a Pagar o Abonar</label>

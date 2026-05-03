@@ -310,24 +310,29 @@ function calcularTotales() {
 function toggleModoCredito(checked) {
     const contenedor = document.getElementById("contenedor_cliente");
     const selectPago = document.getElementById("metodo_pago");
-    
+    const totalTxt = document.getElementById("total_final_valor").innerText;
+
     if (checked) {
+        if (listaItemsFactura.length === 0) {
+            Swal.fire("Atención", "Añada productos antes de habilitar crédito.", "warning");
+            document.getElementById("switch_credito").checked = false;
+            return;
+        }
+        
         contenedor.classList.remove("d-none");
         selectPago.value = "1"; 
         selectPago.disabled = true;
         document.getElementById("panel_efectivo").classList.add("d-none");
+
+        // Abrir Modal de Acuerdo[cite: 11]
+        document.getElementById('total_acuerdo_pos').value = totalTxt;
+        const myModal = new bootstrap.Modal(document.getElementById('modalAcuerdoPagoPOS'));
+        myModal.show();
+        generarCronogramaPOS();
     } else {
         contenedor.classList.add("d-none");
         selectPago.disabled = false;
-        if(selectPago.value === "1") {
-            document.getElementById("panel_efectivo").classList.remove("d-none");
-            calcularCambio();
-        }
-        if (!cotizacionVinculadaID) { 
-            clienteSeleccionado = null;
-            document.getElementById("info_credito_cliente").classList.add("d-none");
-            document.getElementById("buscar_cliente").value = "";
-        }
+        window.acuerdoPagoPOSGlobal = null;
     }
 }
 
@@ -537,8 +542,12 @@ function simularAzul() {
 }
 
 function guardarFacturaFinal(refAzul, esCredito) {
+    // 1. Obtenemos el total de la factura limpiando el texto "RD$" y las comas
     const totalNum = parseFloat(document.getElementById("total_final_valor").innerText.replace("RD$ ", "").replace(/,/g, ""));
-    const recibido = document.getElementById("efectivo_recibido") ? parseFloat(document.getElementById("efectivo_recibido").value) || 0 : 0;
+    
+    // 2. CAPTURA CORRECTA: Leemos el valor del input de efectivo
+    const inputEfectivo = document.getElementById("efectivo_recibido");
+    const recibido = inputEfectivo ? parseFloat(inputEfectivo.value) || 0 : 0;
 
     const data = {
         id_cotizacion: cotizacionVinculadaID,
@@ -551,9 +560,16 @@ function guardarFacturaFinal(refAzul, esCredito) {
         referencia_azul: refAzul,
         es_credito: esCredito,
         id_credito: clienteSeleccionado ? clienteSeleccionado.id_credito : null,
+        acuerdo_pago: esCredito ? window.acuerdoPagoPOSGlobal : null,
         ofertas_aplicadas: ofertasSeleccionadasParaFactura,
-        efectivo_recibido: recibido
+        // Enviamos el monto recibido al servidor
+        efectivo_recibido: recibido 
     };
+
+    // Validación de seguridad para crédito
+    if (esCredito && (!data.acuerdo_pago || data.acuerdo_pago.length === 0)) {
+        return Swal.fire("Atención", "Debe confirmar el plan de cuotas para ventas a crédito.", "warning");
+    }
 
     fetch("/Taller/Taller-Mecanica/modules/Facturacion/Archivo_Factura.php?action=guardar_factura_pos", {
         method: "POST",
@@ -563,18 +579,15 @@ function guardarFacturaFinal(refAzul, esCredito) {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            Swal.fire({
-                title: '¡Factura Procesada!',
-                text: 'La operación se guardó correctamente.',
-                icon: 'success',
-                confirmButtonColor: '#198754'
-            }).then(() => {
-                imprimirFacturaVoucher(res.id_factura, data);
+            Swal.fire("¡Éxito!", "Factura procesada correctamente.", "success").then(() => {
+                location.reload(); 
             });
         } else {
-            Swal.fire("ERROR CRÍTICO", res.message, "error");
+            // Aquí es donde te salía el mensaje de "monto insuficiente"
+            Swal.fire("Error", res.message, "error");
         }
-    });
+    })
+    .catch(err => Swal.fire("Error", "Error de conexión con el servidor.", "error"));
 }
 
 // === NUEVA FUNCIÓN DE IMPRESIÓN POR IFRAME ===
@@ -788,4 +801,50 @@ function agregarRegaloAlCarrito(id, nombre) {
         });
         actualizarInterfaz();
     }
+}
+
+// Variable global para el plan de cuotas[cite: 11]
+window.acuerdoPagoPOSGlobal = null;
+
+function generarCronogramaPOS() {
+    // Obtiene el total desde la interfaz[cite: 11, 13]
+    const totalStr = document.getElementById("total_final_valor").innerText.replace("RD$ ", "").replace(/,/g, "");
+    const total = parseFloat(totalStr);
+    const cuotas = parseInt(document.getElementById('cant_cuotas_pos').value) || 1;
+    const dias = parseInt(document.getElementById('frecuencia_pos').value) || 15;
+    const tbody = document.getElementById('lista_cuotas_pos');
+    
+    tbody.innerHTML = '';
+    const montoIndividual = (total / cuotas).toFixed(2);
+    let fechaBase = new Date();
+
+    for (let i = 1; i <= cuotas; i++) {
+        fechaBase.setDate(fechaBase.getDate() + dias);
+        const fechaISO = fechaBase.toISOString().split('T')[0];
+
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold text-primary">${i}</td>
+                <td><input type="number" class="form-control form-control-sm cuota-monto" value="${montoIndividual}"></td>
+                <td><input type="date" class="form-control form-control-sm cuota-fecha" value="${fechaISO}"></td>
+            </tr>`;
+    }
+}
+
+function confirmarAcuerdoPOS() {
+    const montos = document.querySelectorAll('.cuota-monto');
+    const fechas = document.querySelectorAll('.cuota-fecha');
+    
+    const cuotasArray = [];
+    montos.forEach((m, i) => {
+        cuotasArray.push({
+            nro: i + 1,
+            monto: parseFloat(m.value),
+            fecha: fechas[i].value
+        });
+    });
+
+    window.acuerdoPagoPOSGlobal = cuotasArray; // Guarda el plan en memoria[cite: 11]
+    bootstrap.Modal.getInstance(document.getElementById('modalAcuerdoPagoPOS')).hide();
+    Swal.fire("Plan de Pago", "Cronograma de cuotas generado correctamente.", "success");
 }

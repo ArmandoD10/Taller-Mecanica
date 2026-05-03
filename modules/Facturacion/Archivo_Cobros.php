@@ -10,6 +10,15 @@ switch ($action) {
     case 'listar_pendientes':
         listar_pendientes($conexion);
         break;
+    case 'listar_cuotas':
+    $id_factura = (int)$_GET['id_factura'];
+    $sql = "SELECT id_cuota, numero_cuota, monto_cuota, DATE_FORMAT(fecha_programada, '%d/%m/%Y') as fecha_vencimiento 
+            FROM Acuerdo_Pago_Cuotas 
+            WHERE id_factura = $id_factura AND estado_cuota = 'Pendiente' AND estado = 'activo'
+            ORDER BY numero_cuota ASC";
+    $res = $conexion->query($sql);
+    echo json_encode(['success' => true, 'data' => $res ? $res->fetch_all(MYSQLI_ASSOC) : []]);
+    break;
     case 'procesar_pago':
         procesar_pago($conexion, $id_usuario);
         break;
@@ -53,9 +62,11 @@ function listar_pendientes($conexion) {
     }
 }
 
+// --- REEMPLAZAR FUNCIÓN COMPLETA ---
 function procesar_pago($conexion, $id_usuario) {
     $id_factura = (int)$_POST['id_factura'];
     $id_credito = (int)$_POST['id_credito'];
+    $id_cuota = !empty($_POST['id_cuota']) ? (int)$_POST['id_cuota'] : null; // NUEVO[cite: 21]
     $monto_pago = (float)$_POST['monto_pago'];
     $metodo_pago = $_POST['metodo_pago'];
     $referencia = $_POST['referencia'] ?? 'N/A';
@@ -67,12 +78,22 @@ function procesar_pago($conexion, $id_usuario) {
     $conexion->begin_transaction();
 
     try {
+        // 1. Insertar el Abono General
         $sqlAbono = "INSERT INTO Abono_Factura (id_factura, monto, metodo_pago, referencia, usuario_creacion) VALUES (?, ?, ?, ?, ?)";
         $stmtA = $conexion->prepare($sqlAbono);
         $stmtA->bind_param("idssi", $id_factura, $monto_pago, $metodo_pago, $referencia, $id_usuario);
         $stmtA->execute();
         $id_abono = $conexion->insert_id;
 
+        // 2. Si es pago de una cuota específica, marcarla como Pagada[cite: 21]
+        if ($id_cuota) {
+            $sqlUpdCuota = "UPDATE Acuerdo_Pago_Cuotas SET estado_cuota = 'Pagada' WHERE id_cuota = ?";
+            $stmtQ = $conexion->prepare($sqlUpdCuota);
+            $stmtQ->bind_param("i", $id_cuota);
+            $stmtQ->execute();
+        }
+
+        // 3. Restaurar balance en la tabla Credito
         $sqlCredito = "UPDATE Credito 
                        SET saldo_disponible = saldo_disponible + ?, 
                            saldo_pendiente = saldo_pendiente - ? 
@@ -81,18 +102,19 @@ function procesar_pago($conexion, $id_usuario) {
         $stmtC->bind_param("ddi", $monto_pago, $monto_pago, $id_credito);
         $stmtC->execute();
 
+        // 4. Verificar si la factura se liquidó por completo[cite: 22]
         $sqlCheck = "SELECT f.monto_total, IFNULL(SUM(a.monto), 0) AS pagado 
                      FROM Factura_Central f 
                      LEFT JOIN Abono_Factura a ON f.id_factura = a.id_factura AND a.estado = 'activo'
                      WHERE f.id_factura = $id_factura";
         $resCheck = $conexion->query($sqlCheck)->fetch_assoc();
         
-        if (($resCheck['monto_total'] - $resCheck['pagado']) <= 0.01) {
+        if (($resCheck['monto_total'] - $resCheck['pagado']) <= 0.05) { // Margen pequeño para centavos
             $conexion->query("UPDATE Factura_Central SET estado_pago = 'Pagado' WHERE id_factura = $id_factura");
         }
 
         $conexion->commit();
-        echo json_encode(['success' => true, 'id_abono' => $id_abono, 'message' => 'Pago procesado y crédito restaurado.']);
+        echo json_encode(['success' => true, 'id_abono' => $id_abono, 'message' => 'Pago procesado exitosamente.']);
 
     } catch (Exception $e) {
         $conexion->rollback();

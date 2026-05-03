@@ -184,16 +184,16 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
     $conexion->begin_transaction();
 
     try {
-        // === 0. VERIFICACIÓN CRÍTICA: ¿HAY CAJA ABIERTA? ===
+        // === 0. VERIFICACIÓN DE CAJA ABIERTA ===
         $sqlCaja = "SELECT id_sesion FROM caja_sesion WHERE id_sucursal = ? AND estado = 'Abierta' LIMIT 1";
         $stmtCaja = $conexion->prepare($sqlCaja);
         $stmtCaja->bind_param("i", $id_sucursal);
         $stmtCaja->execute();
         if ($stmtCaja->get_result()->num_rows === 0) {
-            throw new Exception("Operación denegada. No existe una caja abierta en esta sucursal. Por favor, aperture su turno en el módulo de Gestión de Caja.");
+            throw new Exception("Operación denegada. No existe una caja abierta en esta sucursal.");
         }
 
-        // --- NUEVO: VALIDACIÓN DE EFECTIVO ---
+        // === 1. VALIDACIÓN DE CRÉDITO Y EFECTIVO ===
         $es_credito = $data['es_credito'] ?? false;
         $metodo_pago = $data['metodo_pago'] ?? null;
         $total_final = (float)($data['total_final'] ?? 0);
@@ -201,11 +201,10 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
 
         if (!$es_credito && $metodo_pago == 1) { // 1 es Efectivo
             if ($efectivo_recibido < $total_final) {
-                throw new Exception("El monto en efectivo recibido (RD$ {$efectivo_recibido}) es insuficiente para cubrir la factura (RD$ {$total_final}).");
+                throw new Exception("El monto recibido es insuficiente para cubrir la factura.");
             }
         }
 
-        // 1. VALIDACIÓN DE CRÉDITO (Si aplica)
         if ($es_credito) {
             $sqlC = "SELECT saldo_disponible FROM Credito WHERE id_credito = ? FOR UPDATE";
             $stmtC = $conexion->prepare($sqlC);
@@ -218,7 +217,7 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             }
         }
 
-        // 2. INSERCIÓN DE CABECERA DE FACTURA
+        // === 2. INSERCIÓN DE CABECERA DE FACTURA ===[cite: 12]
         $sqlF = "INSERT INTO Factura_Central (id_cliente, id_sucursal, id_metodo, id_moneda, NCF, monto_total, referencia_azul, estado_pago, usuario_creacion, estado) 
                  VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'activo')";
         $id_cliente = $data['id_cliente'] ?? null;
@@ -229,24 +228,15 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         $stmtF->execute();
         $id_factura = $conexion->insert_id;
 
-        // GUARDAR OFERTAS
-        if (!empty($data['ofertas_aplicadas'])) {
-            $ofertas_unicas = array_unique($data['ofertas_aplicadas']);
-            foreach ($ofertas_unicas as $id_o) {
-                $sqlO = "INSERT IGNORE INTO Oferta_Factura (id_factura, id_oferta, estado) VALUES (?, ?, 'activo')";
-                $stmtO = $conexion->prepare($sqlO);
-                $stmtO->bind_param("ii", $id_factura, $id_o);
-                $stmtO->execute();
-            }
-        }
-
-        // 4. ACTUALIZACIÓN DE SALDOS DE CRÉDITO
+        // === 3. LÓGICA DE CRÉDITO Y ACUERDO DE PAGO ===[cite: 10, 12]
         if ($es_credito) {
+            // Relación Factura-Crédito[cite: 12]
             $sqlFC = "INSERT INTO Factura_Credito (id_credito, id_factura, estado) VALUES (?, ?, 'activo')";
             $stmtFC = $conexion->prepare($sqlFC);
             $stmtFC->bind_param("ii", $data['id_credito'], $id_factura);
             $stmtFC->execute();
 
+            // Actualización de saldos[cite: 12]
             $sqlUpdC = "UPDATE Credito 
                         SET saldo_disponible = saldo_disponible - ?, 
                             saldo_pendiente = saldo_pendiente + ? 
@@ -254,16 +244,35 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtUpdC = $conexion->prepare($sqlUpdC);
             $stmtUpdC->bind_param("ddi", $total_final, $total_final, $data['id_credito']);
             $stmtUpdC->execute();
+
+            // Inserción de cuotas del Acuerdo de Pago[cite: 10]
+            if (!empty($data['acuerdo_pago'])) {
+                $sqlCuota = "INSERT INTO Acuerdo_Pago_Cuotas (id_factura, numero_cuota, monto_cuota, fecha_programada, usuario_creacion) 
+                             VALUES (?, ?, ?, ?, ?)";
+                $stmtCuota = $conexion->prepare($sqlCuota);
+                foreach ($data['acuerdo_pago'] as $cuota) {
+                    $stmtCuota->bind_param("iidsi", 
+                        $id_factura, 
+                        $cuota['nro'], 
+                        $cuota['monto'], 
+                        $cuota['fecha'], 
+                        $id_usuario
+                    );
+                    $stmtCuota->execute();
+                }
+            }
         }
 
-        // 5. DETALLE DE PRODUCTOS E INVENTARIO
+        // === 4. DETALLE DE PRODUCTOS, INVENTARIO Y MOVIMIENTOS ===[cite: 12]
         foreach ($data['items'] as $item) {
+            // Insertar Detalle[cite: 12]
             $sqlD = "INSERT INTO Detalle_Factura (id_factura, id_articulo, cantidad, precio, subtotal) VALUES (?, ?, ?, ?, ?)";
             $sub = $item['precio'] * $item['cantidad'];
             $stmtD = $conexion->prepare($sqlD);
             $stmtD->bind_param("iiidd", $id_factura, $item['id'], $item['cantidad'], $item['precio'], $sub);
             $stmtD->execute();
 
+            // Descontar Stock por Sucursal[cite: 12]
             $sqlU = "UPDATE Inventario i 
                      INNER JOIN Gondola g ON i.id_gondola = g.id_gondola 
                      INNER JOIN Almacen a ON g.id_almacen = a.id_almacen 
@@ -273,28 +282,26 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
             $stmtU->bind_param("iii", $item['cantidad'], $item['id'], $id_sucursal);
             $stmtU->execute();
 
+            // Registrar Movimiento de Salida[cite: 12]
             $motivo = "Venta POS #" . $id_factura;
             $sqlMov = "INSERT INTO Movimiento_Inventario (id_articulo, id_tipo_m, cantidad, motivo, fecha_creacion, estado, usuario_creacion) 
-                       VALUES (?, 2, ?, ?, NOW(), 'activo', ?)";
+                       VALUES (?, 2, ?, ?, NOW(), 'activo', ?)"; // Tipo 2 = Salida[cite: 12]
             $stmtM = $conexion->prepare($sqlMov);
             $stmtM->bind_param("iisi", $item['id'], $item['cantidad'], $motivo, $id_usuario);
             $stmtM->execute();
         }
 
-        // 6. GUARDAR IMPUESTOS APLICADOS
+        // === 5. IMPUESTOS Y OFERTAS ===[cite: 12]
         if (!empty($data['impuestos_ids'])) {
             foreach ($data['impuestos_ids'] as $id_imp) {
-                $sqlI = "INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES (?, ?, 'activo')";
-                $stmtI = $conexion->prepare($sqlI);
-                $stmtI->bind_param("ii", $id_factura, $id_imp);
-                $stmtI->execute();
+                $conexion->query("INSERT INTO Factura_Impuesto (id_factura, id_impuesto, estado) VALUES ($id_factura, $id_imp, 'activo')");
             }
         }
 
-        // 7. MARCAR COTIZACIÓN COMO APROBADA
-        $id_cotizacion_vinculada = !empty($data['id_cotizacion']) ? (int)$data['id_cotizacion'] : null;
-        if ($id_cotizacion_vinculada) {
-            $conexion->query("UPDATE cotizacion SET estado = 'Aprobada' WHERE id_cotizacion = $id_cotizacion_vinculada");
+        if (!empty($data['ofertas_aplicadas'])) {
+            foreach ($data['ofertas_aplicadas'] as $id_o) {
+                $conexion->query("INSERT INTO Oferta_Factura (id_factura, id_oferta, estado) VALUES ($id_factura, $id_o, 'activo')");
+            }
         }
 
         $conexion->commit();
@@ -305,4 +312,3 @@ function guardar_factura_pos($conexion, $id_sucursal, $id_usuario) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
-?>

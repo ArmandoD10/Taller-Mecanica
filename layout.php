@@ -37,6 +37,22 @@ $modulos = $_SESSION['modulos'] ?? [];
             </div>
             <?php endif; ?>
 
+            <?php if (in_array("Resumen", $modulos)) : ?>
+            <div class="modulo">
+                <button class="modulo-btn">
+                    <img src="/Taller/Taller-Mecanica/img/resumen.png" class="icono-modulo"> <span>Resumen Operativo</span>
+                </button>
+                <div class="modulo-content">
+                    <a href="/Taller/Taller-Mecanica/view/Resumen/MStock.php">M. Stock</a>
+                    <a href="/Taller/Taller-Mecanica/view/Resumen/MServicios.php">M. Servicios</a>
+                    <a href="/Taller/Taller-Mecanica/view/Resumen/MCotizacion.php">M. Cotizacion</a>
+                    <a href="/Taller/Taller-Mecanica/view/Resumen/MFactura.php">M. Factura</a>
+                    <a href="/Taller/Taller-Mecanica/view/Resumen/MCliente.php">M. Cliente</a>
+                    <a href="/Taller/Taller-Mecanica/view/Resumen/MSucursal.php">M. Sucursal</a>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="modulo">
                 <?php if (in_array("RRHH", $modulos)) : ?>
                 <button class="modulo-btn">

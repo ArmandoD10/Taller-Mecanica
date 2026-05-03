@@ -16,8 +16,8 @@ switch ($action) {
 }
 
 function generar_reporte($conexion, $id_sucursal) {
-    $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-m-01');
-    $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-t');
+   $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-01-01'); //
+    $fecha_fin = $_POST['fecha_fin'] ?? date('Y-12-31');      //
     $tipo_filtro = $_POST['tipo_filtro'] ?? 'todas';
 
     // LÓGICA DE FILTROS BLINDADA:

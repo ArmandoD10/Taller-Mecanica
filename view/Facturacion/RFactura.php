@@ -14,11 +14,11 @@ require("../../header.php");
                 <form id="form_filtros_ventas" class="row align-items-end">
                     <div class="col-md-3 mb-2 mb-md-0">
                         <label class="fw-bold small mb-1">Desde</label>
-                        <input type="date" class="form-control shadow-sm" id="fecha_inicio" name="fecha_inicio" value="<?= date('Y-m-01') ?>" required>
+                        <input type="date" class="form-control shadow-sm" id="fecha_inicio" name="fecha_inicio" value="2026-01-01" required>
                     </div>
                     <div class="col-md-3 mb-2 mb-md-0">
                         <label class="fw-bold small mb-1">Hasta</label>
-                        <input type="date" class="form-control shadow-sm" id="fecha_fin" name="fecha_fin" value="<?= date('Y-m-t') ?>" required>
+                        <input type="date" class="form-control shadow-sm" id="fecha_fin" name="fecha_fin" value="2026-12-31" required>
                     </div>
                     <div class="col-md-2 mb-2 mb-md-0">
                         <button type="submit" class="btn btn-success shadow-sm fw-bold w-100">

@@ -163,12 +163,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const id_moneda = document.getElementById("id_moneda").value;
         
         if (!id_proveedor || !id_metodo || !id_moneda) {
-            alert("Faltan datos en la Cabecera (Proveedor, Método o Moneda). Asegúrese de haber seleccionado un proveedor válido de la lista."); 
+            Swal.fire('Error', 'Faltan datos de la cabezera para guardar la orden. Por favor complete proveedor, método de pago y moneda.', 'error');
             return;
         }
         
         if (carritoArticulos.length === 0) {
-            alert("No puede crear una orden de compra vacía. Agregue artículos."); 
+            Swal.fire('Error', 'No puede crear una orden de compra vacía. Agregue artículos.', 'error');
             return;
         }
 
@@ -194,14 +194,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (data.success) { 
                 cerrarModalUI('modalCompra'); 
                 listar(); 
-                alert(data.message); 
+                Swal.fire('Éxito', data.message, 'success');
             } else { 
-                alert(data.message); 
+                Swal.fire('Error', data.message, 'error');
             }
         })
         .catch(error => {
             console.error("Error al guardar orden:", error);
-            alert("Error de conexión con el servidor.");
+            Swal.fire('Error', 'Error de conexión con el servidor.', 'error');
         });
     });
 });

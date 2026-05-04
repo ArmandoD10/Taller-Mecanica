@@ -551,7 +551,7 @@ for($i = 6; $i >= 0; $i--) {
             <a href="/Taller/Taller-Mecanica/view/Submodulos/seguridad.php"><i class="fas fa-shield-alt"></i> Seguridad</a>
             <?php endif; ?>
             <?php if (in_array("Evaluacion", $modulos)) : ?>
-            <a href="#"><i class="fas fa-poll-h"></i> Evaluación</a>
+            <a href="/Taller/Taller-Mecanica/view/Submodulos/evaluacion.php"><i class="fas fa-poll-h"></i> Evaluación</a>
             <?php endif; ?>
             <?php if (in_array("Ofertas", $modulos)) : ?>
             <a href="/Taller/Taller-Mecanica/view/Submodulos/ofertas.php"><i class="fas fa-percentage"></i> Ofertas</a>

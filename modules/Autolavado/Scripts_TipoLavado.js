@@ -150,6 +150,17 @@ function cambiarEstadoTipo(id, nuevo_estado) {
     });
 }
 
+const inputNombre = document.getElementById('nombre_tipo');
+if (inputNombre) {
+    inputNombre.addEventListener('input', function (e) {
+        let valor = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+        if (valor.length > 0) {
+            valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+        }
+        e.target.value = valor;
+    });
+}
+
 // ==========================================
 // UTILIDADES MODALES ROBUSTAS
 // ==========================================

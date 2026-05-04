@@ -177,6 +177,17 @@ function abrirModalEliminar(id) {
     });
 }
 
+const inputNombre = document.getElementById('descripcion');
+if (inputNombre) {
+    inputNombre.addEventListener('input', function (e) {
+        let valor = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+        if (valor.length > 0) {
+            valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+        }
+        e.target.value = valor;
+    });
+}
+
 function confirmarEliminar() {
     const id = document.getElementById("id_eliminar").value;
     const fd = new FormData();

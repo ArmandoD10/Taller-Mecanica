@@ -429,6 +429,17 @@ function eliminarTipo(id) {
     });
 }
 
+const inputNombre = document.getElementById('nombre_tipo');
+if (inputNombre) {
+    inputNombre.addEventListener('input', function (e) {
+        let valor = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+        if (valor.length > 0) {
+            valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+        }
+        e.target.value = valor;
+    });
+}
+
 window.imprimirDocumentoA4 = function(tipoManual = null, contenidoManual = null) {
     // Si vienen datos manuales (desde el listado) los usamos, sino leemos el editor
     const tipoDoc = tipoManual || document.getElementById('sel_tipo').options[document.getElementById('sel_tipo').selectedIndex].text;

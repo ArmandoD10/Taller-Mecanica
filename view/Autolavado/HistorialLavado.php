@@ -32,7 +32,7 @@ require("../../header.php");
                 <form id="formFiltrosHistorial" class="row g-3 align-items-end">
                     <div class="col-md-3">
                         <label class="fw-bold small text-dark mb-1">Desde</label>
-                        <input type="date" class="form-control shadow-sm" id="fecha_inicio" name="fecha_inicio" value="<?php echo date('Y-m-01'); ?>">
+                        <input type="date" class="form-control shadow-sm" id="fecha_inicio" name="fecha_inicio" value="<?php echo date('Y-01-01'); ?>">
                     </div>
                     <div class="col-md-3">
                         <label class="fw-bold small text-dark mb-1">Hasta</label>

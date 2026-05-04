@@ -36,6 +36,17 @@ function cargarModulos(){
     });
 }
 
+const inputNombre = document.getElementById('nombre');
+if (inputNombre) {
+    inputNombre.addEventListener('input', function (e) {
+        let valor = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+        if (valor.length > 0) {
+            valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+        }
+        e.target.value = valor;
+    });
+}
+
 
 /* =========================
    📊 CARGAR TABLA DE NIVELES

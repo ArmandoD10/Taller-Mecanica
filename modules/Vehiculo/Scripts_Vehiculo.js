@@ -222,14 +222,33 @@ window.cambiarEstado = function(id, estadoDeseado) {
 };
 
 window.limpiarFormulario = function() {
+    // 1. Resetear los campos estándar del formulario
     document.getElementById('formulario').reset();
-    document.getElementById('btnMostrar').textContent = 'Registrar';
+    
+    // 2. Limpiar el ID oculto de la secuencia y el botón de acción
     document.getElementById('id_oculto').value = '';
-    // Restaurar los placeholder de los selects
-    document.getElementById('id_cliente').value = "";
+    document.getElementById('btnMostrar').textContent = 'Registrar';
+    
+    // 3. ¡IMPORTANTE! Limpiar y ocultar la info del cliente seleccionado[cite: 7, 8]
+    document.getElementById('id_cliente').value = ''; // Campo oculto del form
+    document.getElementById('info_cliente_seleccionado').classList.add('d-none');
+    document.getElementById('buscar_cliente').value = ''; // Limpiar el input de búsqueda
+    
+    // 4. Restaurar el estado de los selects
     document.getElementById('id_marca').value = "";
     document.getElementById('id_color').value = "";
+    
+    // 5. Limpiar y deshabilitar el select de modelos (cascada)
+    const selectModelo = document.getElementById('id_modelo_rel');
+    selectModelo.innerHTML = '<option value="" disabled selected>Seleccione una marca primero</option>';
+    selectModelo.disabled = true;
+
+    // 6. Resetear estados lógicos
     modoEdicion = false;
+    
+    // Quitar clases de error de validación si existen
+    const placaInput = document.getElementById('placa');
+    if(placaInput) placaInput.classList.remove('is-invalid');
 };
 
 // --- FILTRO DINÁMICO ---
@@ -467,3 +486,14 @@ window.generarReporteVehiculosPDF = function() {
         alert("Hubo un problema de conexión con el servidor.");
     });
 };
+
+const inputNombre = document.getElementById('vin_chasis');
+if (inputNombre) {
+    inputNombre.addEventListener('input', function (e) {
+        let valor = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+        // if (valor.length > 0) {
+        //     valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+        // }
+        e.target.value = valor;
+    });
+}

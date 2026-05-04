@@ -31,6 +31,17 @@ function cargarPaises() {
     .catch(err => console.error("Error al cargar países:", err));
 }
 
+const inputNombre = document.getElementById('nombre');
+if (inputNombre) {
+    inputNombre.addEventListener('input', function (e) {
+        let valor = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+        if (valor.length > 0) {
+            valor = valor.charAt(0).toUpperCase() + valor.slice(1);
+        }
+        e.target.value = valor;
+    });
+}
+
 function cargarTablaMarcas(page = 1) {
     fetch(`/Taller/Taller-Mecanica/modules/Vehiculo/Archivo_Marca.php?action=cargar&page=${page}&limit=${recordsPerPage}`)
     .then(response => response.json())

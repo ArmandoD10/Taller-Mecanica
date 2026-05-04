@@ -282,28 +282,38 @@ function listar() {
 
 function cargarDependencias() {
     fetch("../../modules/Taller/Archivo_Tiempos.php?action=cargar_dependencias")
-    .then(res => res.json()).then(data => {
+    .then(res => res.json())
+    .then(data => {
         if (data.success) {
-            cacheOrdenes = data.data.ordenes;
 
+            cacheOrdenes = data.data.ordenes;
+            cacheMecanicos = data.data.mecanicos;
+            cacheMaquinaria = data.data.maquinaria;
+
+            // 🔹 BAHÍAS (OPTIMIZADO)
             const selBahia = document.getElementById("id_bahia");
-            selBahia.innerHTML = '<option value="">Seleccione Bahía...</option>';
+            let htmlBahia = '<option value="">Seleccione Bahía...</option>';
+
             data.data.bahias.forEach(b => { 
                 let bloqueada = b.en_uso == 1 ? 'disabled' : '';
                 let icono = b.en_uso == 1 ? '🔴' : '🟢';
-                selBahia.innerHTML += `<option value="${b.id_bahia}" ${bloqueada}>${icono} ${b.descripcion}</option>`; 
+
+                htmlBahia += `<option value="${b.id_bahia}" ${bloqueada}>${icono} ${b.descripcion}</option>`;
             });
 
+            selBahia.innerHTML = htmlBahia;
+
+            // 🔹 PRECIOS (OPTIMIZADO)
             const selPrecio = document.getElementById("id_precio");
-            selPrecio.innerHTML = '<option value="">Seleccione tarifa...</option>';
+            let htmlPrecio = '<option value="">Seleccione tarifa...</option>';
+
             if(data.data.precios) {
                 data.data.precios.forEach(p => { 
-                    selPrecio.innerHTML += `<option value="${p.id_precio}">Tarifa: RD$ ${p.monto}</option>`; 
+                    htmlPrecio += `<option value="${p.id_precio}">Tarifa: RD$ ${p.monto}</option>`;
                 });
             }
 
-            cacheMecanicos = data.data.mecanicos;
-            cacheMaquinaria = data.data.maquinaria;
+            selPrecio.innerHTML = htmlPrecio;
         }
     })
     .catch(err => console.error("Error cargarDependencias:", err));
@@ -575,32 +585,39 @@ function abrirModalTiempos(id, inicio) {
 function cerrarModalAsignacion() { cerrarModalUI('modalAsignacion'); }
 function cerrarModalTiempos() { cerrarModalUI('modalTiempos'); }
 
-// Funciones Robusetas Originales para abrir Modales
 function abrirModalUI(id) {
     const el = document.getElementById(id);
-    if(!el) return;
-    try {
-        if (typeof bootstrap !== 'undefined') {
-            let m = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
-            m.show();
-        } else { throw new Error(); }
-    } catch (e) {
-        el.classList.add('show'); el.style.display = 'block';
-        el.setAttribute('aria-modal', 'true'); el.setAttribute('role', 'dialog');
-        document.body.classList.add('modal-open'); document.body.style.overflow = 'hidden';
-        if(!document.getElementById('m-bd')){
-            const b = document.createElement('div'); b.id = 'm-bd'; b.className = 'modal-backdrop fade show'; document.body.appendChild(b);
-        }
+    if (!el) return;
+
+    // Eliminamos cualquier rastro de foco bloqueado antes de abrir
+    el.removeAttribute('aria-hidden'); 
+    
+    if (window.bootstrap) {
+        const m = bootstrap.Modal.getOrCreateInstance(el);
+        m.show();
+    } else {
+        // Solo si falla Bootstrap, usamos un método manual ultra básico
+        el.style.display = 'block';
+        el.classList.add('show');
     }
 }
 
 function cerrarModalUI(id) {
     const el = document.getElementById(id);
-    if(!el) return;
-    try { if (typeof bootstrap !== 'undefined') { let m = bootstrap.Modal.getInstance(el); if (m) m.hide(); } } catch (e) {}
-    el.classList.remove('show'); el.style.display = 'none';
-    el.removeAttribute('aria-modal'); el.removeAttribute('role');
-    document.body.classList.remove('modal-open'); document.body.style.overflow = '';
-    const b = document.getElementById('m-bd'); if(b) b.remove();
+    if (!el) return;
+
+    if (window.bootstrap) {
+        const m = bootstrap.Modal.getInstance(el);
+        if (m) m.hide();
+    }
+    
+    // Forzamos la limpieza de atributos que causan el frise
+    el.style.display = 'none';
+    el.classList.remove('show');
+    el.setAttribute('aria-hidden', 'true');
+    
+    // Limpiamos los backdrops (el fondo oscuro) que a veces se quedan pegados
     document.querySelectorAll('.modal-backdrop').forEach(mb => mb.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
 }

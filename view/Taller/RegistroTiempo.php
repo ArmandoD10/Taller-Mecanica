@@ -34,7 +34,7 @@ require("../../header.php");
         </div>
     </div>
 
-    <div class="modal fade" id="modalAsignacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="modalAsignacion" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-primary border-2 shadow-lg">
                 <div class="modal-header bg-primary text-white">
@@ -140,7 +140,7 @@ require("../../header.php");
         </div>
     </div>
 
-    <div class="modal fade" id="modalTiempos" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="modalTiempos" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-danger border-2 shadow-lg">
                 <div class="modal-header bg-danger text-white">

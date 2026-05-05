@@ -312,21 +312,44 @@ function abrirTicketLavado(id_factura) {
 
 function cargarDependenciasLavado() {
     fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Lavado.php?action=cargar_dependencias")
-    .then(res => res.json()).then(data => {
+    .then(res => res.json())
+    .then(data => {
         if (data.success) {
+
+            // 🔹 TIPOS DE LAVADO
             const selTipo = document.getElementById("id_tipo_lavado");
-            selTipo.innerHTML = '<option value="" disabled selected>Seleccione...</option>';
-            data.data.tipos.forEach(t => { selTipo.innerHTML += `<option value="${t.id_tipo}">${t.nombre}</option>`; });
+            let htmlTipo = '<option value="" disabled selected>Seleccione...</option>';
 
+            data.data.tipos.forEach(t => { 
+                htmlTipo += `<option value="${t.id_tipo}">${t.nombre}</option>`; 
+            });
+
+            selTipo.innerHTML = htmlTipo;
+
+
+            // 🔹 PRECIOS
             const selPrecio = document.getElementById("id_precio");
-            selPrecio.innerHTML = '<option value="" disabled selected>Seleccione...</option>';
-            data.data.precios.forEach(p => { selPrecio.innerHTML += `<option value="${p.id_precio}">RD$ ${parseFloat(p.monto).toLocaleString()}</option>`; });
+            let htmlPrecio = '<option value="" disabled selected>Seleccione...</option>';
 
+            data.data.precios.forEach(p => { 
+                htmlPrecio += `<option value="${p.id_precio}">RD$ ${parseFloat(p.monto).toLocaleString()}</option>`; 
+            });
+
+            selPrecio.innerHTML = htmlPrecio;
+
+
+            // 🔹 ÓRDENES
             const selOrden = document.getElementById("id_orden_taller");
-            selOrden.innerHTML = '<option value="">-- Cliente de calle (Lavado Directo) --</option>';
-            data.data.ordenes.forEach(o => { selOrden.innerHTML += `<option value="${o.id_orden}">ORD-${o.id_orden} | ${o.vehiculo} (${o.cliente})</option>`; });
+            let htmlOrden = '<option value="">-- Cliente de calle (Lavado Directo) --</option>';
+
+            data.data.ordenes.forEach(o => { 
+                htmlOrden += `<option value="${o.id_orden}">ORD-${o.id_orden} | ${o.vehiculo} (${o.cliente})</option>`; 
+            });
+
+            selOrden.innerHTML = htmlOrden;
         }
-    });
+    })
+    .catch(err => console.error("Error cargarDependenciasLavado:", err));
 }
 
 // ==== MAGIA DE MEMBRESÍAS ====

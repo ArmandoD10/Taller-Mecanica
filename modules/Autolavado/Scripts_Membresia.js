@@ -144,6 +144,35 @@ function cerrarModalManual(id) {
         modal.style.display = "none";
         document.body.style.overflow = "auto";
     }
+
+    // 🔥 LIMPIEZA ESPECÍFICA DEL MODAL DE PLAN
+    if(id === 'modalPlanMembresia') {
+        limpiarFormularioPlan();
+    }
+
+    // 🔥 LIMPIEZA DEL MODAL DE ASIGNACIÓN
+    if(id === 'modalAsignarMembresia') {
+        limpiarFormularioAsignacion();
+    }
+}
+
+function limpiarFormularioAsignacion() {
+    const form = document.getElementById("formAsignarMembresia");
+    form.reset();
+
+    document.getElementById("id_cliente_asig").value = "";
+    document.getElementById("info_asig_seleccionado").classList.add("d-none");
+}
+
+function limpiarFormularioPlan() {
+    const form = document.getElementById("formPlanMembresia");
+    form.reset();
+
+    // 🔥 CLAVE: borrar el ID
+    document.getElementById("id_plan").value = "";
+
+    // Restaurar título
+    document.getElementById("tituloModalPlan").innerHTML = '<i class="fas fa-plus me-2"></i>Nuevo Plan';
 }
 
 function abrirModalAsignar() {
@@ -153,37 +182,62 @@ function abrirModalAsignar() {
     abrirModalManual('modalAsignarMembresia'); // LLAMADA DIRECTA AL NUEVO SISTEMA
 }
 
-// ==== CARGA DE DATOS Y TABLAS ====
 function cargarDependencias() {
+
+    // 🔹 FETCH 1: DEPENDENCIAS
     fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=cargar_dependencias")
     .then(res => res.json())
     .then(data => {
         if(data.success) {
+
+            // 🔸 TIPOS (DATALIST)
             const dlTipo = document.getElementById("listaTiposMembresia");
-            dlTipo.innerHTML = '';
-            data.data.tipos.forEach(t => { dlTipo.innerHTML += `<option value="${t.nombre}">`; });
+            let htmlTipos = "";
 
-            const selPrecio = document.getElementById("id_precio");
-            selPrecio.innerHTML = '<option value="" disabled selected>Seleccione monto...</option>';
-            data.data.precios.forEach(p => { 
-                selPrecio.innerHTML += `<option value="${p.id_precio}">RD$ ${parseFloat(p.monto).toLocaleString()}</option>`; 
+            data.data.tipos.forEach(t => { 
+                htmlTipos += `<option value="${t.nombre}">`; 
             });
-        }
-    });
 
+            dlTipo.innerHTML = htmlTipos;
+
+
+            // 🔸 PRECIOS
+            const selPrecio = document.getElementById("id_precio");
+            let htmlPrecio = '<option value="" disabled selected>Seleccione monto...</option>';
+
+            data.data.precios.forEach(p => { 
+                htmlPrecio += `<option value="${p.id_precio}">RD$ ${parseFloat(p.monto).toLocaleString()}</option>`; 
+            });
+
+            selPrecio.innerHTML = htmlPrecio;
+        }
+    })
+    .catch(err => console.error("Error dependencias:", err));
+
+
+    // 🔹 FETCH 2: PLANES
     fetch("/Taller/Taller-Mecanica/modules/Autolavado/Archivo_Membresia.php?action=listar_planes")
-    .then(r => r.json()).then(resPlanes => {
+    .then(r => r.json())
+    .then(resPlanes => {
         if(resPlanes.success) {
+
             planesGlobales = resPlanes.data;
+
             const selAsig = document.getElementById("id_plan_asig");
-            selAsig.innerHTML = '<option value="" disabled selected>Seleccione un plan...</option>';
+            let htmlPlanes = '<option value="" disabled selected>Seleccione un plan...</option>';
+
             planesGlobales.forEach(p => {
                 if(p.estado === 'activo') {
-                    selAsig.innerHTML += `<option value="${p.id_plan}">${p.tipo_membresia} (RD$ ${parseFloat(p.precio_mensual).toLocaleString()})</option>`;
+                    htmlPlanes += `<option value="${p.id_plan}">
+                        ${p.tipo_membresia} (RD$ ${parseFloat(p.precio_mensual).toLocaleString()})
+                    </option>`;
                 }
             });
+
+            selAsig.innerHTML = htmlPlanes;
         }
-    });
+    })
+    .catch(err => console.error("Error planes:", err));
 }
 
 function listarPlanes() {

@@ -46,6 +46,8 @@ function listar($conexion) {
 
 function cargar_dependencias($conexion) {
     try {
+
+    $id_sucursal = $_SESSION['id_sucursal'] ?? 0;
         $data = [];
         $sqlOrdenes = "SELECT DISTINCT o.id_orden, o.descripcion,
                         (SELECT e.nombre FROM Orden_Estado oe JOIN Estado e ON oe.id_estado = e.id_estado 
@@ -60,27 +62,32 @@ function cargar_dependencias($conexion) {
                        JOIN Cliente c ON v.id_cliente = c.id_cliente
                        JOIN Persona per ON c.id_persona = per.id_persona
                        WHERE o.estado != 'eliminado' 
+                       AND o.id_sucursal = $id_sucursal
                        HAVING IFNULL(ultimo_estado, '') NOT IN ('Control Calidad', 'Listo', 'Entregado')
                        ORDER BY o.id_orden DESC";
         $data['ordenes'] = $conexion->query($sqlOrdenes)->fetch_all(MYSQLI_ASSOC);
         
         $sqlBahias = "SELECT b.id_bahia, b.descripcion, 
-                     (CASE WHEN EXISTS (SELECT 1 FROM taller t JOIN asignacion_orden ao ON t.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE t.id_bahia = b.id_bahia AND ap.estado_asignacion IN ('Pendiente', 'En Curso')) THEN 1 ELSE 0 END) as en_uso
-                     FROM Bahia b WHERE b.estado = 'activo'";
+                     (CASE WHEN EXISTS (SELECT 1 FROM taller t JOIN asignacion_orden ao ON t.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE t.id_bahia = b.id_bahia AND b.id_sucursal = $id_sucursal AND ap.estado_asignacion IN ('Pendiente', 'En Curso')) THEN 1 ELSE 0 END) as en_uso
+                     FROM Bahia b WHERE b.estado = 'activo' AND b.id_sucursal = $id_sucursal";
         $data['bahias'] = $conexion->query($sqlBahias)->fetch_all(MYSQLI_ASSOC);
         
         $sqlMaq = "SELECT m.id_maquinaria, m.nombre, 
                    (CASE WHEN EXISTS (SELECT 1 FROM Orden_Maquinaria om JOIN asignacion_orden ao ON om.id_orden = ao.id_orden JOIN asignacion_personal ap ON ao.id_asignacion = ap.id_asignacion WHERE om.id_maquinaria = m.id_maquinaria AND ap.estado_asignacion IN ('Pendiente', 'En Curso')) THEN 1 ELSE 0 END) as en_uso
-                   FROM Maquinaria m WHERE m.estado = 'activo'";
+                   FROM Maquinaria m WHERE m.estado = 'activo' AND m.id_sucursal = $id_sucursal";
         $data['maquinaria'] = $conexion->query($sqlMaq)->fetch_all(MYSQLI_ASSOC);
         
         $data['mecanicos'] = $conexion->query("
-            SELECT e.id_empleado, CONCAT(p.nombre, ' ', p.apellido_p) AS nombre_completo 
-            FROM Empleado e 
-            JOIN Persona p ON e.id_persona = p.id_persona 
-            JOIN Puesto pu ON e.id_puesto = pu.id_puesto
-            WHERE e.estado = 'activo' AND (pu.nombre LIKE '%Mecanico%' OR pu.nombre LIKE '%Tec. Mecanica%')
-        ")->fetch_all(MYSQLI_ASSOC);
+    SELECT e.id_empleado, CONCAT(p.nombre, ' ', p.apellido_p) AS nombre_completo 
+    FROM Empleado e 
+    JOIN Persona p ON e.id_persona = p.id_persona 
+    JOIN Puesto pu ON e.id_puesto = pu.id_puesto
+    JOIN empleado_sucursal es ON e.id_empleado = es.id_empleado
+    WHERE e.estado = 'activo' 
+    AND es.id_sucursal = $id_sucursal
+    AND es.estado = 'activo'
+    AND (pu.nombre LIKE '%Mecanico%' OR pu.nombre LIKE '%Tec. Mecanica%')
+")->fetch_all(MYSQLI_ASSOC);
 
         $data['precios'] = $conexion->query("SELECT id_precio, monto FROM Precio WHERE estado = 'activo'")->fetch_all(MYSQLI_ASSOC);
         

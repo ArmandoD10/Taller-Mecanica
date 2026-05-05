@@ -18,6 +18,7 @@ require("../../header.php");
             </div>
         </div>
 
+        <!-- Dashboard Cards -->
         <div class="row mb-4 text-center">
             <div class="col-xl-4 col-md-6">
                 <div class="card bg-primary text-white mb-4 shadow-sm">
@@ -28,8 +29,8 @@ require("../../header.php");
                 </div>
             </div>
             <div class="col-xl-4 col-md-6">
-                <div class="card bg-info text-white mb-4 shadow-sm">
-                    <div class="card-body fw-bold fs-5 text-dark"><i class="fas fa-search me-2"></i>En Control de Calidad</div>
+                <div class="card bg-info text-dark mb-4 shadow-sm">
+                    <div class="card-body fw-bold fs-5"><i class="fas fa-search me-2"></i>En Control de Calidad</div>
                     <div class="card-footer d-flex align-items-center justify-content-between">
                         <span class="small text-dark stretched-link fw-bold" id="count_calidad">0</span>
                     </div>
@@ -49,9 +50,9 @@ require("../../header.php");
             <div class="card-header bg-dark text-white fw-bold">
                 <i class="fas fa-list me-1"></i> Órdenes en Proceso de Salida
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
+                    <table class="table table-striped table-hover align-middle mb-0">
                         <thead class="table-dark text-center">
                             <tr>
                                 <th>N° Orden</th>
@@ -70,18 +71,20 @@ require("../../header.php");
         </div>
     </div>
 
-    <div class="modal fade" id="modalFacturacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <!-- Modal Facturación -->
+    <div class="modal fade" id="modalFacturacion" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-primary border-2">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i>Facturación Fiscal de Orden</h5>
+                    <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i>Cobro de Servicio</h5>
                     <button type="button" class="btn-close btn-close-white" onclick="cerrarModalFacturacion()"></button>
                 </div>
                 <div class="modal-body bg-light">
                     <input type="hidden" id="fac_id_orden">
                     <input type="hidden" id="fac_id_cliente">
-
+                    
                     <div class="row g-3">
+                        <!-- Lado Izquierdo: Detalles de Orden -->
                         <div class="col-md-7">
                             <div class="card border-0 shadow-sm h-100">
                                 <div class="card-body">
@@ -110,9 +113,9 @@ require("../../header.php");
                                     </div>
                                     <div id="res_prod_entrega" class="list-group position-absolute w-100 shadow-lg d-none" style="z-index: 1050; max-height: 200px; overflow-y: auto;"></div>
 
-                                    <div class="table-responsive bg-white border rounded mt-2" style="max-height: 220px; overflow-y: auto;">
-                                        <table class="table table-sm table-hover align-middle mb-0">
-                                            <thead class="table-secondary text-muted small sticky-top">
+                                    <div class="table-responsive bg-white border rounded mt-2" style="max-height: 250px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover align-middle mb-0 small">
+                                            <thead class="table-secondary text-muted sticky-top">
                                                 <tr>
                                                     <th>Descripción</th>
                                                     <th class="text-center">Cant.</th>
@@ -130,6 +133,7 @@ require("../../header.php");
                             </div>
                         </div>
 
+                        <!-- Lado Derecho: Pagos y Totales -->
                         <div class="col-md-5">
                             <div class="card border-0 shadow-sm h-100 bg-white">
                                 <div class="card-body">
@@ -137,7 +141,7 @@ require("../../header.php");
                                     
                                     <div class="mb-3">
                                         <label class="small fw-bold">NCF Comprobante</label>
-                                        <input type="text" id="fac_ncf" class="form-control fw-bold border-primary" placeholder="B0200000001 (Consumidor Final)" style="text-transform: uppercase;">
+                                        <input type="text" id="fac_ncf" class="form-control border-primary text-uppercase" placeholder="B0200000001 (Consumidor Final)">
                                     </div>
 
                                     <div class="bg-light p-3 rounded mb-3 border">
@@ -168,13 +172,17 @@ require("../../header.php");
                                                 <label class="form-check-label fw-bold text-danger small" for="fac_switch_credito">Facturar a Crédito</label>
                                             </div>
                                         </div>
-                                        <select id="fac_metodo_pago" class="form-select fw-bold" onchange="toggleMetodoPagoTaller(this.value)">
-                                            <option value="1">💵 Efectivo</option>
-                                            <option value="2">💳 Tarjeta (Pasarela AZUL)</option>
-                                            <option value="3">🏦 Transferencia Bancaria</option>
-                                        </select>
+                                        <div class="input-group shadow-sm">
+                                            <span class="input-group-text bg-white"><i class="fas fa-wallet text-muted"></i></span>
+                                            <select id="fac_metodo_pago" class="form-select fw-bold" onchange="toggleMetodoPagoTaller(this.value)">
+                                                <option value="1">💵 Efectivo</option>
+                                                <option value="2">💳 Tarjeta (Pasarela AZUL)</option>
+                                                <option value="3">🏦 Transferencia Bancaria</option>
+                                            </select>
+                                        </div>
                                     </div>
 
+                                    <!-- PANEL EFECTIVO TALLER -->
                                     <div id="panel_efectivo" class="bg-light p-3 rounded border border-success mb-3 shadow-sm">
                                         <div class="mb-2">
                                             <label class="small fw-bold text-success">Efectivo Recibido</label>
@@ -189,6 +197,7 @@ require("../../header.php");
                                         </div>
                                     </div>
                                     
+                                    <!-- PANEL INFO CRÉDITO -->
                                     <div id="fac_info_credito" class="alert alert-info d-none p-2 small mb-0 shadow-sm border-info">
                                         <div class="row text-center">
                                             <div class="col-6 border-end">
@@ -210,12 +219,13 @@ require("../../header.php");
                 </div>
                 <div class="modal-footer bg-light border-top">
                     <button type="button" class="btn btn-secondary" onclick="cerrarModalFacturacion()">Cancelar</button>
-                    <button type="button" class="btn btn-primary fw-bold px-4" onclick="iniciarCobroOrden()"><i class="fas fa-print me-2"></i>Facturar e Imprimir</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4" onclick="iniciarCobroOrden()"><i class="fas fa-print me-2"></i>Procesar Pago e Imprimir</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Modal Ofertas Auth -->
     <div class="modal fade" id="modalAuthAdmin" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-sm modal-dialog-centered" style="z-index: 1060;">
             <div class="modal-content border-0 shadow-lg">
@@ -237,6 +247,7 @@ require("../../header.php");
         </div>
     </div>
 
+    <!-- Modal Selección de Ofertas -->
     <div class="modal fade" id="modalSeleccionOfertas" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered" style="z-index: 1060;">
             <div class="modal-content border-0 shadow-lg">
@@ -260,6 +271,7 @@ require("../../header.php");
         </div>
     </div>
 
+    <!-- Modal Pasarela Azul -->
     <div class="modal fade" id="modalAzulTaller" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg overflow-hidden">
@@ -282,6 +294,7 @@ require("../../header.php");
         </div>
     </div>
 
+    <!-- Modal Control Calidad -->
     <div class="modal fade" id="modalCalidad" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-info border-2">
@@ -326,6 +339,7 @@ require("../../header.php");
         </div>
     </div>
 
+    <!-- Modal Entrega de Llaves y Garantía -->
     <div class="modal fade" id="modalEntrega" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-success border-2">
@@ -373,6 +387,7 @@ require("../../header.php");
         </div>
     </div>
 
+    <!-- Modal Comprobante / Acta de Entrega -->
     <div class="modal fade" id="modalComprobante" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-success border-2">
@@ -416,55 +431,59 @@ require("../../header.php");
         </div>
     </div>
 
+    <!-- Modal Acuerdo de Pago Cuotas -->
     <div class="modal fade" id="modalAcuerdoPago" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="fas fa-handshake me-2"></i> Plan de Pago a Crédito</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="small fw-bold">Monto a Financiar</label>
-                        <input type="text" id="total_acuerdo" class="form-control fw-bold text-primary" readonly>
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-handshake me-2"></i> Plan de Pago a Crédito</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="small fw-bold">Monto a Financiar</label>
+                            <input type="text" id="total_acuerdo" class="form-control fw-bold text-primary" readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold">Cuotas</label>
+                            <select id="cant_cuotas" class="form-select" onchange="generarCronograma()">
+                                <option value="1">1 Pago</option>
+                                <option value="2">2 Pagos</option>
+                                <option value="3">3 Pagos</option>
+                                <option value="4">4 Pagos</option>
+                                <option value="6">6 Pagos</option>
+                                <option value="12">12 Pagos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold">Días entre pagos</label>
+                            <input type="number" id="frecuencia_dias" class="form-control" value="15" onchange="generarCronograma()">
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="small fw-bold">Cuotas</label>
-                        <select id="cant_cuotas" class="form-select" onchange="generarCronograma()">
-                            <option value="1">1 Pago</option>
-                            <option value="2">2 Pagos</option>
-                            <option value="3">3 Pagos</option>
-                            <option value="4">4 Pagos</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="small fw-bold">Días entre pagos</label>
-                        <input type="number" id="frecuencia_dias" class="form-control" value="15" onchange="generarCronograma()">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Monto (RD$)</th>
+                                    <th>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista_cuotas_acuerdo"></tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Monto</th>
-                                <th>Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody id="lista_cuotas_acuerdo"></tbody>
-                    </table>
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary fw-bold" onclick="confirmarAcuerdo()"><i class="fas fa-save me-2"></i>Guardar Plan</button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="confirmarAcuerdo()">Guardar Plan</button>
             </div>
         </div>
     </div>
-</div>
 </main>
 
+<!-- Inyección de SweetAlert2 y Bootstrap -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../../modules/Taller/Scripts_Entrega.js"></script>

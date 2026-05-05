@@ -1,3 +1,8 @@
+/**
+ * Scripts_Entrega.js - Módulo de Entrega y Facturación de Taller
+ * Incluye manejo de caja, efectivo, crédito en cuotas, garantías e impresión por iframe.
+ */
+
 let listaImpuestosTaller = [];
 let totalFacturaFinalNum = 0;
 let subtotalFacturaNum = 0;
@@ -104,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// NUEVO: MANEJO DE EFECTIVO Y CAMBIO
+// MANEJO DE EFECTIVO Y CAMBIO TALLER
 // ==========================================
 function toggleMetodoPagoTaller(metodo) {
     const panelEfectivo = document.getElementById("panel_efectivo");
@@ -308,14 +313,12 @@ function abrirModalFacturacion(id_orden, cliente, vehiculo, id_cliente) {
     document.getElementById('fac_lbl_vehiculo').innerText = vehiculo;
     document.getElementById('fac_ncf').value = '';
     
-    // Restablecemos el método de pago por defecto (Efectivo)
     const selMetodoPago = document.getElementById('fac_metodo_pago');
     selMetodoPago.value = '1';
     
     document.getElementById('fac_switch_credito').checked = false;
     toggleCreditoTaller(false);
 
-    // Activamos el panel de efectivo por defecto y lo limpiamos
     document.getElementById("panel_efectivo").classList.remove("d-none");
     document.getElementById("efectivo_recibido").value = "";
     document.getElementById("cambio_devolver").innerText = "RD$ 0.00";
@@ -512,7 +515,6 @@ function renderizarTablaFactura() {
     const displayAzul = document.getElementById('azul_monto_display');
     if(displayAzul) displayAzul.innerText = `RD$ ${totalFacturaFinalNum.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
-    // Actualizamos el panel de efectivo en tiempo real si está activo
     if (document.getElementById("fac_metodo_pago").value === "1") {
         calcularCambioTaller();
     }
@@ -570,7 +572,6 @@ function toggleCreditoTaller(checked) {
 }
 
 function iniciarCobroOrden() {
-    // 1. Verificamos que el efectivo sea suficiente (Si aplica)
     const esCredito = document.getElementById("fac_switch_credito").checked;
     const metodo = document.getElementById("fac_metodo_pago").value;
     let recibido = 0;
@@ -582,7 +583,6 @@ function iniciarCobroOrden() {
         }
     }
 
-    // 2. Verificamos que la caja esté abierta
     fetch("../../modules/Taller/Archivo_Entrega.php?action=verificar_caja_abierta")
     .then(res => res.json())
     .then(data => {
@@ -602,7 +602,6 @@ function iniciarCobroOrden() {
             return;
         }
 
-        // Si la caja está abierta, procedemos
         if (esCredito) {
             ejecutarFacturacionFinal(null, true);
         } else if (metodo === "2") { 
@@ -732,7 +731,7 @@ function mostrarComprobanteInmediato(id_orden) {
     .catch(err => console.error("Error obteniendo acta:", err));
 }
 
-// === NUEVA FUNCIÓN DE IMPRESIÓN POR IFRAME PARA EL TALLER ===
+// === IMPRESIÓN POR IFRAME PARA EL TALLER ===
 function imprimirFacturaVoucher(id_factura, dataCobro) {
     const cliente = document.getElementById('fac_lbl_cliente').innerText;
     const vehiculo = document.getElementById('fac_lbl_vehiculo').innerText;
@@ -1023,7 +1022,7 @@ function cerrarModalUI(id) {
 }
 
 document.addEventListener('change', function(e) {
-    if (e.target && e.target.id === 'switch_credito') {
+    if (e.target && e.target.id === 'fac_switch_credito') {
         if (e.target.checked) {
             const elTotal = document.getElementById('total_facturar_txt') || 
                             document.getElementById('total_a_cobrar_id') ||

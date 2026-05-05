@@ -63,7 +63,6 @@ switch ($action) {
     case 'obtener_items_para_garantia':
         try {
             $id_orden = (int)$_GET['id_orden'];
-            
             $sqlServ = "SELECT os.sec_serv as id, ts.nombre as descripcion, 'servicio' as tipo 
                         FROM orden_servicio os 
                         JOIN tipo_servicio ts ON os.id_tipo_servicio = ts.id_tipo_servicio 
@@ -77,7 +76,6 @@ switch ($action) {
             $repuestos = $conexion->query($sqlRep)->fetch_all(MYSQLI_ASSOC);
 
             $items = array_merge($servicios, $repuestos);
-            
             echo json_encode(['success' => true, 'data' => $items]);
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -244,7 +242,7 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
 
         if (!$es_credito && $metodo_pago == 1) { 
             if ($efectivo_recibido < $total_final) {
-                throw new Exception("El monto en efectivo recibido (RD$ {$efectivo_recibido}) es insuficiente para cubrir la factura (RD$ {$total_final}).");
+                throw new Exception("El monto en efectivo recibido (RD$ " . number_format($efectivo_recibido, 2) . ") es insuficiente para cubrir la factura.");
             }
         }
 
@@ -288,7 +286,7 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
             $stmtUpdC->bind_param("ddi", $total_final, $total_final, $id_credito);
             $stmtUpdC->execute();
 
-            // INSERTAR ACUERDO DE PAGO
+            // INSERTAR ACUERDO DE PAGO (LAS CUOTAS)
             if (!empty($data['acuerdo_pago'])) {
                 $sqlCuota = "INSERT INTO Acuerdo_Pago_Cuotas (id_factura, numero_cuota, monto_cuota, fecha_programada, usuario_creacion) 
                              VALUES (?, ?, ?, ?, ?)";
@@ -311,7 +309,7 @@ function guardar_factura_orden($conexion, $id_sucursal_sesion, $id_usuario) {
         if (!empty($data['ofertas_ids'])) {
             foreach ($data['ofertas_ids'] as $id_oferta) {
                 // --- CORRECCIÓN DEL NOMBRE DE LA TABLA ---
-                $conexion->query("INSERT INTO Oferta_Factura (id_factura, id_oferta, estado) VALUES ($id_factura, $id_oferta, 'activo')");
+                $conexion->query("INSERT INTO oferta_factura (id_factura, id_oferta, estado) VALUES ($id_factura, $id_oferta, 'activo')");
             }
         }
 

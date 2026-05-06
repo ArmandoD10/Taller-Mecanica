@@ -10,7 +10,7 @@ if (!isset($_SESSION['id_usuario'])) {
 $nombreTaller = "Mecánica Automotriz Díaz & Pantaleón";
 $usuarioActivo = $_SESSION['user'] ?? "Administrador";
 $id_usuario_sesion = $_SESSION['id_usuario'] ?? 1;
-$id_rol_usuario = $_SESSION['id_rol'] ?? 1; // Usado para el botón de personalizar
+$id_rol_usuario = $_SESSION['id_nivel'] ?? 1; // Usado para el botón de personalizar
 $id_sucursal_sesion = $_SESSION['id_sucursal'] ?? 0;
 $modulos = $_SESSION['modulos'] ?? [];
 

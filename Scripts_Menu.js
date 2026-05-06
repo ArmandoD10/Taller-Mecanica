@@ -1,4 +1,5 @@
 console.log("✅ Scripts_Menu.js cargado correctamente");
+
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.modulo-btn');
     console.log("🔎 Botones encontrados:", buttons.length);
@@ -35,13 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Función para actualizar la fecha y hora en el menú
 function actualizarFechaHora() {
-
     const elemento = document.getElementById("fechaHora");
-
     if(!elemento) return; // si no existe el elemento, no hace nada
 
     const ahora = new Date();
-
     const opciones = {
         weekday: 'long',
         year: 'numeric',
@@ -52,8 +50,7 @@ function actualizarFechaHora() {
     const fecha = ahora.toLocaleDateString('es-ES', opciones);
     const hora = ahora.toLocaleTimeString('es-ES');
 
-    elemento.innerHTML =
-        fecha.charAt(0).toUpperCase() + fecha.slice(1) + " | " + hora;
+    elemento.innerHTML = fecha.charAt(0).toUpperCase() + fecha.slice(1) + " | " + hora;
 }
 
 setInterval(actualizarFechaHora, 1000);
@@ -111,7 +108,9 @@ document.addEventListener('click', () => {
     if(menuNotif) menuNotif.classList.add('d-none');
 });
 
-menuNotif.addEventListener('click', (e) => e.stopPropagation());
+if(menuNotif){
+    menuNotif.addEventListener('click', (e) => e.stopPropagation());
+}
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -126,6 +125,8 @@ function verificarNotificaciones() {
     .then(res => {
         const contador = document.getElementById('contador-notificaciones');
         const contenedor = document.getElementById('contenedor-items-notificacion');
+        
+        if(!contador || !contenedor) return;
 
         if (res.total > 0) {
             contador.textContent = res.total;
@@ -137,7 +138,6 @@ function verificarNotificaciones() {
                 const fecha = new Date(n.fecha_solicitud);
                 const fechaLegible = fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-                // Dentro de tu función verificarNotificaciones() en el JS:
                 html += `
                 <div class="notif-item">
                     <div class="notif-icon">
@@ -157,4 +157,68 @@ function verificarNotificaciones() {
         }
     })
     .catch(err => console.error("Error en notificaciones:", err));
+}
+
+// ==========================================
+// SISTEMA DE PERSONALIZACIÓN DE WIDGETS
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const switches = document.querySelectorAll('.switch-widget');
+    if(switches.length === 0) return; // Si no hay switches (no es admin), no hace nada
+
+    // 1. Cargar preferencias guardadas en LocalStorage
+    switches.forEach(sw => {
+        const targetId = sw.getAttribute('data-target');
+        const guardado = localStorage.getItem('widget_' + targetId);
+        const widgetDOM = document.getElementById(targetId);
+        
+        // Si hay una preferencia guardada y dice 'oculto', lo apagamos
+        if(guardado === 'oculto') {
+            sw.checked = false;
+            if(widgetDOM) widgetDOM.classList.add('widget-hidden');
+        } else {
+            // Por defecto vienen encendidos
+            sw.checked = true; 
+            if(widgetDOM) widgetDOM.classList.remove('widget-hidden');
+        }
+
+        // 2. Escuchar cambios en los switches para guardar y ocultar en tiempo real
+        sw.addEventListener('change', function() {
+            const currentTarget = this.getAttribute('data-target');
+            const targetDOM = document.getElementById(currentTarget);
+            
+            if(this.checked) {
+                if(targetDOM) targetDOM.classList.remove('widget-hidden');
+                localStorage.setItem('widget_' + currentTarget, 'visible');
+            } else {
+                if(targetDOM) targetDOM.classList.add('widget-hidden');
+                localStorage.setItem('widget_' + currentTarget, 'oculto');
+            }
+            
+            // Si el usuario oculta la gráfica pero la tabla está activa, 
+            // la tabla de vehículos se expande.
+            ajustarAnchoTablaVehiculos();
+        });
+    });
+
+    // Validar anchos en la carga inicial
+    ajustarAnchoTablaVehiculos();
+});
+
+// Función auxiliar para que la tabla principal ocupe todo el ancho si se oculta la gráfica
+function ajustarAnchoTablaVehiculos() {
+    const tabla = document.getElementById('widget-tabla-vehiculos');
+    const graficoSwitch = document.querySelector('[data-target="widget-grafico-ingresos"]');
+    
+    if(tabla && graficoSwitch) {
+        if(!graficoSwitch.checked) {
+            // Si el gráfico está oculto, la tabla ocupa 12 columnas
+            tabla.classList.remove('col-xl-8');
+            tabla.classList.add('col-12');
+        } else {
+            // Si el gráfico está visible, la tabla vuelve a sus 8 columnas
+            tabla.classList.remove('col-12');
+            tabla.classList.add('col-xl-8');
+        }
+    }
 }

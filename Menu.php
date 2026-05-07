@@ -539,10 +539,12 @@ if ($mostrarRecepciones) {
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Taller/MInspeccion.php">Inspecciones Técnicas</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/Servicio.php">Órdenes de Servicio</a>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MTipoServicio.php">Registro de Servicios</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MTrabajosSolicitados.php">Trabajos Solicitados</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MBahia.php">Gestión de Bahías</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/MMaquinaria.php">Gestión de Recursos</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Taller/RegistroTiempo.php">Tiempos y Asignacion</a>
                     <a href="/Taller/Taller-Mecanica/view/Taller/EntregaServicio.php">Entrega de Servicios</a>
                      <?php if (in_array("Seguridad", $modulos)) : ?>
@@ -583,7 +585,9 @@ if ($mostrarRecepciones) {
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Autolavado/OLavado.php">Control de Lavados</a>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Autolavado/MTipoLavado.php">Tipos de Lavado</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Autolavado/MPlanMembresia.php">Planes y Membresías</a>
                     <a href="/Taller/Taller-Mecanica/view/Autolavado/HistorialLavado.php">Historial Lavado</a>
                 </div>
@@ -597,7 +601,9 @@ if ($mostrarRecepciones) {
                 </button>
                 <div class="modulo-content">
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/AServicio.php">Servicios de Detailing</a>
+                    <?php if (in_array("Seguridad", $modulos)) : ?>
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/MPaquete.php">Paquetes de Servicio</a>
+                    <?php endif; ?>
                     <a href="/Taller/Taller-Mecanica/view/Autoadorno/HistorialServicio.php">Historial de Servicio</a>
                 </div>
             </div>

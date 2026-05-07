@@ -136,6 +136,8 @@ function listar_ofertas_vigentes($conexion) {
 }
 
 function listar_entregas($conexion) {
+
+$id_sucursal = (!empty($_SESSION['id_sucursal']) && $_SESSION['id_sucursal'] != 0) ? $_SESSION['id_sucursal'] : 1;
     $sql = "SELECT 
                 o.id_orden, o.descripcion, 
                 IFNULL(o.monto_total, 0) AS monto_total,
@@ -154,6 +156,7 @@ function listar_entregas($conexion) {
             JOIN persona per ON c.id_persona = per.id_persona
             LEFT JOIN factura_central fc ON o.id_orden = fc.id_orden AND fc.estado != 'eliminado'
             WHERE o.estado != 'eliminado' 
+            AND o.id_sucursal = $id_sucursal
             HAVING (estado_orden IN ('Control Calidad', 'Listo') OR (estado_orden = 'Entregado' AND fecha_orden = CURDATE()))
             ORDER BY CASE estado_orden WHEN 'Listo' THEN 1 WHEN 'Control Calidad' THEN 2 WHEN 'Entregado' THEN 3 ELSE 4 END, o.id_orden ASC";
     $res = $conexion->query($sql);

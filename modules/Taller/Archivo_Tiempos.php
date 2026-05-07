@@ -270,6 +270,7 @@ function iniciar_tiempo($conexion, $id_usuario_sesion) {
     
     $conexion->begin_transaction();
     try {
+        // 1. Verificamos el nivel del usuario logueado
         $sqlAdmin = "SELECT n.nombre FROM usuario u JOIN nivel n ON u.id_nivel = n.id_nivel WHERE u.id_usuario = ? LIMIT 1";
         $stmtA = $conexion->prepare($sqlAdmin);
         $stmtA->bind_param("i", $id_usuario_sesion);
@@ -278,47 +279,52 @@ function iniciar_tiempo($conexion, $id_usuario_sesion) {
         $esAdmin = ($resA && $resA['nombre'] === 'Administrador');
 
         if (!$esAdmin) {
-            $sqlCheck = "SELECT 1 FROM detalle_asignacion_p dap 
-                         JOIN Empleado e ON dap.id_empleado = e.id_empleado 
-                         JOIN usuario u ON e.id_persona = u.id_persona 
-                         WHERE dap.id_asignacion = ? AND u.id_usuario = ? LIMIT 1";
-            
-            $stmtCheck = $conexion->prepare($sqlCheck);
-            
-            if (!$stmtCheck) {
-                $sqlCheckFallback = "SELECT 1 FROM detalle_asignacion_p dap 
-                                     JOIN usuario u ON dap.id_empleado = u.id_empleado 
-                                     WHERE dap.id_asignacion = ? AND u.id_usuario = ? LIMIT 1";
-                $stmtCheck = $conexion->prepare($sqlCheckFallback);
-            }
-
-            if ($stmtCheck) {
+            // 2. Intento de validación de mecánico
+            // Usamos un bloque interno para capturar específicamente fallos de SQL
+            try {
+                $sqlCheck = "SELECT 1 FROM detalle_asignacion_p dap 
+                             JOIN Empleado e ON dap.id_empleado = e.id_empleado 
+                             JOIN usuario u ON e.id_persona = u.id_persona 
+                             WHERE dap.id_asignacion = ? AND u.id_usuario = ? LIMIT 1";
+                
+                $stmtCheck = $conexion->prepare($sqlCheck);
                 $stmtCheck->bind_param("ii", $id, $id_usuario_sesion);
                 $stmtCheck->execute();
                 
                 if ($stmtCheck->get_result()->num_rows === 0) {
-                    throw new Exception("Acceso Denegado: Usted no es el mecánico asignado a este trabajo ni tiene permisos de Administrador.");
+                    throw new Exception("Acceso Denegado: Solo el personal administrativo o el mecánico asignado puede inicializar esta orden.");
                 }
+            } catch (mysqli_sql_exception $e) {
+                // Si la columna u.id_persona falla o cualquier error de SQL, lanzamos el mensaje genérico
+                throw new Exception("Acceso Denegado: Solo el personal administrativo o el mecánico asignado puede inicializar esta orden.");
             }
         }
 
+        // 3. Registro de inicio (Solo si las validaciones de arriba pasaron)
         $conexion->query("INSERT INTO registro_tiempos (id_asignacion, hora_inicio, estado, usuario_creacion) VALUES ($id, NOW(), 'activo', $id_usuario_sesion)");
         $conexion->query("UPDATE asignacion_personal SET estado_asignacion = 'En Curso' WHERE id_asignacion = $id");
         
+        // Ocupar Bahía y Maquinaria
         $sqlBahia = "SELECT t.id_bahia FROM asignacion_orden ao JOIN taller t ON ao.id_orden = t.id_orden WHERE ao.id_asignacion = $id LIMIT 1";
         $resBahia = $conexion->query($sqlBahia)->fetch_assoc();
-        if($resBahia && $resBahia['id_bahia']) $conexion->query("UPDATE Bahia SET estado_bahia = 'Ocupada' WHERE id_bahia = {$resBahia['id_bahia']}");
+        if($resBahia && $resBahia['id_bahia']) {
+            $conexion->query("UPDATE Bahia SET estado_bahia = 'Ocupada' WHERE id_bahia = " . (int)$resBahia['id_bahia']);
+        }
 
-        $sqlMaq = "SELECT om.id_maquinaria FROM asignacion_orden ao JOIN Orden_Maquinaria om ON ao.id_orden = om.id_orden WHERE ao.id_asignacion = $id";
+        $sqlMaq = "SELECT id_maquinaria FROM Orden_Maquinaria om JOIN asignacion_orden ao ON om.id_orden = ao.id_orden WHERE ao.id_asignacion = $id";
         $resMaq = $conexion->query($sqlMaq);
         while($row = $resMaq->fetch_assoc()) {
-            if($row['id_maquinaria']) $conexion->query("UPDATE Maquinaria SET estado_maquina = 'Ocupada' WHERE id_maquinaria = {$row['id_maquinaria']}");
+            if($row['id_maquinaria']) {
+                $conexion->query("UPDATE Maquinaria SET estado_maquina = 'Ocupada' WHERE id_maquinaria = " . (int)$row['id_maquinaria']);
+            }
         }
 
         $conexion->commit(); 
         echo json_encode(['success' => true]);
+
     } catch (Exception $e) { 
         $conexion->rollback(); 
+        // Aquí capturamos CUALQUIER error y enviamos el mensaje controlado al SweetAlert
         echo json_encode(['success' => false, 'message' => $e->getMessage()]); 
     }
 }

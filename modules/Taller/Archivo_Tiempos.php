@@ -21,6 +21,7 @@ switch ($action) {
 }
 
 function listar($conexion) {
+    $id_sucursal = $_SESSION['id_sucursal'] ?? 0;
     try {
         $sql = "SELECT ap.id_asignacion, ao.id_orden, o.descripcion AS orden_desc, ts.nombre AS servicio,
                     GROUP_CONCAT(DISTINCT CONCAT(p.nombre, ' ', p.apellido_p) SEPARATOR ', ') AS mecanicos_nombres,
@@ -35,6 +36,7 @@ function listar($conexion) {
                 LEFT JOIN Persona p ON e.id_persona = p.id_persona
                 LEFT JOIN registro_tiempos rt ON ap.id_asignacion = rt.id_asignacion AND rt.estado = 'activo'
                 WHERE ap.estado != 'eliminado' 
+                AND o.id_sucursal = $id_sucursal
                 GROUP BY ap.id_asignacion 
                 ORDER BY ap.id_asignacion DESC";
         $res = $conexion->query($sql);

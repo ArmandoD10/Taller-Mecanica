@@ -656,9 +656,11 @@ if ($mostrarRecepciones) {
                     </div>
 
                     <div class="d-flex align-items-center">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style="width: 40px; height: 40px; font-weight: bold;">
-                            <?php echo strtoupper(substr($usuarioActivo, 0, 1)); ?>
-                        </div>
+                        <a href="/Taller/Taller-Mecanica/view/Submodulos/perfil.php" class="text-decoration-none">
+        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style="width: 40px; height: 40px; font-weight: bold;">
+            <?php echo strtoupper(substr($usuarioActivo, 0, 1)); ?>
+        </div>
+    </a>
                         <div>
                             <span class="d-block fw-bold text-dark small lh-1"><?php echo $usuarioActivo; ?></span>
                             <span class="text-muted" style="font-size: 0.75rem;">Sesión Activa</span>
